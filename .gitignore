@@ -54,3 +54,6 @@ out/
 *.gz           # 추가! 모든 gz 압축 파일
 .logs/         # .logs 폴더 전체 무시
 logs/          # logs 폴더도 혹시 모르니 같이 추가
+
+### yaml-local ###
+application-local.yaml
