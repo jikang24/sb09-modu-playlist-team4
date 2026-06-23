@@ -43,6 +43,7 @@ out/
 .*
 !.gitignore
 !.github
+application-local.yml
 
 ### Mac OS ###
 .DS_Store
