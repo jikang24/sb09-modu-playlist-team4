@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: mopl
+  profiles:
+    active: local  # 기본은 로컬 환경으로 실행
