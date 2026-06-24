@@ -4,6 +4,7 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
+src/main/resources/application-local.yml
 
 ### STS ###
 .apt_generated
@@ -43,7 +44,6 @@ out/
 .*
 !.gitignore
 !.github
-application-local.yml
 
 ### Mac OS ###
 .DS_Store
