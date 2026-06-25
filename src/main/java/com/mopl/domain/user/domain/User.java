@@ -2,9 +2,7 @@
 package com.mopl.domain.user.domain;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
@@ -14,6 +12,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "USER")
 @Getter
+@Builder
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
     @Id
@@ -47,4 +47,21 @@ public class User {
     @LastModifiedDate
     @Column(columnDefinition = "timestamp with time zone")
     private Instant updatedAt;
+
+    public void updateProfile(String name, String profileImageUrl) {
+        if (name != null) this.name = name;
+        if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
+    }
+
+    public void updateRole(Role role) {
+        this.role = role;
+    }
+
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
+    public void updateLocked(boolean locked) {
+        this.locked = locked;
+    }
 }
