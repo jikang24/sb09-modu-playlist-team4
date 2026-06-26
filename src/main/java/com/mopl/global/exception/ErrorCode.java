@@ -6,6 +6,10 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {
+
+    //아직 구현안된 기능을 위한 예외처리(구현시 제거)
+    NOT_IMPLEMENTED("아직 구현되지 않은 기능입니다.", HttpStatus.NOT_IMPLEMENTED),
+
     //사용자 관련
     USER_NOT_FOUND("존재하지 않는 사용자입니다.", HttpStatus.NOT_FOUND),
     DUPLICATE_EMAIL("이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT),
