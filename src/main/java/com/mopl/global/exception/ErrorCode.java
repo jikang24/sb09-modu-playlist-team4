@@ -23,7 +23,9 @@ public enum ErrorCode {
 
     // Playlist 모듈
     PLAYLIST_NOT_FOUND("플레이리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    PLAYLIST_NOT_OWNER("본인의 플레이리스트만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN);
+    PLAYLIST_NOT_OWNER("본인의 플레이리스트만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
+
+
     TOKEN_EXPIRED("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED);
 

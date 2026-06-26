@@ -33,26 +33,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = extractToken(request);
 
-        if (token != null) {
-            try {
-                JwtClaims claims = jwtProvider.parse(token);
+        if (token == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-                if (blacklistService.isRevoked(claims.getTokenId())) {
-                    log.debug("Revoked token: jti={}", claims.getTokenId());
-                    filterChain.doFilter(request, response);
-                    return;
-                }
+        try {
+            JwtClaims claims = jwtProvider.parse(token);
 
-                UsernamePasswordAuthenticationToken auth =
-                        new UsernamePasswordAuthenticationToken(
-                                claims,null,
-                                List.of(new SimpleGrantedAuthority(claims.getRole()))
-                        );
-                SecurityContextHolder.getContext().setAuthentication(auth);
-
-            } catch (MoplException e) {
-                log.debug("JWT 검증 실패: {}", e.getMessage());
+            if (blacklistService.isRevoked(claims.getTokenId())) {
+                log.debug("Revoked token: jti={}", claims.getTokenId());
+                filterChain.doFilter(request, response);
+                return;
             }
+
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(
+                            claims, null,
+                            List.of(new SimpleGrantedAuthority(claims.getRole()))
+                    );
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+        } catch (MoplException e) {
+            log.debug("JWT 검증 실패: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);
