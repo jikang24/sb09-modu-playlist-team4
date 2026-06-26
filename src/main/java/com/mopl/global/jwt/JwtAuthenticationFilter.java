@@ -1,7 +1,6 @@
 package com.mopl.global.jwt;
 
 import com.mopl.global.exception.MoplException;
-import com.mopl.global.security.token.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,7 +24,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
-    private final TokenBlacklistService blacklistService;
+    private final AuthTokenService authTokenService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -41,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             JwtClaims claims = jwtProvider.parse(token);
 
-            if (blacklistService.isRevoked(claims.getTokenId())) {
+            if (authTokenService.isBlacklisted(claims.getTokenId())) {
                 log.debug("Revoked token: jti={}", claims.getTokenId());
                 filterChain.doFilter(request, response);
                 return;
