@@ -89,18 +89,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Download current ECS task definition
+      - name: Download and clean ECS task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition modu-playlist-task \
             --query taskDefinition \
             > task-definition.json
 
+          jq 'del(
+            .taskDefinitionArn,
+            .revision,
+            .status,
+            .requiresAttributes,
+            .compatibilities,
+            .registeredAt,
+            .registeredBy,
+            .enableFaultInjection
+          )' task-definition.json > clean-task-definition.json
+
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: task-definition.json
+          task-definition: clean-task-definition.json
           container-name: modu-playlist-container
           image: ${{ needs.build-and-push.outputs.image }}
           environment-variables: |
