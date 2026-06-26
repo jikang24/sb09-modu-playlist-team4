@@ -58,3 +58,8 @@ logs/          # logs 폴더도 혹시 모르니 같이 추가
 
 ### yaml-local ###
 application-local.yaml
+
+.env.dev
+.env.*
+!.env.example
+*.env.dev

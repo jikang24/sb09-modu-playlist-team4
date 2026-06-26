@@ -90,6 +90,11 @@ jobs:
           task-definition: task-definition.json
           container-name: modu-playlist-container
           image: ${{ needs.build-and-push.outputs.image }}
+          # 민감한 환경 변수만 이곳에서 주입 (나머지는 콘솔 유지)
+          environment-variables: |
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            KAFKA_API_KEY=${{ secrets.KAFKA_API_KEY }}
+            KAFKA_API_SECRET=${{ secrets.KAFKA_API_SECRET }}
 
       - name: Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1

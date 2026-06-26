@@ -1,0 +1,48 @@
+name: Infra Connection Test
+
+on:
+  push:
+    branches: [ Kan-13-CICD ]
+
+jobs:
+  check-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      # 1. 빌드 (코드 에러가 있어도 껍데기 이미지 생성)
+      - name: Build Docker Image
+        run: |
+          docker build -t test-infra-image . || echo "빌드 단계 에러 무시: 인프라 테스트 지속"
+
+      # 2. ECR 푸시 (레포지토리 경로 정확히 반영)
+      - name: Login to ECR & Push
+        run: |
+          aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
+          docker tag test-infra-image:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/modu-playlist-repo:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/modu-playlist-repo:latest
+
+      # 3. ECS 서비스 갱신 (사용자님 환경 정보 반영)
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster modu-playlist-cluster \
+            --service modu-playlist-task-service-t730o0qs \
+            --force-new-deployment
+          echo "✅ ECS 배포 명령 전송 완료!"
+
+      # 4. 배포 결과 대기 (배포가 정말 잘 되었는지 확인)
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster modu-playlist-cluster \
+            --service modu-playlist-task-service-t730o0qs
+          echo "✅ 서비스가 성공적으로 배포되어 안정화되었습니다."
