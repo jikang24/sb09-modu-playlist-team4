@@ -5,13 +5,17 @@ import com.mopl.domain.user.dto.*;
 import com.mopl.domain.user.service.UserService;
 import com.mopl.global.dto.SortDirection;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -21,6 +25,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
+    private final S3Service s3Service;
 
     @Operation(summary = "사용자 등록(회원가입)")
     @PostMapping
@@ -37,13 +42,15 @@ public class UserController {
     }
 
     @Operation(summary = "프로필 변경", description = "본인의 프로필만 변경할 수 있습니다.")
-    @PatchMapping("/{userId}")
-    public ResponseEntity<UserDto> updateProfile(@PathVariable UUID userId, @RequestBody UserUpdateRequest request,
-                                                 @RequestBody String image) {
-        UserDto userDto = userService.updateProfile(userId, request, image);
+    @PatchMapping(value = "/{userId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserDto> updateProfile(@PathVariable UUID userId,  @RequestPart("request") @Valid UserUpdateRequest request,
+                                                 @RequestPart(value = "image", required = false) MultipartFile image) {
+        String imageUrl = s3Service.upload(image);
+        UserDto userDto = userService.updateProfile(userId, request, imageUrl);
         return ResponseEntity.status(HttpStatus.OK).body(userDto);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "[어드민] 권한 수정")
     @PatchMapping("/{userId}/role")
     public ResponseEntity<UserDto> updateRole(@PathVariable UUID userId, @RequestBody UserRoleUpdateRequest request) {
@@ -65,6 +72,7 @@ public class UserController {
         UserDto userDto = userService.updateLocked(userId, request);
         return ResponseEntity.status(HttpStatus.OK).body(userDto);
     }
+
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "[어드민] 사용자 목록 조회(커서 페이지네이션)")
     @GetMapping
