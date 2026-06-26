@@ -15,12 +15,6 @@
         }
       ],
       "essential": true,
-      "environment": [
-        { "name": "SPRING_DATASOURCE_USERNAME", "value": "postgres" },
-        { "name": "AWS_REGION", "value": "ap-northeast-2" },
-        { "name": "SPRING_DATASOURCE_URL", "value": "jdbc:postgresql://modu-playlist-db.c9q2y4sm6rbi.ap-northeast-2.rds.amazonaws.com:5432/postgres" },
-        { "name": "SPRING_DATASOURCE_PASSWORD", "value": "moduplay123" }
-      ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
