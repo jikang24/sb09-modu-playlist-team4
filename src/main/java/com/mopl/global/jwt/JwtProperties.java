@@ -2,6 +2,7 @@ package com.mopl.global.jwt;
 
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @Getter
 @ConfigurationProperties(prefix = "mopl.jwt")
