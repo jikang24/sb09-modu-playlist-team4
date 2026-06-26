@@ -1,10 +1,12 @@
 package com.mopl.global.config;
 
 import com.mopl.global.jwt.JwtAuthenticationFilter;
+import com.mopl.global.jwt.JwtProperties;
 import com.mopl.global.security.csrf.CsrfCookieFilter;
 import com.mopl.global.security.handler.MoplAccessDeniedHandler;
 import com.mopl.global.security.handler.MoplAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,6 +26,7 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
+@EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
