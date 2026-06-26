@@ -130,9 +130,8 @@ public class UserServiceImpl implements UserService {
                 case name -> last.getName();
                 case email -> last.getEmail();
                 case createdAt -> last.getCreatedAt().toString();
-                case isLocked -> last.isLocked();
-                case role -> last.getRole();
-                default -> throw new MoplException(ErrorCode.INVALID_INPUT);
+                case isLocked -> String.valueOf(last.isLocked());
+                case role -> last.getRole().name();
             };
         }
         long totalCount = userRepository.countAll(request);
