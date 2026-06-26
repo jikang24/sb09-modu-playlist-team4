@@ -2,7 +2,7 @@ name: Infra Connection Test
 
 on:
   push:
-    branches: [ Kan-13-CICD ]
+    branches: [ develop,Kan-13-CICD ]
 
 jobs:
   check-connection:
