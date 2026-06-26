@@ -127,11 +127,11 @@ public class UserServiceImpl implements UserService {
             User last = users.get(users.size() - 1);
             nextIdAfter = last.getId();
             nextCursor = switch (request.sortBy()) {
-                case name -> last.getName();
-                case email -> last.getEmail();
-                case createdAt -> last.getCreatedAt().toString();
-                case isLocked -> String.valueOf(last.isLocked());
-                case role -> last.getRole().name();
+                case NAME -> last.getName();
+                case EMAIL -> last.getEmail();
+                case CREATEDAT -> last.getCreatedAt().toString();
+                case ISLOCKED -> String.valueOf(last.isLocked());
+                case ROLE -> last.getRole().name();
             };
         }
         long totalCount = userRepository.countAll(request);
