@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:mopl_dev}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:mopl}
     username: ${DB_USERNAME:mopl}
-    password: ${DB_PASSWORD:localpassword}
+    password: ${DB_PASSWORD:db-password}
 
   data:
     redis:
@@ -19,3 +19,9 @@ spring:
 
   elasticsearch:
     uris: ${OPENSEARCH_URI:http://localhost:9200}
+
+mopl:
+  jwt:
+    secret: ${JWT_SECRET:mopl-local-dev-jwt-secret-key-at-least-32-bytes}
+    access-token-expiry-ms: ${JWT_ACCESS_TOKEN_EXPIRY_MS:1800000}
+    refresh-token-expiry-ms: ${JWT_REFRESH_TOKEN_EXPIRY_MS:604800000}

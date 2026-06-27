@@ -31,6 +31,9 @@ services:
       start_period: 60s
 
     depends_on:
+      postgres:
+        condition: service_healthy
+
       redis:
         condition: service_started
 
@@ -39,6 +42,30 @@ services:
 
       opensearch:
         condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mopl-postgres
+
+    env_file:
+      - .env.dev
+
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -117,5 +144,6 @@ services:
       - opensearch-data:/usr/share/opensearch/data
 
 volumes:
+  postgres-data:
   redis-data:
   opensearch-data:
