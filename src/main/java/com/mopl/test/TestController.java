@@ -33,7 +33,7 @@ public class TestController {
 
   @GetMapping("/test/kafka")
   public String kafka() {
-    kafkaTemplate.send("mopl-topic", "Hello ECS");
+    kafkaTemplate.send("mopl_topic", "Hello ECS");
     return "Kafka Message Sent";
   }
 
