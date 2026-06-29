@@ -33,11 +33,11 @@ public class JwtProvider {
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateAccessToken(Long userId, String email, String role) {
+    public String generateAccessToken(UUID userId, String email, String role) {
         return buildToken(userId, email, role, props.getAccessTokenExpiryMs());
     }
 
-    public String generateRefreshToken(Long userId, String email, String role) {
+    public String generateRefreshToken(UUID userId, String email, String role) {
         return buildToken(userId, email, role, props.getRefreshTokenExpiryMs());
     }
 
@@ -51,7 +51,7 @@ public class JwtProvider {
                     .getPayload();
 
             return JwtClaims.builder()
-                    .userId(Long.valueOf(claims.getSubject()))
+                    .userId(UUID.fromString(claims.getSubject()))
                     .email(claims.get("email", String.class))
                     .role(claims.get("role", String.class))
                     .tokenId(claims.getId())
@@ -80,7 +80,7 @@ public class JwtProvider {
     }
 
    //토큰 생성
-    private String buildToken(Long userId, String email, String role, long expiryMs) {
+    private String buildToken(UUID userId, String email, String role, long expiryMs) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())

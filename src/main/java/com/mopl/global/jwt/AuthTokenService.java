@@ -5,10 +5,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AuthTokenService {
-    //기존 블랙리스트 로직
-    void blacklist(String accessToken, Duration ttl);
+    // 블랙리스트
+    void blacklistJti(String jti, Duration ttl);
 
-    boolean isBlacklisted(String accessToken);
+    boolean isBlacklistedJti(String jti);
 
     // 리프레시 토큰 로직
     void saveRefreshToken(UUID userId, String refreshToken, Duration ttl);

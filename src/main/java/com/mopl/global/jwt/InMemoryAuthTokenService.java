@@ -21,19 +21,19 @@ public class InMemoryAuthTokenService implements AuthTokenService{
 
 
     @Override
-    public void blacklist(String accessToken, Duration ttl) {
-        blacklist.put(accessToken, Instant.now().plus(ttl));
-        log.info("Access token blacklisted. JWT prefix: {}, TTL: {}",accessToken.substring(0, Math.min(accessToken.length(), 5)), ttl);
+    public void blacklistJti(String jti, Duration ttl) {
+        blacklist.put(jti, Instant.now().plus(ttl));
+        log.info("액세스 토큰 블랙리스트 등록 - jti 앞 8자: {}, TTL: {}", jti.substring(0, Math.min(jti.length(), 8)), ttl);
     }
 
     @Override
-    public boolean isBlacklisted(String accessToken) {
-        Instant expiry = blacklist.get(accessToken);
+    public boolean isBlacklistedJti(String jti) {
+        Instant expiry = blacklist.get(jti);
         if (expiry == null) {
             return false;
         }
         if (expiry.isBefore(Instant.now())) {
-            blacklist.remove(accessToken);
+            blacklist.remove(jti);
             return false;
         }
         return true;
@@ -44,12 +44,12 @@ public class InMemoryAuthTokenService implements AuthTokenService{
         String oldToken = userToToken.remove(userId);
         if (oldToken != null) {
             tokenToEntry.remove(oldToken);
-            log.debug("Removed old refresh token for user: {}", userId);
+            log.debug("기존 리프레시 토큰 제거 - userId: {}", userId);
         }
 
         userToToken.put(userId, refreshToken);
         tokenToEntry.put(refreshToken, new TokenEntry(userId, Instant.now().plus(ttl)));
-        log.info("New refresh token saved for user: {}", userId);
+        log.info("새 리프레시 토큰 저장 - userId: {}", userId);
     }
 
     @Override
@@ -70,7 +70,7 @@ public class InMemoryAuthTokenService implements AuthTokenService{
         TokenEntry entry = tokenToEntry.remove(refreshToken);
         if (entry != null) {
             userToToken.remove(entry.userId());
-            log.info("Refresh token deleted for user: {}", entry.userId());
+            log.info("리프레시 토큰 삭제 - userId: {}", entry.userId());
         }
     }
 
@@ -99,9 +99,8 @@ public class InMemoryAuthTokenService implements AuthTokenService{
         int deletedBlacklist = beforeBlacklist - blacklist.size();
         int deletedTokens = beforeTokens - tokenToEntry.size();
 
-        // 💡 매분마다 너무 많은 로그가 찍히는 걸 방지하기 위해, 지워진 게 있을 때만 출력하거나 debug 레벨 사용
         if (deletedBlacklist > 0 || deletedTokens > 0) {
-            log.info("Evicted expired tokens from memory. [Blacklist removed: {}, RefreshToken removed: {}]",
+            log.info("만료된 토큰 삭제 [블랙리스트 제거: {}, RefreshToken 제거: {}]",
                     deletedBlacklist, deletedTokens);
         }
     }
