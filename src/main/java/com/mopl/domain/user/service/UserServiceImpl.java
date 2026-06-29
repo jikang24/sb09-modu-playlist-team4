@@ -9,12 +9,14 @@ import com.mopl.domain.user.mapper.UserMapper;
 import com.mopl.domain.user.repository.UserRepository;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import com.mopl.global.response.CursorPageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -107,5 +109,40 @@ public class UserServiceImpl implements UserService {
             eventPublisher.publishEvent(new UserLockedEvent(user.getId()));
         }
         return userMapper.toDto(user);
+    }
+
+    @Override
+    public CursorPageResponse<UserDto> findAll(UserSearchRequest request) {
+
+        List<User> users = userRepository.findAllWithCursor(request);
+
+        boolean hasNext = users.size() > request.limit();
+        if (hasNext) {
+            users = users.subList(0, request.limit());
+        }
+
+        String nextCursor = null;
+        UUID nextIdAfter = null;
+        if (hasNext && !users.isEmpty()) {
+            User last = users.get(users.size() - 1);
+            nextIdAfter = last.getId();
+            nextCursor = switch (request.sortBy()) {
+                case NAME -> last.getName();
+                case EMAIL -> last.getEmail();
+                case CREATEDAT -> last.getCreatedAt().toString();
+                case ISLOCKED -> String.valueOf(last.isLocked());
+                case ROLE -> last.getRole().name();
+            };
+        }
+        long totalCount = userRepository.countAll(request);
+        return new CursorPageResponse<>(
+                users.stream().map(userMapper::toDto).toList(),
+                nextCursor,
+                nextIdAfter,
+                hasNext,
+                totalCount,
+                request.sortBy().name(),
+                request.sortDirection().name()
+        );
     }
 }
