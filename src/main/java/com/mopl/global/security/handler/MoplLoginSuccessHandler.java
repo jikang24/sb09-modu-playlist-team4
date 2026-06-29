@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -22,6 +23,7 @@ import java.time.Instant;
 
 @Slf4j
 @RequiredArgsConstructor
+@Component
 public class MoplLoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtProvider jwtProvider;

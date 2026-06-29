@@ -35,7 +35,6 @@ public class MoplAuthenticationProvider extends DaoAuthenticationProvider {
         String rawPassword = authentication.getCredentials().toString();
         PasswordEncoder encoder = getPasswordEncoder();
 
-        // 유효한 임시 비밀번호가 있으면 임시 비밀번호로만 인증 (실제 비밀번호 불가)
         PasswordResetToken activeToken = passwordResetTokenPort
                 .findActiveByUserId(moplUser.getUserAuthInfo().id())
                 .filter(PasswordResetToken::isValid)
@@ -48,7 +47,6 @@ public class MoplAuthenticationProvider extends DaoAuthenticationProvider {
             return;
         }
 
-        // 임시 비밀번호가 없으면 실제 비밀번호로 인증
         if (!encoder.matches(rawPassword, userDetails.getPassword())) {
             throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
