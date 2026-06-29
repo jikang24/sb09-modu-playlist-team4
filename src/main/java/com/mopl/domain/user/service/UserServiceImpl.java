@@ -1,6 +1,6 @@
 package com.mopl.domain.user.service;
 
-import com.mopl.domain.user.domain.Role;
+import com.mopl.global.dto.Role;
 import com.mopl.domain.user.domain.User;
 import com.mopl.domain.user.dto.*;
 import com.mopl.domain.user.event.UserLockedEvent;
@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -107,5 +108,19 @@ public class UserServiceImpl implements UserService {
             eventPublisher.publishEvent(new UserLockedEvent(user.getId()));
         }
         return userMapper.toDto(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UserAuthInfo> findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .map(u -> new UserAuthInfo(u.getId(), u.getEmail(), u.getPassword(), u.getRole(), u.isLocked()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UserAuthInfo> findById(UUID userId) {
+        return userRepository.findById(userId)
+                .map(u -> new UserAuthInfo(u.getId(), u.getEmail(), u.getPassword(), u.getRole(), u.isLocked()));
     }
 }

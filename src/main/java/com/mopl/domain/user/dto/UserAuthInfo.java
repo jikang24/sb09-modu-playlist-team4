@@ -2,16 +2,13 @@ package com.mopl.domain.user.dto;
 
 import com.mopl.global.dto.Role;
 
-import java.time.Instant;
 import java.util.UUID;
 
-public record UserDto(
+public record UserAuthInfo(
         UUID id,
-        Instant createdAt,
         String email,
-        String name,
-        String profileImageUrl,
+        String password,
         Role role,
         boolean locked
-) {
+        ) {
 }

@@ -1,6 +1,6 @@
 package com.mopl.domain.user.event;
 
-import com.mopl.domain.user.domain.Role;
+import com.mopl.global.dto.Role;
 
 import java.util.UUID;
 

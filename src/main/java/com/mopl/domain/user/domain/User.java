@@ -1,6 +1,7 @@
 
 package com.mopl.domain.user.domain;
 
+import com.mopl.global.dto.Role;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
