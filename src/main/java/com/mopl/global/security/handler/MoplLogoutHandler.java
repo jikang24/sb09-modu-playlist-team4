@@ -25,8 +25,12 @@ public class MoplLogoutHandler implements LogoutHandler {
 
     @Override
     public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof JwtClaims)) {
+            return;
+        }
+
         String rawToken = extractToken(request);
-        if (rawToken == null || authentication == null) {
+        if (rawToken == null) {
             return;
         }
 
