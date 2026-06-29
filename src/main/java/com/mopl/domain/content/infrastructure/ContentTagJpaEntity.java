@@ -1,4 +1,4 @@
-package com.mopl.domain.content.domain;
+package com.mopl.domain.content.infrastructure;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -10,17 +10,20 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * [Infrastructure] 콘텐츠 태그 JPA 엔티티
+ */
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(
     name = "content_tags",
     uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"content_id", "tag"}) // 같은 콘텐츠에 중복 태그 방지
+        @UniqueConstraint(columnNames = {"content_id", "tag"})
     }
 )
 @EntityListeners(AuditingEntityListener.class)
-public class ContentTag {
+public class ContentTagJpaEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
@@ -29,7 +32,7 @@ public class ContentTag {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "content_id", nullable = false)
-  private Content content;
+  private ContentJpaEntity content;
 
   @Column(name = "tag", nullable = false, length = 50)
   private String tag;
@@ -38,10 +41,10 @@ public class ContentTag {
   @Column(columnDefinition = "timestamp with time zone", updatable = false, nullable = false)
   private Instant createdAt;
 
-  public static ContentTag create(Content content, String tag) {
-    ContentTag contentTag = new ContentTag();
-    contentTag.content = content;
-    contentTag.tag = tag;
-    return contentTag;
+  public static ContentTagJpaEntity of(ContentJpaEntity content, String tag) {
+    ContentTagJpaEntity entity = new ContentTagJpaEntity();
+    entity.content = content;
+    entity.tag = tag;
+    return entity;
   }
 }
