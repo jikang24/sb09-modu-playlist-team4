@@ -1,5 +1,7 @@
 package com.mopl.domain.content.domain;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -45,9 +47,18 @@ public class Content {
    * 신규 콘텐츠 생성 팩토리 메서드
    * id, createdAt, updatedAt은 도메인이 직접 생성
    */
+
   public static Content create(ContentType type, String externalId,
       String title, String description, String thumbnailUrl,
       List<String> tags) {
+
+    if (type == null)
+      throw new MoplException(ErrorCode.INVALID_INPUT);
+    if (externalId == null || externalId.isBlank())
+      throw new MoplException(ErrorCode.INVALID_INPUT);
+    if (title == null || title.isBlank())
+      throw new MoplException(ErrorCode.INVALID_INPUT);
+
     Instant now = Instant.now();
     return new Content(
         UUID.randomUUID(), type, externalId,
