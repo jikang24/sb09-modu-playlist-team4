@@ -244,5 +244,15 @@ class ContentServiceTest {
       assertThat(responses).allSatisfy(r ->
           assertThat(r.type()).isEqualTo(ContentType.MOVIE));
     }
+
+    @Test
+    @DisplayName("필수값 누락 시 예외 발생")
+    void fail_nullTitle() {
+      assertThatThrownBy(() ->
+          Content.create(ContentType.MOVIE, "tmdb-001", null, "설명", null, List.of()))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.INVALID_INPUT));
+    }
   }
 }
