@@ -6,8 +6,12 @@ import com.mopl.domain.auth.dto.SignInRequest;
 
 public interface AuthService {
     JwtDto signIn(SignInRequest request);
+
     void signOut();
+
     void resetPassword(ResetPasswordRequest request);
+
     JwtDto refresh(String refreshToken);
+
     void csrf();
 }
