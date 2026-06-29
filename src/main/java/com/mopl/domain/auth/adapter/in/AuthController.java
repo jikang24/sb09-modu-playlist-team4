@@ -2,9 +2,12 @@ package com.mopl.domain.auth.adapter.in;
 
 import com.mopl.domain.auth.dto.JwtDto;
 import com.mopl.domain.auth.dto.ResetPasswordRequest;
+import com.mopl.domain.auth.dto.SignInRequest;
 import com.mopl.domain.auth.port.in.AuthUseCase;
 import com.mopl.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,5 +40,20 @@ public class AuthController {
     @GetMapping("/csrf-token")
     public ResponseEntity<Void> csrfToken() {
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "로그인", description = "SecurityFilterChain에서 처리합니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공",
+            content = @Content(schema = @Schema(implementation = JwtDto.class)))
+    @PostMapping("/sign-in")
+    public JwtDto signIn(@RequestBody SignInRequest request) {
+        throw new IllegalStateException("Should be handled by SecurityFilterChain");
+    }
+
+    @Operation(summary = "로그아웃", description = "SecurityFilterChain에서 처리합니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그아웃 성공")
+    @PostMapping("/sign-out")
+    public void signOut() {
+        throw new IllegalStateException("Should be handled by SecurityFilterChain");
     }
 }
