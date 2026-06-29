@@ -3,7 +3,6 @@ package com.mopl.domain.user.service;
 import com.mopl.domain.user.dto.*;
 import com.mopl.global.response.CursorPageResponse;
 
-import java.util.Optional;
 import java.util.UUID;
 
 public interface UserService {
@@ -18,10 +17,6 @@ public interface UserService {
     UserDto updatePassword(UUID userId, ChangePasswordRequest request);
 
     UserDto updateLocked(UUID userId, UserLockUpdateRequest request);
-
-    Optional<UserAuthInfo> findByEmail(String email);
-
-    Optional<UserAuthInfo> findById(UUID userId);
 
     CursorPageResponse<UserDto> findAll(UserSearchRequest request);
 }

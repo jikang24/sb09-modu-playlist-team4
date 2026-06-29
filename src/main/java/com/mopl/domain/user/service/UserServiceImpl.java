@@ -113,20 +113,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Optional<UserAuthInfo> findByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .map(u -> new UserAuthInfo(u.getId(), u.getEmail(), u.getPassword(), u.getRole(), u.isLocked()));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<UserAuthInfo> findById(UUID userId) {
-        return userRepository.findById(userId)
-                .map(u -> new UserAuthInfo(u.getId(), u.getEmail(), u.getPassword(), u.getRole(), u.isLocked()));
-    }
-
-    @Override
     public CursorPageResponse<UserDto> findAll(UserSearchRequest request) {
 
         List<User> users = userRepository.findAllWithCursor(request);
@@ -160,4 +146,5 @@ public class UserServiceImpl implements UserService {
                 request.sortDirection().name()
         );
     }
+
 }
