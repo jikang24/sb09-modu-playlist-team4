@@ -1,6 +1,7 @@
 package com.mopl.domain.user.repository;
 
 import com.mopl.domain.user.domain.User;
+import com.mopl.global.dto.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -13,5 +14,6 @@ public interface UserRepository extends JpaRepository<User, UUID>, UserRepositor
 
     Optional<User> findByEmail(String email);
 
+    boolean existsByRole(Role role);
 
 }

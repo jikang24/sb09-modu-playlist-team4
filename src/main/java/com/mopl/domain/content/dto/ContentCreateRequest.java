@@ -6,7 +6,12 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
+/**
+ * 콘텐츠 등록 요청 (multipart의 "request" 파트)
+ * thumbnailUrl 없음 → MultipartFile로 별도 수신 후 S3 업로드
+ */
 public record ContentCreateRequest(
+
     @NotNull(message = "콘텐츠 타입은 필수입니다.")
     ContentType type,
 
@@ -19,10 +24,5 @@ public record ContentCreateRequest(
 
     String description,
 
-    @Size(max = 500, message = "썸네일 URL은 500자 이하여야 합니다.")
-    String thumbnailUrl,
-
     List<String> tags
-) {
-
-}
+) {}

@@ -11,6 +11,9 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
+      ssl:
+        enabled: true
+
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
@@ -25,8 +28,3 @@ spring:
   elasticsearch:
     uris: ${OPENSEARCH_URI}
 
-mopl:
-  jwt:
-    secret: ${JWT_SECRET}
-    access-token-expiry-ms: ${JWT_ACCESS_TOKEN_EXPIRY_MS:1800000}
-    refresh-token-expiry-ms: ${JWT_REFRESH_TOKEN_EXPIRY_MS:604800000}

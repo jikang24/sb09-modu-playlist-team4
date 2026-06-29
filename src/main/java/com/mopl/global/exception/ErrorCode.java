@@ -31,10 +31,14 @@ public enum ErrorCode {
     INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED),
     USER_LOCKED("잠긴 계정입니다.", HttpStatus.FORBIDDEN),
 
+    // JWT 토큰
     TOKEN_EXPIRED("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED),
-    REFRESH_TOKEN_REVOKED("이미 무효화된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED);
+    REFRESH_TOKEN_REVOKED("이미 무효화된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
+
+    // 공통 응답
+    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus status;

@@ -2,23 +2,24 @@ name: MoDuPlayList Real CI/CD
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "develop" ]
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.build-image.outputs.image }}
+      image: ${{ steps.push-image.outputs.image }}
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'corretto'
+          java-version: "17"
+          distribution: "corretto"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -28,7 +29,14 @@ jobs:
           chmod +x gradlew
           ./gradlew build -x test
 
+      - name: Build Docker Image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t modu-playlist:$IMAGE_TAG .
+
       - name: Configure AWS credentials
+        if: github.event_name == 'push'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
@@ -36,47 +44,45 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        if: github.event_name == 'push'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and Push Docker Image
-        id: build-image
+      - name: Push Docker Image
+        if: github.event_name == 'push'
+        id: push-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: modu-playlist-repo
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag modu-playlist:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Notify Build/Push Success
-        if: always() && !failure() && !cancelled()
+      - name: Notify CI Success
+        if: success() && github.event_name == 'pull_request'
         uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
           status: success
-          title: "🚀 CI 빌드 성공: ${{ github.ref_name }}"
-          description: "소스 빌드 및 ECR 이미지 푸시가 완료되었습니다."
+          title: "✅ CI 성공"
+          description: "Gradle 및 Docker 빌드가 완료되었습니다."
           color: 0x00ff00
 
-      - name: Notify Build/Push Failure
-        if: failure()
+      - name: Notify CI Failure
+        if: failure() && github.event_name == 'pull_request'
         uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
           status: failure
-          title: "❌ 빌드/푸시 실패: ${{ github.ref_name }}"
-          description: "소스 빌드 또는 Docker 과정에서 에러가 발생했습니다."
+          title: "❌ CI 실패"
+          description: "Gradle 또는 Docker 빌드에 실패했습니다."
           color: 0xff0000
 
   deploy:
-    needs: build-and-push
-    if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' &&
-       (github.ref == 'refs/heads/main' ||
-        github.ref == 'refs/heads/develop'))
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -113,7 +119,7 @@ jobs:
         with:
           task-definition: clean-task-definition.json
           container-name: modu-playlist-container
-          image: ${{ needs.build-and-push.outputs.image }}
+          image: ${{ needs.build.outputs.image }}
           environment-variables: |
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             KAFKA_API_KEY=${{ secrets.KAFKA_API_KEY }}
@@ -133,8 +139,8 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
           status: success
-          title: "✅ 배포 성공 (${{ github.ref_name }}/ECS)"
-          description: "ECS 서비스에 최신 코드가 반영되었습니다."
+          title: "🚀 CD 성공"
+          description: "Docker 이미지가 ECR에 푸시되고 ECS 배포가 완료되었습니다."
           color: 0x00ff00
 
       - name: Notify Deploy Failure
@@ -143,6 +149,6 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
           status: failure
-          title: "🆘 배포 실패 (${{ github.ref_name }}/ECS)"
-          description: "배포 과정 중 문제가 발생했습니다."
+          title: "🆘 CD 실패"
+          description: "ECS 배포 중 오류가 발생했습니다."
           color: 0xff0000

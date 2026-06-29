@@ -10,6 +10,8 @@ import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.response.CursorPageResponse;
 import com.mopl.infra.s3.S3Service;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +48,12 @@ public class UserController {
     }
 
     @Operation(summary = "프로필 변경", description = "본인의 프로필만 변경할 수 있습니다.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(
+                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    encoding = @Encoding(name = "request", contentType = MediaType.APPLICATION_JSON_VALUE)
+            )
+    )
     @PatchMapping(value = "/{userId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UserDto> updateProfile(
             @PathVariable UUID userId,
