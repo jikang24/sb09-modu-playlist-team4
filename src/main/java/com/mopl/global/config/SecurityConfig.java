@@ -2,21 +2,20 @@ package com.mopl.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
-import com.mopl.global.jwt.AuthTokenService;
 import com.mopl.global.jwt.JwtAuthenticationFilter;
 import com.mopl.global.jwt.JwtProperties;
-import com.mopl.global.jwt.JwtProvider;
 import com.mopl.global.security.MoplAuthenticationProvider;
 import com.mopl.global.security.csrf.CsrfCookieFilter;
 import com.mopl.global.security.filter.JsonLoginFilter;
 import com.mopl.global.security.handler.MoplLoginFailureHandler;
 import com.mopl.global.security.handler.MoplLoginSuccessHandler;
-import com.mopl.global.security.handler.MoplAccessDeniedHandler;
-import com.mopl.global.security.handler.MoplAuthenticationEntryPoint;
 import com.mopl.global.security.handler.MoplLogoutHandler;
 import com.mopl.global.security.handler.MoplLogoutSuccessHandler;
+import com.mopl.global.security.handler.MoplAccessDeniedHandler;
+import com.mopl.global.security.handler.MoplAuthenticationEntryPoint;
 import com.mopl.global.security.userdetails.MoplUserDetailsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,35 +46,43 @@ public class SecurityConfig {
     private final CsrfCookieFilter csrfCookieFilter;
     private final MoplAuthenticationEntryPoint authenticationEntryPoint;
     private final MoplAccessDeniedHandler accessDeniedHandler;
-    private final MoplLogoutHandler logoutHandler;
-    private final MoplLogoutSuccessHandler logoutSuccessHandler;
     private final MoplUserDetailsService userDetailsService;
     private final PasswordResetTokenPort passwordResetTokenPort;
-    private final JwtProvider jwtProvider;
-    private final AuthTokenService authTokenService;
     private final ObjectMapper objectMapper;
+    private final MoplLoginSuccessHandler loginSuccessHandler;
+    private final MoplLoginFailureHandler loginFailureHandler;
+    private final MoplLogoutHandler logoutHandler;
+    private final MoplLogoutSuccessHandler logoutSuccessHandler;
+
+    @Value("${security.csrf.disabled:false}")
+    private boolean csrfDisabled;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            AuthenticationManager authenticationManager) throws Exception {
         PathPatternRequestMatcher.Builder path = PathPatternRequestMatcher.withDefaults();
 
-        JsonLoginFilter jsonLoginFilter = new JsonLoginFilter(authenticationManager, objectMapper);
-        jsonLoginFilter.setAuthenticationSuccessHandler(
-                new MoplLoginSuccessHandler(jwtProvider, authTokenService, objectMapper));
-        jsonLoginFilter.setAuthenticationFailureHandler(
-                new MoplLoginFailureHandler(objectMapper));
+        // JSON 로그인 필터 설정
+        JsonLoginFilter jsonAuthenticationFilter = new JsonLoginFilter(
+                authenticationManager, objectMapper);
+        jsonAuthenticationFilter.setAuthenticationSuccessHandler(loginSuccessHandler);
+        jsonAuthenticationFilter.setAuthenticationFailureHandler(loginFailureHandler);
+
 
         http
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers("/ws/**", "/api/auth/**")
-                        .ignoringRequestMatchers(path.matcher(HttpMethod.POST, "/api/users")))
-
+                .csrf(csrf -> {
+                    if (csrfDisabled) {
+                        csrf.disable();
+                    } else {
+                        csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                                .ignoringRequestMatchers("/ws/**", "/api/auth/**")
+                                .ignoringRequestMatchers(path.matcher(HttpMethod.POST, "/api/users"));
+                    }
+                })
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
@@ -95,7 +102,7 @@ public class SecurityConfig {
                         .invalidateHttpSession(false)
                         .clearAuthentication(true))
 
-                .addFilterBefore(jsonLoginFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jsonAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(csrfCookieFilter, BasicAuthenticationFilter.class);
 
