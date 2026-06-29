@@ -1,112 +1,98 @@
 package com.mopl.domain.content.domain;
 
-import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Entity
-@Table(
-    name = "contents",
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"type", "external_id"})
-    }
-)
-@EntityListeners(AuditingEntityListener.class)
 public class Content {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  @Column(columnDefinition = "uuid", updatable = false, nullable = false)
-  private UUID id;
-
-  @Enumerated(EnumType.STRING)
-  @Column(name = "type", nullable = false, length = 10)
-  private ContentType type;
-
-  @Column(name = "external_id", nullable = false, length = 100)
-  private String externalId;
-
-  @Column(name = "title", nullable = false, length = 200)
+  private final UUID id;
+  private final ContentType type;
+  private final String externalId;
   private String title;
-
-  @Column(name = "description", columnDefinition = "TEXT")
   private String description;
-
-  @Column(name = "thumbnail_url", length = 500)
   private String thumbnailUrl;
-
-  @Column(name = "average_rating", nullable = false, precision = 3, scale = 2)
-  private BigDecimal averageRating = BigDecimal.ZERO;
-
-
-  @Column(name = "review_count", nullable = false)
-  private int reviewCount = 0;
-
-  @CreatedDate
-  @Column(columnDefinition = "timestamp with time zone", updatable = false, nullable = false)
-  private Instant createdAt;
-
-  @LastModifiedDate
-  @Column(columnDefinition = "timestamp with time zone", nullable = false)
+  private BigDecimal averageRating;
+  private int reviewCount;
+  private final Instant createdAt;
   private Instant updatedAt;
+  private List<String> tags;
 
+  // ──────────────────────────────────────────────
+  // 생성자 (외부에서 직접 호출 X → 팩토리 메서드 사용)
+  // ──────────────────────────────────────────────
 
-  @OneToMany(mappedBy = "content", cascade = CascadeType.ALL,
-      orphanRemoval = true, fetch = FetchType.LAZY)
-  private List<ContentTag> tags = new ArrayList<>();
-
-  @Builder
-  private Content(ContentType type, String externalId, String title,
-      String description, String thumbnailUrl) {
+  private Content(UUID id, ContentType type, String externalId,
+      String title, String description, String thumbnailUrl,
+      BigDecimal averageRating, int reviewCount,
+      Instant createdAt, Instant updatedAt, List<String> tags) {
+    this.id = id;
     this.type = type;
     this.externalId = externalId;
     this.title = title;
     this.description = description;
     this.thumbnailUrl = thumbnailUrl;
+    this.averageRating = averageRating;
+    this.reviewCount = reviewCount;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+    this.tags = tags != null ? tags : new ArrayList<>();
   }
 
+  /**
+   * 신규 콘텐츠 생성 팩토리 메서드
+   * id, createdAt, updatedAt은 도메인이 직접 생성
+   */
   public static Content create(ContentType type, String externalId,
-      String title, String description, String thumbnailUrl) {
-    return Content.builder()
-        .type(type)
-        .externalId(externalId)
-        .title(title)
-        .description(description)
-        .thumbnailUrl(thumbnailUrl)
-        .build();
+      String title, String description, String thumbnailUrl,
+      List<String> tags) {
+    Instant now = Instant.now();
+    return new Content(
+        UUID.randomUUID(), type, externalId,
+        title, description, thumbnailUrl,
+        BigDecimal.ZERO, 0,
+        now, now, tags
+    );
   }
 
+  /**
+   * DB에서 복원할 때 사용하는 팩토리 메서드
+   */
+  public static Content restore(UUID id, ContentType type, String externalId,
+      String title, String description, String thumbnailUrl,
+      BigDecimal averageRating, int reviewCount,
+      Instant createdAt, Instant updatedAt, List<String> tags) {
+    return new Content(id, type, externalId, title, description, thumbnailUrl,
+        averageRating, reviewCount, createdAt, updatedAt, tags);
+  }
 
-  public void update(String title, String description, String thumbnailUrl) {
+  /** 콘텐츠 정보 수정 */
+  public void update(String title, String description, String thumbnailUrl, List<String> tags) {
     this.title = title;
     this.description = description;
     this.thumbnailUrl = thumbnailUrl;
+    this.tags = tags != null ? tags : new ArrayList<>();
+    this.updatedAt = Instant.now();
   }
 
+  /** 평점/리뷰 수 갱신 (Review 모듈 이벤트 수신 시) */
   public void updateRatingStats(BigDecimal newAverageRating, int newReviewCount) {
     this.averageRating = newAverageRating;
     this.reviewCount = newReviewCount;
+    this.updatedAt = Instant.now();
   }
 
-  public void addTag(ContentTag tag) {
-    this.tags.add(tag);
-  }
-
-  public void replaceTags(List<ContentTag> newTags) {
-    this.tags.clear();
-    this.tags.addAll(newTags);
-  }
+  public UUID getId() { return id; }
+  public ContentType getType() { return type; }
+  public String getExternalId() { return externalId; }
+  public String getTitle() { return title; }
+  public String getDescription() { return description; }
+  public String getThumbnailUrl() { return thumbnailUrl; }
+  public BigDecimal getAverageRating() { return averageRating; }
+  public int getReviewCount() { return reviewCount; }
+  public Instant getCreatedAt() { return createdAt; }
+  public Instant getUpdatedAt() { return updatedAt; }
+  public List<String> getTags() { return List.copyOf(tags); }
 }
