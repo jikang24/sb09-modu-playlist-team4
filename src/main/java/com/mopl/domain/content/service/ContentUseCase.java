@@ -6,7 +6,6 @@ import com.mopl.domain.content.dto.ContentCreateRequest;
 import com.mopl.domain.content.dto.ContentResponse;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,11 +29,5 @@ public interface ContentUseCase {
 
   /** 타입별 콘텐츠 목록 조회 */
   List<ContentResponse> getContentsByType(ContentType type);
-
-  /**
-   * 평점/리뷰 수 갱신
-   * Review 모듈의 이벤트를 받아 ContentEventListener가 호출
-   */
-  void updateRatingStats(UUID contentId, BigDecimal newAverageRating, int newReviewCount);
 
 }

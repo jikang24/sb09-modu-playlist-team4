@@ -25,9 +25,7 @@ public record ContentResponse(
         content.getTitle(),
         content.getDescription(),
         content.getThumbnailUrl(),
-        content.getTags().stream()
-            .map(tag -> tag.getTag())
-            .toList(),
+        content.getTags(),
         content.getAverageRating(),
         content.getReviewCount()
     );
