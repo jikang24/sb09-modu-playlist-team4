@@ -375,6 +375,56 @@ class UserServiceTest {
             assertThat(result.nextIdAfter()).isNotNull();
         }
 
+        @Test
+        @DisplayName("성공: 빈 목록을 반환한다")
+        void findAll_empty() {
+            UserSearchRequest request = baseRequest(10);
+            given(userRepository.findAllWithCursor(request)).willReturn(List.of());
+            given(userRepository.countAll(request)).willReturn(0L);
+
+            CursorPageResponse<UserDto> result = userService.findAll(request);
+
+            assertThat(result.hasNext()).isFalse();
+            assertThat(result.data()).isEmpty();
+            assertThat(result.totalCount()).isZero();
+            assertThat(result.nextCursor()).isNull();
+            assertThat(result.nextIdAfter()).isNull();
+        }
+
+        @Test
+        @DisplayName("성공: limit과 정확히 같은 수의 결과면 hasNext=false이다")
+        void findAll_exactLimit() {
+            UserSearchRequest request = baseRequest(2);
+            User u1 = userOf("a");
+            User u2 = userOf("b");
+            given(userRepository.findAllWithCursor(request)).willReturn(List.of(u1, u2));
+            given(userRepository.countAll(request)).willReturn(2L);
+            given(userMapper.toDto(any(User.class))).willReturn(userDto);
+
+            CursorPageResponse<UserDto> result = userService.findAll(request);
+
+            assertThat(result.hasNext()).isFalse();
+            assertThat(result.data()).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("성공: DESCENDING 정렬도 정상 동작한다")
+        void findAll_descending() {
+            UserSearchRequest request = new UserSearchRequest(
+                    null, null, null, null, null,
+                    10, SortDirection.DESCENDING, UserSortBy.NAME
+            );
+            User u1 = userOf("a");
+            given(userRepository.findAllWithCursor(request)).willReturn(List.of(u1));
+            given(userRepository.countAll(request)).willReturn(1L);
+            given(userMapper.toDto(any(User.class))).willReturn(userDto);
+
+            CursorPageResponse<UserDto> result = userService.findAll(request);
+
+            assertThat(result.sortDirection()).isEqualTo("DESCENDING");
+            assertThat(result.hasNext()).isFalse();
+        }
+
         private User userOf(String name) {
             return User.builder()
                     .id(UUID.randomUUID())
@@ -385,6 +435,57 @@ class UserServiceTest {
                     .locked(false)
                     .createdAt(Instant.now())
                     .build();
+        }
+    }
+
+    @Nested
+    @DisplayName("updateProfile: 엣지 케이스")
+    class UpdateProfileEdgeCases {
+
+        @Test
+        @DisplayName("성공: 이름을 같은 값으로 변경하면 중복 체크를 하지 않는다")
+        void updateProfile_sameNameNoCheck() {
+            UserUpdateRequest request = new UserUpdateRequest("woody");
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
+            given(userMapper.toDto(user)).willReturn(userDto);
+
+            UserDto result = userService.updateProfile(userId, request, null);
+
+            assertThat(result).isEqualTo(userDto);
+            verify(userRepository, never()).existsByName("woody");
+        }
+
+        @Test
+        @DisplayName("성공: 이미지 URL을 변경해도 이름 중복 체크를 하지 않는다")
+        void updateProfile_imageOnly() {
+            UserUpdateRequest request = new UserUpdateRequest("woody");
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
+            given(userMapper.toDto(user)).willReturn(userDto);
+
+            userService.updateProfile(userId, request, "https://new-image.url");
+
+            verify(userRepository, never()).existsByName(anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("updatePassword: 엣지 케이스")
+    class UpdatePasswordEdgeCases {
+
+        @Test
+        @DisplayName("성공: 비밀번호를 여러 번 변경할 수 있다")
+        void updatePassword_multiple() {
+            ChangePasswordRequest request1 = new ChangePasswordRequest("pass1");
+            ChangePasswordRequest request2 = new ChangePasswordRequest("pass2");
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
+            given(passwordEncoder.encode("pass1")).willReturn("encoded1");
+            given(passwordEncoder.encode("pass2")).willReturn("encoded2");
+            given(userMapper.toDto(user)).willReturn(userDto);
+
+            userService.updatePassword(userId, request1);
+            userService.updatePassword(userId, request2);
+
+            verify(passwordEncoder, times(2)).encode(anyString());
         }
     }
 }
