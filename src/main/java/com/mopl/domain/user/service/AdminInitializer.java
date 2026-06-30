@@ -1,13 +1,15 @@
 package com.mopl.domain.user.service;
 
-import com.mopl.global.dto.Role;
+import com.mopl.domain.user.dto.Role;
 import com.mopl.domain.user.domain.User;
 import com.mopl.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AdminInitializer implements CommandLineRunner {
@@ -18,6 +20,7 @@ public class AdminInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         if (userRepository.existsByRole(Role.ADMIN)) {
+            log.info("관리자 계정이 이미 존재합니다. 초기화를 건너뜁니다.");
             return;
         }
 
@@ -29,5 +32,6 @@ public class AdminInitializer implements CommandLineRunner {
                 .build();
 
         userRepository.save(admin);
+        log.info("관리자 계정이 생성되었습니다. email={}", admin.getEmail());
     }
 }
