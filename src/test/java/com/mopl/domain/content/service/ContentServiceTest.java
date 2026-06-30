@@ -188,13 +188,13 @@ class ContentServiceTest {
     @DisplayName("정상 조회 - ContentResponse 반환")
     void success() {
       UUID id = UUID.randomUUID();
-      Content content = makeContent(id, ContentType.DRAMA, "tmdb-002");
+      Content content = makeContent(id, ContentType.TV_SERIES, "tmdb-002");
       given(contentRepository.findById(id)).willReturn(Optional.of(content));
 
       ContentResponse response = contentService.getContent(id);
 
       assertThat(response.id()).isEqualTo(id);
-      assertThat(response.type()).isEqualTo(ContentType.DRAMA);
+      assertThat(response.type()).isEqualTo(ContentType.TV_SERIES);
     }
 
     @Test
@@ -219,8 +219,8 @@ class ContentServiceTest {
     void getAll() {
       List<Content> contents = List.of(
           makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-001"),
-          makeContent(UUID.randomUUID(), ContentType.DRAMA, "tmdb-002"),
-          makeContent(UUID.randomUUID(), ContentType.SPORTS, "sports-001")
+          makeContent(UUID.randomUUID(), ContentType.TV_SERIES, "tmdb-002"),
+          makeContent(UUID.randomUUID(), ContentType.SPORT, "sports-001")
       );
       given(contentRepository.findAll()).willReturn(contents);
 
