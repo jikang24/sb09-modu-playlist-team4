@@ -6,7 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 //Todo: s3관련 구현 진행
 @Service
-@Profile("local")
+// @Profile("dev")
 public class LocalS3Service implements S3Service {
     @Override
     public String upload(MultipartFile file) {

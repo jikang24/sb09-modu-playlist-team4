@@ -1,0 +1,27 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:mopl}
+    username: ${DB_USERNAME:mopl}
+    password: ${DB_PASSWORD:db-password}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    properties:
+      security.protocol: PLAINTEXT
+
+  elasticsearch:
+    uris: ${OPENSEARCH_URI:http://localhost:9200}
+
+mopl:
+  jwt:
+    secret: ${JWT_SECRET:mopl-local-dev-jwt-secret-key-at-least-32-bytes}
+    access-token-expiry-ms: ${JWT_ACCESS_TOKEN_EXPIRY_MS:1800000}
+    refresh-token-expiry-ms: ${JWT_REFRESH_TOKEN_EXPIRY_MS:604800000}

@@ -1,0 +1,154 @@
+name: MoDuPlayList Real CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "develop" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.push-image.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "corretto"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build with Gradle
+        run: |
+          chmod +x gradlew
+          ./gradlew build -x test
+
+      - name: Build Docker Image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t modu-playlist:$IMAGE_TAG .
+
+      - name: Configure AWS credentials
+        if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        if: github.event_name == 'push'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push Docker Image
+        if: github.event_name == 'push'
+        id: push-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: modu-playlist-repo
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker tag modu-playlist:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Notify CI Success
+        if: success() && github.event_name == 'pull_request'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: success
+          title: "✅ CI 성공"
+          description: "Gradle 및 Docker 빌드가 완료되었습니다."
+          color: 0x00ff00
+
+      - name: Notify CI Failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: failure
+          title: "❌ CI 실패"
+          description: "Gradle 또는 Docker 빌드에 실패했습니다."
+          color: 0xff0000
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Download and clean ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition modu-playlist-task \
+            --query taskDefinition \
+            > task-definition.json
+
+          jq 'del(
+            .taskDefinitionArn,
+            .revision,
+            .status,
+            .requiresAttributes,
+            .compatibilities,
+            .registeredAt,
+            .registeredBy,
+            .enableFaultInjection
+          )' task-definition.json > clean-task-definition.json
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: clean-task-definition.json
+          container-name: modu-playlist-container
+          image: ${{ needs.build.outputs.image }}
+          environment-variables: |
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            KAFKA_API_KEY=${{ secrets.KAFKA_API_KEY }}
+            KAFKA_API_SECRET=${{ secrets.KAFKA_API_SECRET }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: modu-playlist-service
+          cluster: modu-playlist-cluster
+          wait-for-service-stability: true
+
+      - name: Notify Deploy Success
+        if: success()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: success
+          title: "🚀 CD 성공"
+          description: "Docker 이미지가 ECR에 푸시되고 ECS 배포가 완료되었습니다."
+          color: 0x00ff00
+
+      - name: Notify Deploy Failure
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: failure
+          title: "🆘 CD 실패"
+          description: "ECS 배포 중 오류가 발생했습니다."
+          color: 0xff0000

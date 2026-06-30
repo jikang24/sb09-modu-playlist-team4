@@ -25,11 +25,11 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
         if (request.cursor() != null && request.idAfter() != null) {
             var sortField = switch (request.sortBy()) {
-                case name -> u.name;
-                case email -> u.email;
-                case createdAt -> u.createdAt.stringValue();
-                case isLocked -> u.locked.stringValue();
-                case role -> u.role.stringValue();
+                case NAME -> u.name;
+                case EMAIL -> u.email;
+                case CREATEDAT -> u.createdAt.stringValue();
+                case ISLOCKED -> u.locked.stringValue();
+                case ROLE -> u.role.stringValue();
             };
 
             builder.and(
@@ -40,15 +40,15 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         }
 
         OrderSpecifier<?> order = switch (request.sortBy()) {
-            case name -> request.sortDirection() == SortDirection.ASCENDING
+            case NAME -> request.sortDirection() == SortDirection.ASCENDING
                     ? u.name.asc() : u.name.desc();
-            case email -> request.sortDirection() == SortDirection.ASCENDING
+            case EMAIL -> request.sortDirection() == SortDirection.ASCENDING
                     ? u.email.asc() : u.email.desc();
-            case createdAt -> request.sortDirection() == SortDirection.ASCENDING
+            case CREATEDAT -> request.sortDirection() == SortDirection.ASCENDING
                     ? u.createdAt.asc() : u.createdAt.desc();
-            case isLocked -> request.sortDirection() == SortDirection.ASCENDING
+            case ISLOCKED -> request.sortDirection() == SortDirection.ASCENDING
                     ? u.locked.asc() : u.locked.desc();
-            case role -> request.sortDirection() == SortDirection.ASCENDING
+            case ROLE -> request.sortDirection() == SortDirection.ASCENDING
                     ? u.role.asc() : u.role.desc();
         };
 

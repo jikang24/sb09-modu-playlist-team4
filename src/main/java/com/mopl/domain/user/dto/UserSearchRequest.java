@@ -1,6 +1,5 @@
 package com.mopl.domain.user.dto;
 
-import com.mopl.domain.user.domain.Role;
 import com.mopl.global.dto.SortDirection;
 import jakarta.validation.constraints.NotNull;
 
