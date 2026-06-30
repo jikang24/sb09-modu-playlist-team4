@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Component
@@ -28,6 +29,7 @@ public class AdminInitializer implements CommandLineRunner {
     private String adminPassword;
 
     @Override
+    @Transactional
     public void run(String... args) {
         if (userRepository.existsByRole(Role.ADMIN)) {
             log.info("관리자 계정이 이미 존재합니다. 초기화를 건너뜁니다.");
