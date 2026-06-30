@@ -1,6 +1,6 @@
 package com.mopl.domain.user.service;
 
-import com.mopl.domain.user.domain.Role;
+import com.mopl.global.dto.Role;
 import com.mopl.domain.user.domain.User;
 import com.mopl.domain.user.dto.*;
 import com.mopl.domain.user.event.UserLockedEvent;
