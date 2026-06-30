@@ -13,3 +13,8 @@ mopl:
     access-token: ${TMDB_ACCESS_TOKEN}
     base-url: https://api.themoviedb.org/3
     image-base-url: https://image.tmdb.org/t/p/w500
+
+admin:
+  name: admin
+  email: ${ADMIN_EMAIL:system@mopl.io}
+  password: ${ADMIN_PASSWORD:admin1!}

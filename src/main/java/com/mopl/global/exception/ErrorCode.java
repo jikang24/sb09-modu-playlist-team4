@@ -11,6 +11,7 @@ public enum ErrorCode {
     DUPLICATE_EMAIL("이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT),
     DUPLICATE_NAME("이미 사용 중인 이름입니다.", HttpStatus.CONFLICT),
     INVALID_PASSWORD("현재 비밀번호가 일치하지 않습니다.", HttpStatus.BAD_REQUEST),
+    FORBIDDEN("접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     //Content
     CONTENT_NOT_FOUND("콘텐츠를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

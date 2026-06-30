@@ -1,7 +1,5 @@
 package com.mopl.domain.user.dto;
 
-import com.mopl.domain.user.domain.Role;
-
 import java.time.Instant;
 import java.util.UUID;
 
