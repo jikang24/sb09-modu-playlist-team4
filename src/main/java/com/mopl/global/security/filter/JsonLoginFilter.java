@@ -26,7 +26,8 @@ public class JsonLoginFilter extends UsernamePasswordAuthenticationFilter {
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
             throws AuthenticationException {
-        if (!request.getContentType().contains("application/json")) {
+        String contentType = request.getContentType();
+        if (contentType == null || !contentType.contains("application/json")) {
             throw new AuthenticationServiceException("Content-Type must be application/json");
         }
         try {
