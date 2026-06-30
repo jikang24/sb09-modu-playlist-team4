@@ -9,3 +9,8 @@ mopl:
     secret: ${JWT_SECRET}
     access-token-expiry-ms: 1800000
     refresh-token-expiry-ms: 604800000
+
+admin:
+  name: admin
+  email: ${ADMIN_EMAIL:system@mopl.io}
+  password: ${ADMIN_PASSWORD:admin1!}
