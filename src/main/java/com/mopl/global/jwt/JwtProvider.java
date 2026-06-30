@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
@@ -91,5 +92,9 @@ public class JwtProvider {
                 .expiration(Date.from(now.plusMillis(expiryMs)))
                 .signWith(key)
                 .compact();
+    }
+
+    public Duration calculateTtl(String token) {
+        return Duration.between(Instant.now(), getExpiration(token));
     }
 }
