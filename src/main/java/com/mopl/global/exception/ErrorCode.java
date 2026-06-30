@@ -11,6 +11,7 @@ public enum ErrorCode {
     DUPLICATE_EMAIL("이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT),
     DUPLICATE_NAME("이미 사용 중인 이름입니다.", HttpStatus.CONFLICT),
     INVALID_PASSWORD("현재 비밀번호가 일치하지 않습니다.", HttpStatus.BAD_REQUEST),
+    FORBIDDEN("접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     //Content
     CONTENT_NOT_FOUND("콘텐츠를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -25,6 +26,7 @@ public enum ErrorCode {
     PLAYLIST_NOT_FOUND("플레이리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     PLAYLIST_NOT_OWNER("본인의 플레이리스트만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
 
+
     //Conversation 모듈
     PARTICIPANTS_NOT_FOUND("참여자를 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
     CANNOT_TALK_TO_SELF("자기 자신과 대화 할 수 없습니다.",HttpStatus.BAD_REQUEST),
@@ -32,8 +34,14 @@ public enum ErrorCode {
     FORBIDDEN_ACCESS("해당 디엠방에 접근 권한이 없습니다.",HttpStatus.FORBIDDEN),
 
 
+
+    // JWT 토큰
+
     TOKEN_EXPIRED("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
-    INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED);
+    INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
+
+    // 공통 응답
+    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus status;

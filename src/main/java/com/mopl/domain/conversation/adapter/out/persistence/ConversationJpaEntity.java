@@ -1,14 +1,10 @@
 package com.mopl.domain.conversation.adapter.out.persistence;
 
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -24,19 +20,20 @@ public class ConversationJpaEntity {
 
   @Id
   private  UUID id;
+  @Column(name = "participant1_id", nullable = false)
+  private UUID participant1Id;
 
-  @ElementCollection
-  @CollectionTable(name = "conversation_participants",
-  joinColumns = @JoinColumn(name="conversation_id"))
-  @Column(name="user_id")
-  private  List<UUID> participants;
+  @Column(name = "participant2_id", nullable = false)
+  private UUID participant2Id;
+
   private  LocalDateTime createdAt;
 
 
   @Builder
-  private ConversationJpaEntity(UUID id, List<UUID> participants, LocalDateTime createdAt) {
+  private ConversationJpaEntity(UUID id, UUID participant1Id, UUID participant2Id, LocalDateTime createdAt) {
     this.id = id;
-    this.participants = participants;
+    this.participant1Id = participant1Id;
+    this.participant2Id = participant2Id;
     this.createdAt = createdAt;
   }
 
