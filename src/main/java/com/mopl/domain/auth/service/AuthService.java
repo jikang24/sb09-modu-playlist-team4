@@ -75,7 +75,7 @@ public class AuthService implements AuthUseCase {
         String newAccessToken = jwtProvider.generateAccessToken(user.id(), user.email(), user.role().name());
         String newRefreshToken = jwtProvider.generateRefreshToken(user.id(), user.email(), user.role().name());
 
-        Duration refreshTtl = Duration.between(Instant.now(), jwtProvider.getExpiration(newRefreshToken));
+        Duration refreshTtl = jwtProvider.calculateTtl(newRefreshToken);
         authTokenService.saveRefreshToken(user.id(), newRefreshToken, refreshTtl);
 
         log.info("토큰 재발급 완료 - userId: {}", userId);

@@ -41,7 +41,7 @@ public class MoplLoginSuccessHandler implements AuthenticationSuccessHandler {
         String accessToken = jwtProvider.generateAccessToken(user.id(), user.email(), user.role().name());
         String refreshToken = jwtProvider.generateRefreshToken(user.id(), user.email(), user.role().name());
 
-        Duration refreshTtl = Duration.between(Instant.now(), jwtProvider.getExpiration(refreshToken));
+        Duration refreshTtl = jwtProvider.calculateTtl(refreshToken);
         authTokenService.saveRefreshToken(user.id(), refreshToken, refreshTtl);
 
         log.info("로그인 성공 - userId: {}", user.id());
