@@ -1,12 +1,17 @@
 package com.mopl.domain.user.controller;
 
-import com.mopl.domain.user.domain.Role;
+import com.mopl.global.dto.Role;
 import com.mopl.domain.user.dto.*;
 import com.mopl.domain.user.service.UserService;
 import com.mopl.global.dto.SortDirection;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
+import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.response.CursorPageResponse;
 import com.mopl.infra.s3.S3Service;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,9 +48,23 @@ public class UserController {
     }
 
     @Operation(summary = "프로필 변경", description = "본인의 프로필만 변경할 수 있습니다.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(
+                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    encoding = @Encoding(name = "request", contentType = MediaType.APPLICATION_JSON_VALUE)
+            )
+    )
     @PatchMapping(value = "/{userId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UserDto> updateProfile(@PathVariable UUID userId,  @RequestPart("request") @Valid UserUpdateRequest request,
-                                                 @RequestPart(value = "image", required = false) MultipartFile image) {
+    public ResponseEntity<UserDto> updateProfile(
+            @PathVariable UUID userId,
+            @RequestPart("request") @Valid UserUpdateRequest request,
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @AuthenticationPrincipal JwtClaims claims) {
+
+        if (!claims.getUserId().equals(userId)) {
+            throw new MoplException(ErrorCode.FORBIDDEN);
+        }
+
         String imageUrl = s3Service.upload(image);
         UserDto userDto = userService.updateProfile(userId, request, imageUrl);
         return ResponseEntity.status(HttpStatus.OK).body(userDto);
@@ -60,7 +80,13 @@ public class UserController {
 
     @Operation(summary = "비밀번호 변경", description = "본인의 비밀번호만 변경할 수 있습니다.")
     @PatchMapping("/{userId}/password")
-    public ResponseEntity<UserDto> updatePassword(@PathVariable UUID userId, @RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<UserDto> updatePassword(@PathVariable UUID userId, @RequestBody ChangePasswordRequest request,
+                                                  @AuthenticationPrincipal JwtClaims claims) {
+
+        if (!claims.getUserId().equals(userId)) {
+            throw new MoplException(ErrorCode.FORBIDDEN);
+        }
+
         UserDto userDto = userService.updatePassword(userId, request);
         return ResponseEntity.status(HttpStatus.OK).body(userDto);
     }
@@ -92,7 +118,5 @@ public class UserController {
         );
         return ResponseEntity.ok(userService.findAll(request));
     }
-
-
 
 }
