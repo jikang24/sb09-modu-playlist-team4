@@ -99,7 +99,6 @@ public class SecurityConfig {
                         .logoutUrl("/api/auth/sign-out")
                         .addLogoutHandler(logoutHandler)
                         .logoutSuccessHandler(logoutSuccessHandler)
-                        .invalidateHttpSession(false)
                         .clearAuthentication(true))
 
                 .addFilterBefore(jsonAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
