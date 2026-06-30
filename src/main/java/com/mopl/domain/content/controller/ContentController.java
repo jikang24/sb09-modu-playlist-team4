@@ -3,9 +3,11 @@ package com.mopl.domain.content.controller;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentCreateRequest;
 import com.mopl.domain.content.dto.ContentResponse;
+import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.service.ContentUseCase;
 import com.mopl.global.response.ApiResponse;
+import com.mopl.global.response.CursorPageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -91,13 +93,21 @@ public class ContentController {
   }
 
   @GetMapping
-  public ResponseEntity<ApiResponse<List<ContentResponse>>> getContents(
-      @RequestParam(required = false) ContentType type) {
+  public ResponseEntity<ApiResponse<CursorPageResponse<ContentResponse>>> getContents(
+      @RequestParam(required = false) ContentType typeEqual,
+      @RequestParam(required = false) String keywordLike,
+      @RequestParam(required = false) List<String> tagsIn,
+      @RequestParam(required = false) String cursor,
+      @RequestParam(required = false) UUID idAfter,
+      @RequestParam int limit,
+      @RequestParam(defaultValue = "createdAt") String sortBy,
+      @RequestParam(defaultValue = "DESCENDING") String sortDirection) {
 
-    List<ContentResponse> responses = (type != null)
-        ? contentUseCase.getContentsByType(type)
-        : contentUseCase.getContents();
+    ContentSearchRequest request = new ContentSearchRequest(
+        typeEqual, keywordLike, tagsIn,
+        cursor, idAfter, limit, sortBy, sortDirection
+    );
 
-    return ResponseEntity.ok(ApiResponse.ok(responses));
+    return ResponseEntity.ok(ApiResponse.ok(contentUseCase.getContents(request)));
   }
 }
