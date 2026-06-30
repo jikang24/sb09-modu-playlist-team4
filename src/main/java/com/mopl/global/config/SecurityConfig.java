@@ -2,6 +2,7 @@ package com.mopl.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
+import com.mopl.global.auth.UserAuthPort;
 import com.mopl.global.jwt.JwtAuthenticationFilter;
 import com.mopl.global.jwt.JwtProperties;
 import com.mopl.global.security.MoplAuthenticationProvider;
@@ -13,7 +14,6 @@ import com.mopl.global.security.handler.MoplLogoutHandler;
 import com.mopl.global.security.handler.MoplLogoutSuccessHandler;
 import com.mopl.global.security.handler.MoplAccessDeniedHandler;
 import com.mopl.global.security.handler.MoplAuthenticationEntryPoint;
-import com.mopl.global.security.userdetails.MoplUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -46,13 +46,13 @@ public class SecurityConfig {
     private final CsrfCookieFilter csrfCookieFilter;
     private final MoplAuthenticationEntryPoint authenticationEntryPoint;
     private final MoplAccessDeniedHandler accessDeniedHandler;
-    private final MoplUserDetailsService userDetailsService;
     private final PasswordResetTokenPort passwordResetTokenPort;
     private final ObjectMapper objectMapper;
     private final MoplLoginSuccessHandler loginSuccessHandler;
     private final MoplLoginFailureHandler loginFailureHandler;
     private final MoplLogoutHandler logoutHandler;
     private final MoplLogoutSuccessHandler logoutSuccessHandler;
+    private final UserAuthPort userAuthPort;
 
     @Value("${security.csrf.disabled:false}")
     private boolean csrfDisabled;
@@ -117,11 +117,7 @@ public class SecurityConfig {
 
     @Bean
     public MoplAuthenticationProvider authenticationProvider() {
-        MoplAuthenticationProvider provider = new MoplAuthenticationProvider(passwordResetTokenPort);
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        provider.setHideUserNotFoundExceptions(false);
-        return provider;
+        return new MoplAuthenticationProvider(userAuthPort, passwordResetTokenPort, passwordEncoder());
     }
 
     @Bean

@@ -2,53 +2,59 @@ package com.mopl.global.security;
 
 import com.mopl.domain.auth.domain.PasswordResetToken;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
+import com.mopl.global.auth.UserAuthInfo;
+import com.mopl.global.auth.UserAuthPort;
 import com.mopl.global.security.userdetails.MoplUserDetails;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 // 임시 비밀번호가 유효한 경우 임시 비밀번호로만 인증, 아닌 경우 실제 비밀번호로 인증
 @RequiredArgsConstructor
-public class MoplAuthenticationProvider extends DaoAuthenticationProvider {
+public class MoplAuthenticationProvider implements AuthenticationProvider {
 
+    private final UserAuthPort userAuthPort;
     private final PasswordResetTokenPort passwordResetTokenPort;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
-    protected void additionalAuthenticationChecks(UserDetails userDetails,
-                                                  UsernamePasswordAuthenticationToken authentication)
-            throws AuthenticationException {
-        if (authentication.getCredentials() == null) {
-            throw new BadCredentialsException("자격증명이 제공되지 않았습니다.");
-        }
+    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+        String email = authentication.getName();
+        String rawPassword = authentication.getCredentials().toString();
 
-        MoplUserDetails moplUser = (MoplUserDetails) userDetails;
+        UserAuthInfo user = userAuthPort.findByEmail(email)
+                .orElseThrow(() -> new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다."));
 
-        if (moplUser.getUserAuthInfo().locked()) {
+        if (user.locked()) {
             throw new LockedException("잠긴 계정입니다.");
         }
 
-        String rawPassword = authentication.getCredentials().toString();
-        PasswordEncoder encoder = getPasswordEncoder();
-
         PasswordResetToken activeToken = passwordResetTokenPort
-                .findActiveByUserId(moplUser.getUserAuthInfo().id())
+                .findActiveByUserId(user.id())
                 .filter(PasswordResetToken::isValid)
                 .orElse(null);
 
         if (activeToken != null) {
-            if (!encoder.matches(rawPassword, activeToken.getTemporaryPassword())) {
+            if (!passwordEncoder.matches(rawPassword, activeToken.getTemporaryPassword())) {
                 throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
             }
-            return;
+        } else {
+            if (!passwordEncoder.matches(rawPassword, user.password())) {
+                throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
+            }
         }
 
-        if (!encoder.matches(rawPassword, userDetails.getPassword())) {
-            throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
-        }
+        MoplUserDetails userDetails = new MoplUserDetails(user);
+        return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+    }
+
+    @Override
+    public boolean supports(Class<?> authentication) {
+        return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
     }
 }
