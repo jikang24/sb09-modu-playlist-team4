@@ -34,9 +34,7 @@ public class Conversation {
   public boolean hasParticipant(UUID participantId) {
     return participants.contains(participantId);
   }
-  public boolean isParticipant(UUID participantId) {
-    return participants.contains(participantId);
-  }
+
   public UUID getId() {
     return id;
   }
