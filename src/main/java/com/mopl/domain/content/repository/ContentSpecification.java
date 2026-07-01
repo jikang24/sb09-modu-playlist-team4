@@ -3,18 +3,15 @@ package com.mopl.domain.content.repository;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.infrastructure.ContentJpaEntity;
 import com.mopl.domain.content.infrastructure.ContentTagJpaEntity;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 콘텐츠 동적 쿼리 Specification
- */
 public class ContentSpecification {
 
   public static Specification<ContentJpaEntity> byCondition(ContentSearchRequest request) {
@@ -33,10 +30,22 @@ public class ContentSpecification {
       }
 
       if (request.tagsIn() != null && !request.tagsIn().isEmpty()) {
-        Join<ContentJpaEntity, ContentTagJpaEntity> tagJoin =
-            root.join("tags", JoinType.INNER);
-        predicates.add(tagJoin.get("tag").in(request.tagsIn()));
-        query.distinct(true); // 태그 join으로 중복 방지
+        Subquery<ContentTagJpaEntity> subquery =
+            query.subquery(ContentTagJpaEntity.class);
+        Root<ContentTagJpaEntity> tagRoot =
+            subquery.from(ContentTagJpaEntity.class);
+
+        subquery.select(tagRoot)
+            .where(
+                cb.and(
+                    // 현재 조회 중인 content와 연결
+                    cb.equal(tagRoot.get("content"), root),
+                    // 요청한 태그 목록 중 하나라도 포함
+                    tagRoot.get("tag").in(request.tagsIn())
+                )
+            );
+
+        predicates.add(cb.exists(subquery));
       }
 
       if (request.cursor() != null && request.idAfter() != null) {

@@ -5,6 +5,7 @@ import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.infrastructure.ContentJpaEntity;
 import com.mopl.domain.content.infrastructure.ContentMapper;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -48,6 +49,11 @@ public class ContentRepositoryImpl implements ContentRepository {
   public Optional<Content> findByTypeAndExternalId(ContentType type, String externalId) {
     return jpaRepository.findByTypeAndExternalId(type, externalId)
         .map(contentMapper::toDomain);
+  }
+
+  @Override
+  public Set<String> findExternalIdsByType(ContentType type) {
+    return jpaRepository.findExternalIdsByType(type);
   }
 
   @Override
