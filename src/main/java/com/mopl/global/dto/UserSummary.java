@@ -1,4 +1,4 @@
-package com.mopl.domain.user.dto;
+package com.mopl.global.dto;
 
 import java.util.UUID;
 

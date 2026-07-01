@@ -35,6 +35,11 @@ public enum ErrorCode {
     CONVERSATION_NOT_FOUND("디엠방을 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
     FORBIDDEN_ACCESS("해당 디엠방에 접근 권한이 없습니다.",HttpStatus.FORBIDDEN),
 
+    //DM 모듈
+
+
+
+
     // JWT 토큰
     TOKEN_EXPIRED("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
