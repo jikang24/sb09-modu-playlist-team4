@@ -31,7 +31,8 @@ public enum ErrorCode {
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
 
     // 공통 응답
-    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST);
+    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),
+    INTERNAL_SERVER_ERROR("잘못된 서버 응답입니다", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String message;
     private final HttpStatus status;

@@ -1,5 +1,7 @@
 package com.mopl.domain.batch.controller;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,8 +38,7 @@ public class BatchController {
       return ResponseEntity.ok(ApiResponse.ok("콘텐츠 수집 Job 실행 완료"));
     } catch (Exception e) {
       log.error("[Batch] contentSyncJob 실행 실패 - {}", e.getMessage());
-      return ResponseEntity.internalServerError()
-          .body(ApiResponse.ok("Job 실행 실패: " + e.getMessage()));
+      throw new MoplException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
   }
 }
