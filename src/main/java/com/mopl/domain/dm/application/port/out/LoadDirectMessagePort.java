@@ -12,6 +12,6 @@ public interface LoadDirectMessagePort {
   boolean hasUnRead(UUID conversationId, UUID myId);
   CursorPageResponse<DirectMessage> findList(
       UUID conversationId, DirectMessageSearchCondition condition
-  )
+  );
 
 }
