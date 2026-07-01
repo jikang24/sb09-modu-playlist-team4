@@ -1,6 +1,5 @@
 package com.mopl.global.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
 import com.mopl.global.auth.UserAuthPort;
 import com.mopl.global.jwt.JwtAuthenticationFilter;
@@ -25,6 +24,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,6 +32,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
@@ -47,7 +48,6 @@ public class SecurityConfig {
     private final MoplAuthenticationEntryPoint authenticationEntryPoint;
     private final MoplAccessDeniedHandler accessDeniedHandler;
     private final PasswordResetTokenPort passwordResetTokenPort;
-    private final ObjectMapper objectMapper;
     private final MoplLoginSuccessHandler loginSuccessHandler;
     private final MoplLoginFailureHandler loginFailureHandler;
     private final MoplLogoutHandler logoutHandler;
@@ -62,48 +62,50 @@ public class SecurityConfig {
                                            AuthenticationManager authenticationManager) throws Exception {
         PathPatternRequestMatcher.Builder path = PathPatternRequestMatcher.withDefaults();
 
-        // JSON 로그인 필터 설정
-        JsonLoginFilter jsonAuthenticationFilter = new JsonLoginFilter(
-                authenticationManager, objectMapper);
+        JsonLoginFilter jsonAuthenticationFilter = new JsonLoginFilter(authenticationManager);
         jsonAuthenticationFilter.setAuthenticationSuccessHandler(loginSuccessHandler);
         jsonAuthenticationFilter.setAuthenticationFailureHandler(loginFailureHandler);
 
-
         http
+                .formLogin(AbstractHttpConfigurer::disable)
+                .authenticationProvider(authenticationProvider())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
                 .csrf(csrf -> {
-                    if (csrfDisabled) {
-                        csrf.disable();
-                    } else {
-                        csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                                .ignoringRequestMatchers("/ws/**", "/api/auth/**")
-                                .ignoringRequestMatchers(path.matcher(HttpMethod.POST, "/api/users"));
-                    }
+                    CookieCsrfTokenRepository csrfRepo = new CookieCsrfTokenRepository();
+                    csrfRepo.setCookieName("XSRF-TOKEN");
+                    csrfRepo.setHeaderName("X-XSRF-TOKEN");
+                    csrfRepo.setCookieCustomizer(cookie -> cookie.secure(false).sameSite("Lax"));
+
+                    csrf.csrfTokenRepository(csrfRepo)
+                            .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                            .ignoringRequestMatchers("/ws/**")
+                            .ignoringRequestMatchers("/api/auth/sign-in")
+                            .ignoringRequestMatchers("/api/auth/sign-out")
+                            .ignoringRequestMatchers("/api/auth/refresh")
+                            .ignoringRequestMatchers("/api/auth/reset-password")
+                            .ignoringRequestMatchers(path.matcher(HttpMethod.POST, "/api/users"));
                 })
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/", "/index.html","/favicon.ico","/static/**", "/assets/**",
+                                "/*.js", "/*.css", "/*.png", "/*.svg").permitAll()
                         .requestMatchers("/api/auth/**", "/api/sse/**", "/ws/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
                                 "/swagger-resources/**", "/webjars/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
-
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/sign-out")
                         .addLogoutHandler(logoutHandler)
                         .logoutSuccessHandler(logoutSuccessHandler)
                         .clearAuthentication(true))
-
-                .addFilterBefore(jsonAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(csrfCookieFilter, BasicAuthenticationFilter.class);
+                .addFilterBefore(jsonAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(csrfCookieFilter, CsrfFilter.class);
 
         return http.build();
     }

@@ -8,11 +8,13 @@ import com.mopl.global.jwt.AuthTokenService;
 import com.mopl.global.jwt.JwtProvider;
 import com.mopl.global.response.ApiResponse;
 import com.mopl.global.security.userdetails.MoplUserDetails;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -44,6 +46,14 @@ public class MoplLoginSuccessHandler implements AuthenticationSuccessHandler {
         Duration refreshTtl = jwtProvider.calculateTtl(refreshToken);
         authTokenService.saveRefreshToken(user.id(), refreshToken, refreshTtl);
 
+        ResponseCookie refreshCookie = ResponseCookie.from("REFRESH_TOKEN", refreshToken)
+                .httpOnly(true)
+                .secure(false)
+                .path("/api/auth")
+                .maxAge(refreshTtl)
+                .sameSite("Lax")
+                .build();
+        response.addHeader("Set-Cookie", refreshCookie.toString());
         log.info("로그인 성공 - userId: {}", user.id());
 
         UserDto userDto = new UserDto(
@@ -54,6 +64,6 @@ public class MoplLoginSuccessHandler implements AuthenticationSuccessHandler {
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        objectMapper.writeValue(response.getWriter(), ApiResponse.ok(new JwtDto(userDto, accessToken)));
+        objectMapper.writeValue(response.getWriter(), new JwtDto(userDto, accessToken));
     }
 }

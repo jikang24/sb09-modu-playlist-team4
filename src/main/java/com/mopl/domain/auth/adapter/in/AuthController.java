@@ -31,9 +31,13 @@ public class AuthController {
 
     @Operation(summary = "토큰 재발급")
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<JwtDto>> refresh(@RequestHeader("Refresh-Token") String refreshToken) {
+    public ResponseEntity<?> refresh(
+            @CookieValue(value = "REFRESH_TOKEN", required = false) String refreshToken) {
+        if (refreshToken == null) {
+            return ResponseEntity.status(401).build();
+        }
         JwtDto result = authUseCase.refresh(refreshToken);
-        return ResponseEntity.ok(ApiResponse.ok(result));
+        return ResponseEntity.ok(result);
     }
 
     @Operation(summary = "CSRF 토큰 조회", description = "CSRF 토큰을 조회합니다. 토큰은 쿠키(XSRF-TOKEN)에 저장됩니다.")
