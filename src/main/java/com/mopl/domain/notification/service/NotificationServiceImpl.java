@@ -10,6 +10,8 @@ import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.response.CursorPageResponse;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,8 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public CursorPageResponse<NotificationDto> findMyNotifications(NotificationSearchRequest request) {
+    validateSearchRequest(request);
+
     UUID receiverId = currentUserId();
     List<Notification> notifications =
         notificationRepository.findUnreadByReceiverWithCursor(receiverId, request);
@@ -65,7 +69,7 @@ public class NotificationServiceImpl implements NotificationService {
         nextCursor,
         nextIdAfter,
         hasNext,
-        notificationRepository.countUnreadByReceiver(receiverId),
+        notificationRepository.countByReceiverIdAndIsReadFalse(receiverId),
         request.sortBy().name(),
         request.sortDirection().name()
     );
@@ -82,6 +86,26 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     notification.read();
+  }
+
+  private void validateSearchRequest(NotificationSearchRequest request) {
+    if (request.limit() < 1) {
+      throw new MoplException(ErrorCode.INVALID_NOTIFICATION_SEARCH_REQUEST);
+    }
+
+    boolean hasCursor = request.cursor() != null && !request.cursor().isBlank();
+    boolean hasIdAfter = request.idAfter() != null;
+    if (hasCursor != hasIdAfter) {
+      throw new MoplException(ErrorCode.INVALID_NOTIFICATION_CURSOR);
+    }
+
+    if (hasCursor) {
+      try {
+        Instant.parse(request.cursor());
+      } catch (DateTimeParseException e) {
+        throw new MoplException(ErrorCode.INVALID_NOTIFICATION_CURSOR);
+      }
+    }
   }
 
   private UUID currentUserId() {

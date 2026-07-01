@@ -35,8 +35,8 @@ public class GlobalExceptionHandler {
         log.warn("[ValidationException] {}", message);
 
         return ResponseEntity
-            .status(400)
-            .body(new ErrorResponse("INVALID_INPUT", message));
+            .status(ErrorCode.INVALID_INPUT.getStatus())
+            .body(new ErrorResponse(ErrorCode.INVALID_INPUT.name(), message));
     }
 
     /**
@@ -47,7 +47,9 @@ public class GlobalExceptionHandler {
         log.error("[UnhandledException] {}", e.getMessage(), e);
 
         return ResponseEntity
-            .status(500)
-            .body(new ErrorResponse("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다."));
+            .status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
+            .body(new ErrorResponse(
+                ErrorCode.INTERNAL_SERVER_ERROR.name(),
+                ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
     }
 }

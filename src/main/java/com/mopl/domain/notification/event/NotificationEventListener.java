@@ -2,24 +2,36 @@ package com.mopl.domain.notification.event;
 
 import com.mopl.domain.notification.domain.NotificationType;
 import com.mopl.domain.notification.service.NotificationService;
-import com.mopl.domain.user.event.UserRoleChangedEvent;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.event.NotificationRequestedEvent;
+import com.mopl.global.event.NotificationTopics;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.event.EventListener;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class NotificationEventListener {
 
   private final NotificationService notificationService;
 
-  @EventListener
-  public void handle(UserRoleChangedEvent event) {
-    notificationService.send(
-        event.userId(),
-        NotificationType.ROLE_CHANGED,
-        "권한이 변경되었습니다.",
-        "회원님의 권한이 " + event.newRole().name() + "(으)로 변경되었습니다."
-    );
+  @KafkaListener(
+      topics = NotificationTopics.NOTIFICATION_REQUESTED,
+      groupId = "notification-service"
+  )
+  public void handle(NotificationRequestedEvent event) {
+    try {
+      notificationService.send(
+          event.receiverId(),
+          NotificationType.valueOf(event.type()),
+          event.title(),
+          event.content()
+      );
+    } catch (IllegalArgumentException e) {
+      log.warn("[{}] Unknown notification type: type={}, receiverId={}",
+          ErrorCode.INVALID_NOTIFICATION_TYPE.name(), event.type(), event.receiverId());
+    }
   }
 }

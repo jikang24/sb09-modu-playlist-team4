@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -22,8 +23,12 @@ public class SseController {
   private final SseEmitterRegistry emitterRegistry;
 
   @GetMapping(value = "/api/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-  public SseEmitter connect(@RequestParam(required = false, name = "LastEventId") UUID lastEventId) {
-    return emitterRegistry.connect(currentUserId());
+  public SseEmitter connect(
+      @RequestHeader(value = "Last-Event-ID", required = false) UUID lastEventIdHeader,
+      @RequestParam(required = false, name = "LastEventId") UUID lastEventIdQuery
+  ) {
+    UUID lastEventId = lastEventIdQuery != null ? lastEventIdQuery : lastEventIdHeader;
+    return emitterRegistry.connect(currentUserId(), lastEventId);
   }
 
   private UUID currentUserId() {

@@ -3,15 +3,14 @@ package com.mopl.domain.user.service;
 import com.mopl.domain.user.dto.Role;
 import com.mopl.domain.user.domain.User;
 import com.mopl.domain.user.dto.*;
-import com.mopl.domain.user.event.UserLockedEvent;
-import com.mopl.domain.user.event.UserRoleChangedEvent;
 import com.mopl.domain.user.mapper.UserMapper;
 import com.mopl.domain.user.repository.UserRepository;
+import com.mopl.global.event.NotificationEventPublisher;
+import com.mopl.global.event.NotificationRequestedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +26,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
-    private final ApplicationEventPublisher eventPublisher;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     @Override
     @Transactional
@@ -82,7 +81,12 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
         user.updateRole(request.role());
-        eventPublisher.publishEvent(new UserRoleChangedEvent(user.getId(), request.role()));
+        notificationEventPublisher.publish(new NotificationRequestedEvent(
+                user.getId(),
+                "ROLE_CHANGED",
+                "권한이 변경되었습니다.",
+                "회원님의 권한이 " + request.role().name() + "(으)로 변경되었습니다."
+        ));
         return userMapper.toDto(user);
     }
 
@@ -105,9 +109,6 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
         user.updateLocked(request.locked());
-        if (request.locked()) {
-            eventPublisher.publishEvent(new UserLockedEvent(user.getId()));
-        }
         return userMapper.toDto(user);
     }
 

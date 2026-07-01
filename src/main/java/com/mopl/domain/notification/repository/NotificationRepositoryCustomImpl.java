@@ -36,31 +36,44 @@ public class NotificationRepositoryCustomImpl implements NotificationRepositoryC
       } else {
         builder.and(notification.createdAt.lt(cursorCreatedAt)
             .or(notification.createdAt.eq(cursorCreatedAt)
-                .and(notification.id.gt(request.idAfter()))));
+                .and(notification.id.lt(request.idAfter()))));
       }
     }
 
     OrderSpecifier<?> createdAtOrder = request.sortDirection() == SortDirection.ASCENDING
         ? notification.createdAt.asc()
         : notification.createdAt.desc();
+    OrderSpecifier<?> idOrder = request.sortDirection() == SortDirection.ASCENDING
+        ? notification.id.asc()
+        : notification.id.desc();
 
     return queryFactory.selectFrom(notification)
         .where(builder)
-        .orderBy(createdAtOrder, notification.id.asc())
+        .orderBy(createdAtOrder, idOrder)
         .limit(request.limit() + 1L)
         .fetch();
   }
 
   @Override
-  public long countUnreadByReceiver(UUID receiverId) {
+  public List<Notification> findByReceiverIdAfter(UUID receiverId, UUID lastNotificationId) {
     QNotification notification = QNotification.notification;
-    Long count = queryFactory
-        .select(notification.count())
-        .from(notification)
-        .where(unreadReceiverFilter(notification, receiverId))
+
+    Notification lastNotification = queryFactory.selectFrom(notification)
+        .where(notification.receiverId.eq(receiverId)
+            .and(notification.id.eq(lastNotificationId)))
         .fetchOne();
 
-    return count != null ? count : 0L;
+    if (lastNotification == null) {
+      return List.of();
+    }
+
+    return queryFactory.selectFrom(notification)
+        .where(notification.receiverId.eq(receiverId)
+            .and(notification.createdAt.gt(lastNotification.getCreatedAt())
+                .or(notification.createdAt.eq(lastNotification.getCreatedAt())
+                    .and(notification.id.gt(lastNotification.getId())))))
+        .orderBy(notification.createdAt.asc(), notification.id.asc())
+        .fetch();
   }
 
   private BooleanBuilder unreadReceiverFilter(QNotification notification, UUID receiverId) {

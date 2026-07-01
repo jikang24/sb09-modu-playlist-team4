@@ -7,6 +7,8 @@ import com.mopl.domain.notification.dto.NotificationSortBy;
 import com.mopl.domain.notification.service.NotificationService;
 import com.mopl.global.dto.SortDirection;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,14 @@ public class NotificationController {
   }
 
   @Operation(summary = "알림 읽음 처리")
+  @ApiResponses({
+      @ApiResponse(responseCode = "204", description = "성공"),
+      @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+      @ApiResponse(responseCode = "401", description = "인증 오류"),
+      @ApiResponse(responseCode = "403", description = "권한 오류"),
+      @ApiResponse(responseCode = "404", description = "해당 리소스 없음"),
+      @ApiResponse(responseCode = "500", description = "서버 오류")
+  })
   @DeleteMapping("/{notificationId}")
   public ResponseEntity<Void> read(@PathVariable UUID notificationId) {
     notificationService.read(notificationId);
