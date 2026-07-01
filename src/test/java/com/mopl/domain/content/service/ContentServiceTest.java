@@ -4,10 +4,12 @@ import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentCreateRequest;
 import com.mopl.domain.content.dto.ContentResponse;
+import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import com.mopl.global.response.CursorPageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,14 @@ class ContentServiceTest {
         type, externalId,
         "테스트 제목", "테스트 설명",
         List.of("액션", "SF")
+    );
+  }
+
+  private ContentSearchRequest makeSearchRequest(int limit) {
+    return new ContentSearchRequest(
+        null, null, null,
+        null, null, limit,
+        "createdAt", "DESCENDING"
     );
   }
 
@@ -188,13 +198,13 @@ class ContentServiceTest {
     @DisplayName("정상 조회 - ContentResponse 반환")
     void success() {
       UUID id = UUID.randomUUID();
-      Content content = makeContent(id, ContentType.DRAMA, "tmdb-002");
+      Content content = makeContent(id, ContentType.TV_SERIES, "tmdb-002");
       given(contentRepository.findById(id)).willReturn(Optional.of(content));
 
       ContentResponse response = contentService.getContent(id);
 
       assertThat(response.id()).isEqualTo(id);
-      assertThat(response.type()).isEqualTo(ContentType.DRAMA);
+      assertThat(response.type()).isEqualTo(ContentType.TV_SERIES);
     }
 
     @Test
@@ -215,35 +225,118 @@ class ContentServiceTest {
   class GetContents {
 
     @Test
-    @DisplayName("전체 목록 조회 - 저장된 콘텐츠 수만큼 반환")
-    void getAll() {
+    @DisplayName("다음 페이지 없음 - hasNext=false, nextCursor=null")
+    void noNextPage() {
+      // given: limit=3인데 데이터 2건만 있음 (limit+1보다 적게 조회됨)
+      ContentSearchRequest request = makeSearchRequest(3);
+
       List<Content> contents = List.of(
-          makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-001"),
-          makeContent(UUID.randomUUID(), ContentType.DRAMA, "tmdb-002"),
-          makeContent(UUID.randomUUID(), ContentType.SPORTS, "sports-001")
-      );
-      given(contentRepository.findAll()).willReturn(contents);
-
-      List<ContentResponse> responses = contentService.getContents();
-
-      assertThat(responses).hasSize(3);
-    }
-
-    @Test
-    @DisplayName("타입별 조회 - MOVIE 타입만 반환")
-    void getByType() {
-      List<Content> movies = List.of(
           makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-001"),
           makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-002")
       );
-      given(contentRepository.findAllByType(ContentType.MOVIE)).willReturn(movies);
 
-      List<ContentResponse> responses = contentService.getContentsByType(ContentType.MOVIE);
+      given(contentRepository.findAllByCondition(request)).willReturn(contents);
+      given(contentRepository.countByCondition(request)).willReturn(2L);
 
-      assertThat(responses).hasSize(2);
-      assertThat(responses).allSatisfy(r ->
-          assertThat(r.type()).isEqualTo(ContentType.MOVIE));
+      // when
+      CursorPageResponse<ContentResponse> response = contentService.getContents(request);
+
+      // then
+      assertThat(response.data()).hasSize(2);
+      assertThat(response.hasNext()).isFalse();
+      assertThat(response.nextCursor()).isNull();
+      assertThat(response.nextIdAfter()).isNull();
+      assertThat(response.totalCount()).isEqualTo(2L);
     }
+
+    @Test
+    @DisplayName("다음 페이지 있음 - hasNext=true, nextCursor 채워짐")
+    void hasNextPage() {
+      // given: limit=2인데 데이터 3건 조회됨 (limit+1) → 다음 페이지 있음
+      ContentSearchRequest request = makeSearchRequest(2);
+
+      Content first = makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-001");
+      Content second = makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-002");
+      Content third = makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-003");
+      List<Content> contents = List.of(first, second, third); // limit(2)+1=3건
+
+      given(contentRepository.findAllByCondition(request)).willReturn(contents);
+      given(contentRepository.countByCondition(request)).willReturn(10L);
+
+      // when
+      CursorPageResponse<ContentResponse> response = contentService.getContents(request);
+
+      // then
+      assertThat(response.data()).hasSize(2); // limit만큼만 반환
+      assertThat(response.hasNext()).isTrue();
+      assertThat(response.nextCursor()).isEqualTo(second.getCreatedAt().toString());
+      assertThat(response.nextIdAfter()).isEqualTo(second.getId());
+      assertThat(response.totalCount()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("빈 결과 - data 비어있고 hasNext=false")
+    void emptyResult() {
+      // given
+      ContentSearchRequest request = makeSearchRequest(20);
+      given(contentRepository.findAllByCondition(request)).willReturn(List.of());
+      given(contentRepository.countByCondition(request)).willReturn(0L);
+
+      // when
+      CursorPageResponse<ContentResponse> response = contentService.getContents(request);
+
+      // then
+      assertThat(response.data()).isEmpty();
+      assertThat(response.hasNext()).isFalse();
+      assertThat(response.totalCount()).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("타입 필터 적용 - typeEqual 조건으로 조회")
+    void filterByType() {
+      // given
+      ContentSearchRequest request = new ContentSearchRequest(
+          ContentType.SPORT, null, null,
+          null, null, 20,
+          "createdAt", "DESCENDING"
+      );
+
+      List<Content> sportsContents = List.of(
+          makeContent(UUID.randomUUID(), ContentType.SPORT, "sports-001")
+      );
+
+      given(contentRepository.findAllByCondition(request)).willReturn(sportsContents);
+      given(contentRepository.countByCondition(request)).willReturn(1L);
+
+      // when
+      CursorPageResponse<ContentResponse> response = contentService.getContents(request);
+
+      // then
+      assertThat(response.data()).hasSize(1);
+      assertThat(response.data().get(0).type()).isEqualTo(ContentType.SPORT);
+    }
+
+    @Test
+    @DisplayName("sortBy, sortDirection이 응답에 그대로 반영된다")
+    void sortInfoReflected() {
+      // given
+      ContentSearchRequest request = new ContentSearchRequest(
+          null, null, null,
+          null, null, 10,
+          "title", "ASCENDING"
+      );
+
+      given(contentRepository.findAllByCondition(request)).willReturn(List.of());
+      given(contentRepository.countByCondition(request)).willReturn(0L);
+
+      // when
+      CursorPageResponse<ContentResponse> response = contentService.getContents(request);
+
+      // then
+      assertThat(response.sortBy()).isEqualTo("title");
+      assertThat(response.sortDirection()).isEqualTo("ASCENDING");
+    }
+  }
 
     @Test
     @DisplayName("필수값 누락 시 예외 발생")
@@ -255,4 +348,3 @@ class ContentServiceTest {
               .isEqualTo(ErrorCode.INVALID_INPUT));
     }
   }
-}

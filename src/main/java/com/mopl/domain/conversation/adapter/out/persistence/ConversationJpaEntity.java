@@ -26,6 +26,7 @@ public class ConversationJpaEntity {
   @Column(name = "participant2_id", nullable = false)
   private UUID participant2Id;
 
+  @Column(name = "created_at", nullable = false)
   private  LocalDateTime createdAt;
 
 
