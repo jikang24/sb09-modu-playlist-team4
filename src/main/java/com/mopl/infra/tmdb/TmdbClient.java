@@ -1,5 +1,7 @@
 package com.mopl.infra.tmdb;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbMovieResult;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbPageResponse;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbTvResult;
@@ -56,6 +58,16 @@ public class TmdbClient {
             .build()
         )
         .retrieve()
+        // 4xx: 잘못된 API 키, 파라미터 오류 등
+        .onStatus(status -> status.is4xxClientError(), (req, res) -> {
+          log.error("[TMDB] 영화 API 클라이언트 오류 - status: {}", res.getStatusCode());
+          throw new MoplException(ErrorCode.TMDB_CLIENT_ERROR);
+        })
+        // 5xx: TMDB 서버 오류
+        .onStatus(status -> status.is5xxServerError(), (req, res) -> {
+          log.error("[TMDB] 영화 API 서버 오류 - status: {}", res.getStatusCode());
+          throw new MoplException(ErrorCode.TMDB_SERVER_ERROR);
+        })
         .body(new ParameterizedTypeReference<>() {});
 
     return response != null ? response.results() : List.of();
@@ -75,6 +87,14 @@ public class TmdbClient {
             .build()
         )
         .retrieve()
+        .onStatus(status -> status.is4xxClientError(), (req, res) -> {
+          log.error("[TMDB] TV시리즈 API 클라이언트 오류 - status: {}", res.getStatusCode());
+          throw new MoplException(ErrorCode.TMDB_CLIENT_ERROR);
+        })
+        .onStatus(status -> status.is5xxServerError(), (req, res) -> {
+          log.error("[TMDB] TV시리즈 API 서버 오류 - status: {}", res.getStatusCode());
+          throw new MoplException(ErrorCode.TMDB_SERVER_ERROR);
+        })
         .body(new ParameterizedTypeReference<>() {});
 
     return response != null ? response.results() : List.of();

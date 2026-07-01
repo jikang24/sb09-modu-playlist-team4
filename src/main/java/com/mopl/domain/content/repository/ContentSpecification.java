@@ -3,9 +3,12 @@ package com.mopl.domain.content.repository;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.infrastructure.ContentJpaEntity;
 import com.mopl.domain.content.infrastructure.ContentTagJpaEntity;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
+import java.time.format.DateTimeParseException;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
@@ -49,7 +52,13 @@ public class ContentSpecification {
       }
 
       if (request.cursor() != null && request.idAfter() != null) {
-        Instant cursorTime = Instant.parse(request.cursor());
+        // 커서 포맷 검증 - 잘못된 형식이면 400 반환
+        Instant cursorTime;
+        try {
+          cursorTime = Instant.parse(request.cursor());
+        } catch (DateTimeParseException e) {
+          throw new MoplException(ErrorCode.INVALID_CURSOR_FORMAT);
+        }
 
         boolean isAscending = "ASCENDING".equalsIgnoreCase(request.sortDirection());
 
