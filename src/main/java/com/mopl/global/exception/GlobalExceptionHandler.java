@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
             .map(FieldError::getDefaultMessage)
             .orElse("잘못된 입력값입니다.");
 
-        log.warn("[ValidationException] {}", message);
+        log.warn("[유효성 검사 실패] {}", message);
 
         return ResponseEntity
             .status(400)
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception e) {
-        log.error("[UnhandledException] {}", e.getMessage(), e);
+        log.error("[예상치 못한 오류] {}", e.getMessage(), e);
 
         return ResponseEntity
             .status(500)
