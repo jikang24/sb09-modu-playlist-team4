@@ -42,40 +42,56 @@ public class ContentSyncJobConfig {
 
   @Bean
   public Step movieSyncStep() {
-    return new StepBuilder("movieSyncStep", jobRepository)
-        .tasklet((contribution, chunkContext) -> {
-          int totalSaved = 0;
-          for (int page = 1; page <= SYNC_PAGE_COUNT; page++) {
-            totalSaved += contentSyncService.syncMovies(page);
-          }
-          log.info("[Batch] 영화 Step 완료 - 총 저장: {}건", totalSaved);
-          return RepeatStatus.FINISHED;
-        }, transactionManager)
-        .build();
+    return createPagedSyncStep("movieSyncStep", "영화", page ->
+        contentSyncService.syncMovies(page));
   }
 
   @Bean
   public Step tvSeriesSyncStep() {
-    return new StepBuilder("tvSeriesSyncStep", jobRepository)
+    return createPagedSyncStep("tvSeriesSyncStep", "TV시리즈", page ->
+        contentSyncService.syncTvSeries(page));
+  }
+
+  //SportsDB는 별도 외부 API라 개별로 작업
+  @Bean
+  public Step sportsSyncStep() {
+    return new StepBuilder("sportsSyncStep", jobRepository)
         .tasklet((contribution, chunkContext) -> {
-          int totalSaved = 0;
-          for (int page = 1; page <= SYNC_PAGE_COUNT; page++) {
-            totalSaved += contentSyncService.syncTvSeries(page);
-          }
-          log.info("[Batch] TV시리즈 Step 완료 - 총 저장: {}건", totalSaved);
+          log.info("[Batch] 스포츠 수집 시작");
+          int saved = contentSyncService.syncSportsEvents();
+          log.info("[Batch] 스포츠 수집 완료 - 총 저장: {}건", saved);
           return RepeatStatus.FINISHED;
         }, transactionManager)
         .build();
   }
 
-  @Bean
-  public Step sportsSyncStep() {
-    return new StepBuilder("sportsSyncStep", jobRepository)
+  /**
+   * @param stepName  Step 이름 (Batch 메타 테이블에 저장됨)
+   * @param typeName  로그용 콘텐츠 타입 이름
+   * @param syncTask  페이지 번호를 받아 수집 후 저장 건수를 반환하는 함수
+   */
+  private Step createPagedSyncStep(String stepName, String typeName,
+      PageSyncTask syncTask) {
+    return new StepBuilder(stepName, jobRepository)
         .tasklet((contribution, chunkContext) -> {
-          int totalSaved = contentSyncService.syncSportsEvents();
-          log.info("[Batch] 스포츠 Step 완료 - 총 저장: {}건", totalSaved);
+          log.info("[Batch] {} 수집 시작 - {}페이지", typeName, SYNC_PAGE_COUNT);
+          int totalSaved = 0;
+
+          for (int page = 1; page <= SYNC_PAGE_COUNT; page++) {
+            int saved = syncTask.sync(page);
+            totalSaved += saved;
+            log.info("[Batch] {} {}페이지 완료 - 저장: {}건",
+                typeName, page, saved);
+          }
+
+          log.info("[Batch] {} 수집 완료 - 총 저장: {}건", typeName, totalSaved);
           return RepeatStatus.FINISHED;
         }, transactionManager)
         .build();
+  }
+
+  @FunctionalInterface
+  private interface PageSyncTask {
+    int sync(int page);
   }
 }
