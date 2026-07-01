@@ -44,7 +44,16 @@ public enum ErrorCode {
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
 
     // 공통 응답
-    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST);
+    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),
+    INTERNAL_SERVER_ERROR("서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_CURSOR_FORMAT("잘못된 커서 형식입니다.", HttpStatus.BAD_REQUEST),
+
+    // 외부 API
+    TMDB_CLIENT_ERROR("TMDB API 요청 오류입니다.", HttpStatus.BAD_REQUEST),
+    TMDB_SERVER_ERROR("TMDB API 서버 오류입니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // Batch
+    BATCH_EXECUTION_FAILED("배치 작업 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String message;
     private final HttpStatus status;
