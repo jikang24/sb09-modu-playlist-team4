@@ -2,9 +2,14 @@ package com.mopl.domain.content.repository;
 
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
+import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.infrastructure.ContentJpaEntity;
 import com.mopl.domain.content.infrastructure.ContentMapper;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -47,13 +52,34 @@ public class ContentRepositoryImpl implements ContentRepository {
   }
 
   @Override
-  public List<Content> findAll() {
-    return contentMapper.toDomainList(jpaRepository.findAll());
+  public Set<String> findExternalIdsByType(ContentType type) {
+    return jpaRepository.findExternalIdsByType(type);
   }
 
   @Override
-  public List<Content> findAllByType(ContentType type) {
-    return contentMapper.toDomainList(jpaRepository.findAllByType(type));
+  public List<Content> findAllByCondition(ContentSearchRequest request) {
+    // 정렬 방향 결정
+    Sort.Direction direction = "ASCENDING".equalsIgnoreCase(request.sortDirection())
+        ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+    // sortBy 필드 (createdAt 기본값)
+    String sortBy = request.sortBy() != null ? request.sortBy() : "createdAt";
+
+    // limit+1개 조회 → hasNext 판단용
+    PageRequest pageRequest = PageRequest.of(0, request.limit() + 1,
+        Sort.by(direction, sortBy).and(Sort.by(direction, "id")));
+
+    Specification<ContentJpaEntity> spec = ContentSpecification.byCondition(request);
+
+    return jpaRepository.findAll(spec, pageRequest)
+        .stream()
+        .map(contentMapper::toDomain)
+        .toList();
+  }
+
+  @Override
+  public long countByCondition(ContentSearchRequest request) {
+    return jpaRepository.count(ContentSpecification.byCondition(request));
   }
 
   @Override

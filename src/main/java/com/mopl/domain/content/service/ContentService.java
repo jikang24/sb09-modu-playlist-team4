@@ -4,11 +4,13 @@ import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentCreateRequest;
 import com.mopl.domain.content.dto.ContentResponse;
+import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import com.mopl.global.response.CursorPageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -95,32 +97,43 @@ public class ContentService implements ContentUseCase {
     log.info("[Content] 삭제 완료 - id: {}", id);
   }
 
-  // ──────────────────────────────────────────────
-  // 조회
-  // ──────────────────────────────────────────────
-
   @Override
   public ContentResponse getContent(UUID id) {
     return ContentResponse.from(findContentOrThrow(id));
   }
 
   @Override
-  public List<ContentResponse> getContents() {
-    return contentRepository.findAll().stream()
+  public CursorPageResponse<ContentResponse> getContents(ContentSearchRequest request) {
+    // limit+1개 조회
+    List<Content> contents = contentRepository.findAllByCondition(request);
+    long totalCount = contentRepository.countByCondition(request);
+
+    // hasNext 판단: limit+1개가 조회됐으면 다음 페이지 있음
+    boolean hasNext = contents.size() > request.limit();
+
+    // 실제 반환할 데이터는 limit개만
+    List<Content> pageData = hasNext
+        ? contents.subList(0, request.limit())
+        : contents;
+
+    // 다음 커서: 마지막 항목의 createdAt + id
+    String nextCursor = null;
+    UUID nextIdAfter = null;
+    if (hasNext && !pageData.isEmpty()) {
+      Content last = pageData.get(pageData.size() - 1);
+      nextCursor = last.getCreatedAt().toString(); // ISO 8601 문자열
+      nextIdAfter = last.getId();
+    }
+    List<ContentResponse> data = pageData.stream()
         .map(ContentResponse::from)
         .toList();
-  }
 
-  @Override
-  public List<ContentResponse> getContentsByType(ContentType type) {
-    return contentRepository.findAllByType(type).stream()
-        .map(ContentResponse::from)
-        .toList();
+    return new CursorPageResponse<>(
+        data, nextCursor, nextIdAfter,
+        hasNext, totalCount,
+        request.sortBy(), request.sortDirection()
+    );
   }
-
-  // ──────────────────────────────────────────────
-  // 이벤트 수신
-  // ──────────────────────────────────────────────
 
   @EventListener
   @Transactional
@@ -130,10 +143,6 @@ public class ContentService implements ContentUseCase {
     contentRepository.save(content);
     log.info("[Content] 평점 갱신 - id: {}", event.contentId());
   }
-
-  // ──────────────────────────────────────────────
-  // 내부 헬퍼
-  // ──────────────────────────────────────────────
 
   private Content findContentOrThrow(UUID id) {
     return contentRepository.findById(id)
