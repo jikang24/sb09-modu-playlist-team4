@@ -59,16 +59,15 @@ CREATE TABLE password_reset_tokens (
 CREATE TABLE contents (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     type            VARCHAR(10)     NOT NULL
-                                    CHECK (type IN ('MOVIE', 'DRAMA', 'SPORTS')),
+                                    CHECK (type IN ('MOVIE', 'TV_SERIES', 'SPORT')),
     external_id     VARCHAR(100)    NOT NULL,               -- TMDB ID 또는 SportsDB ID
     title           VARCHAR(200)    NOT NULL,
     description     TEXT,
     thumbnail_url   VARCHAR(500),
     average_rating  DECIMAL(3, 2)   NOT NULL DEFAULT 0.0,  -- reviews 집계 캐시값
     review_count    INT             NOT NULL DEFAULT 0,     -- reviews 집계 캐시값
-    created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
-
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     UNIQUE (type, external_id)                             -- 중복 수집 방지
 );
 

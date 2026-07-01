@@ -1,7 +1,6 @@
 package com.mopl.global.jwt;
 
 import com.mopl.global.exception.MoplException;
-import com.mopl.global.security.token.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,14 +24,13 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
-    private final TokenBlacklistService blacklistService;
+    private final AuthTokenService authTokenService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String token = extractToken(request);
-
         if (token == null) {
             filterChain.doFilter(request, response);
             return;
@@ -41,8 +39,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             JwtClaims claims = jwtProvider.parse(token);
 
-            if (blacklistService.isRevoked(claims.getTokenId())) {
-                log.debug("Revoked token: jti={}", claims.getTokenId());
+            if (authTokenService.isBlacklistedJti(claims.getTokenId())) {
+                log.debug("블랙리스트 처리된 토큰 - jti: {}", claims.getTokenId());
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -50,14 +48,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(
                             claims, null,
-                            List.of(new SimpleGrantedAuthority(claims.getRole()))
+                            List.of(new SimpleGrantedAuthority("ROLE_" + claims.getRole()))
                     );
             SecurityContextHolder.getContext().setAuthentication(auth);
 
         } catch (MoplException e) {
             log.debug("JWT 검증 실패: {}", e.getMessage());
         }
-
         filterChain.doFilter(request, response);
     }
 
