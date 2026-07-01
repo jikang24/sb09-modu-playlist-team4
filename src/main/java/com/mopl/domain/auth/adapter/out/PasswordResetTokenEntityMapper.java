@@ -7,9 +7,6 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 interface PasswordResetTokenEntityMapper {
 
-    @Mapping(source = "tokenHash", target = "temporaryPassword")
     PasswordResetToken toDomain(PasswordResetTokenJpaEntity entity);
-
-    @Mapping(source = "temporaryPassword", target = "tokenHash")
     PasswordResetTokenJpaEntity toJpaEntity(PasswordResetToken domain);
 }

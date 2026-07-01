@@ -21,7 +21,7 @@ class PasswordResetTokenJpaEntity {
     private UUID userId;
 
     @Column(nullable = false)
-    private String tokenHash;
+    private String temporaryPassword;
 
     @Column(nullable = false)
     private Instant expiresAt;
