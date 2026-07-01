@@ -15,12 +15,14 @@ import com.mopl.global.jwt.AuthTokenService;
 import com.mopl.global.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.passay.CharacterData;
 import org.passay.CharacterRule;
 import org.passay.EnglishCharacterData;
 import org.passay.PasswordGenerator;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -40,6 +42,7 @@ public class AuthService implements AuthUseCase {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
 
+    @Transactional
     @Override
     public void resetPassword(ResetPasswordRequest request) {
         UserAuthInfo user = userAuthPort.findByEmail(request.email())
@@ -88,7 +91,12 @@ public class AuthService implements AuthUseCase {
                 new CharacterRule(EnglishCharacterData.UpperCase, 2),
                 new CharacterRule(EnglishCharacterData.LowerCase, 2),
                 new CharacterRule(EnglishCharacterData.Digit, 2),
-                new CharacterRule(EnglishCharacterData.Special, 2));
+                new CharacterRule(new CharacterData() {
+                    @Override
+                    public String getErrorCode() { return "INSUFFICIENT_SPECIAL"; }
+                    @Override
+                    public String getCharacters() { return "!@#$%&"; }
+                }, 2));
     }
 
     private UserDto toUserDto(UserAuthInfo user) {
