@@ -32,7 +32,8 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
 
   @Override
   public boolean hasUnread(UUID conversationId, UUID myId) {
-    loadDirectMessagePort.hasUnRead(conversationId, myId);
+
+   return loadDirectMessagePort.hasUnRead(conversationId, myId);
   }
 
   @Override
