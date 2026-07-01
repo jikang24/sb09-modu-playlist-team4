@@ -3,4 +3,4 @@
  *
  * <p>패키지 경로: com.mopl.domain.chat.handler</p>
  */
-package com.mopl.domain.chat.handler;
+package com.mopl.domain.dm.handler;
