@@ -11,6 +11,7 @@ public enum ErrorCode {
     DUPLICATE_EMAIL("이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT),
     DUPLICATE_NAME("이미 사용 중인 이름입니다.", HttpStatus.CONFLICT),
     INVALID_PASSWORD("현재 비밀번호가 일치하지 않습니다.", HttpStatus.BAD_REQUEST),
+    FORBIDDEN("접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     //Content
     CONTENT_NOT_FOUND("콘텐츠를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -29,9 +30,12 @@ public enum ErrorCode {
     NOTIFICATION_NOT_FOUND("알림을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTIFICATION_ACCESS_DENIED("본인의 알림만 읽음 처리할 수 있습니다.", HttpStatus.FORBIDDEN),
 
-
+    // JWT 토큰
     TOKEN_EXPIRED("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
-    INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED);
+    INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
+
+    // 공통 응답
+    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus status;
