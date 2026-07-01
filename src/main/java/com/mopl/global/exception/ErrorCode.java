@@ -28,17 +28,36 @@ public enum ErrorCode {
     PLAYLIST_NOT_OWNER("본인의 플레이리스트만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
 
 
+    //Conversation 모듈
+    PARTICIPANTS_NOT_FOUND("참여자를 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
+    CANNOT_TALK_TO_SELF("자기 자신과 대화 할 수 없습니다.",HttpStatus.BAD_REQUEST),
+    CONVERSATION_NOT_FOUND("디엠방을 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
+    FORBIDDEN_ACCESS("해당 디엠방에 접근 권한이 없습니다.",HttpStatus.FORBIDDEN),
+
+
+
+
     INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED),
     USER_LOCKED("잠긴 계정입니다.", HttpStatus.FORBIDDEN),
 
     // JWT 토큰
+
     TOKEN_EXPIRED("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_REVOKED("이미 무효화된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
 
     // 공통 응답
-    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST);
+    INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),
+    INTERNAL_SERVER_ERROR("서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_CURSOR_FORMAT("잘못된 커서 형식입니다.", HttpStatus.BAD_REQUEST),
+
+    // 외부 API
+    TMDB_CLIENT_ERROR("TMDB API 요청 오류입니다.", HttpStatus.BAD_REQUEST),
+    TMDB_SERVER_ERROR("TMDB API 서버 오류입니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // Batch
+    BATCH_EXECUTION_FAILED("배치 작업 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String message;
     private final HttpStatus status;

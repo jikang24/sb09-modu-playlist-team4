@@ -17,6 +17,10 @@ mopl:
     secret: ${JWT_SECRET}
     access-token-expiry-ms: 1800000
     refresh-token-expiry-ms: 604800000
+  tmdb:
+    access-token: ${TMDB_ACCESS_TOKEN}
+    base-url: https://api.themoviedb.org/3
+    image-base-url: https://image.tmdb.org/t/p/w500
 
 admin:
   name: admin
