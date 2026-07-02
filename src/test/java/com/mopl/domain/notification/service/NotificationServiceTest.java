@@ -10,12 +10,10 @@ import com.mopl.domain.notification.sse.SseNotificationSender;
 import com.mopl.global.dto.SortDirection;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
-import com.mopl.global.jwt.JwtClaims;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,8 +21,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import com.mopl.domain.notification.support.CurrentUserProvider;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("NotificationService 테스트")
@@ -48,28 +45,23 @@ class NotificationServiceTest {
   private UUID userId;
   private UUID otherUserId;
 
+  @Mock
+  private CurrentUserProvider currentUserProvider;
+
   @BeforeEach
   void setUp() {
-    notificationService = new NotificationServiceImpl(notificationRepository, sseNotificationSender);
+    notificationService = new NotificationServiceImpl(
+        notificationRepository,
+        sseNotificationSender,
+        currentUserProvider
+    );
     userId = UUID.randomUUID();
     otherUserId = UUID.randomUUID();
   }
 
-  @AfterEach
-  void tearDown() {
-    SecurityContextHolder.clearContext();
-  }
-
   private void authenticate(UUID authenticatedUserId) {
-    JwtClaims claims = JwtClaims.builder()
-        .userId(authenticatedUserId)
-        .email("user@mopl.io")
-        .role("USER")
-        .tokenId("token-id")
-        .build();
-    SecurityContextHolder.getContext().setAuthentication(
-        new UsernamePasswordAuthenticationToken(claims, null, List.of())
-    );
+    given(currentUserProvider.getCurrentUserId())
+        .willReturn(authenticatedUserId);
   }
 
   private Notification notification(UUID id, UUID receiverId, Instant createdAt) {
@@ -157,7 +149,6 @@ class NotificationServiceTest {
     @Test
     @DisplayName("실패: limit이 1 미만이면 INVALID_NOTIFICATION_SEARCH_REQUEST")
     void findMyNotifications_invalidLimit() {
-      authenticate(userId);
       NotificationSearchRequest request = baseRequest(0);
 
       assertThatThrownBy(() -> notificationService.findMyNotifications(request))
@@ -169,7 +160,6 @@ class NotificationServiceTest {
     @Test
     @DisplayName("실패: cursor만 있으면 INVALID_NOTIFICATION_CURSOR")
     void findMyNotifications_cursorWithoutIdAfter() {
-      authenticate(userId);
       NotificationSearchRequest request = new NotificationSearchRequest(
           "2026-01-01T00:00:00Z", null, 10, SortDirection.ASCENDING, NotificationSortBy.createdAt
       );
@@ -183,7 +173,6 @@ class NotificationServiceTest {
     @Test
     @DisplayName("실패: idAfter만 있으면 INVALID_NOTIFICATION_CURSOR")
     void findMyNotifications_idAfterWithoutCursor() {
-      authenticate(userId);
       NotificationSearchRequest request = new NotificationSearchRequest(
           null, UUID.randomUUID(), 10, SortDirection.ASCENDING, NotificationSortBy.createdAt
       );
@@ -197,7 +186,6 @@ class NotificationServiceTest {
     @Test
     @DisplayName("실패: 잘못된 cursor 형식이면 INVALID_NOTIFICATION_CURSOR")
     void findMyNotifications_invalidCursorFormat() {
-      authenticate(userId);
       NotificationSearchRequest request = new NotificationSearchRequest(
           "invalid-cursor", UUID.randomUUID(), 10, SortDirection.ASCENDING, NotificationSortBy.createdAt
       );
@@ -212,6 +200,9 @@ class NotificationServiceTest {
     @DisplayName("실패: 인증 정보가 없으면 INVALID_TOKEN")
     void findMyNotifications_noAuthentication() {
       NotificationSearchRequest request = baseRequest(10);
+
+      given(currentUserProvider.getCurrentUserId())
+          .willThrow(new MoplException(ErrorCode.INVALID_TOKEN));
 
       assertThatThrownBy(() -> notificationService.findMyNotifications(request))
           .isInstanceOf(MoplException.class)
@@ -240,7 +231,6 @@ class NotificationServiceTest {
     @Test
     @DisplayName("실패: 알림이 없으면 NOTIFICATION_NOT_FOUND")
     void read_notFound() {
-      authenticate(userId);
       UUID notificationId = UUID.randomUUID();
       given(notificationRepository.findById(notificationId)).willReturn(Optional.empty());
 
@@ -271,7 +261,12 @@ class NotificationServiceTest {
     void read_noAuthentication() {
       UUID notificationId = UUID.randomUUID();
       Notification notification = notification(notificationId, userId, Instant.now());
-      given(notificationRepository.findById(notificationId)).willReturn(Optional.of(notification));
+
+      given(notificationRepository.findById(notificationId))
+          .willReturn(Optional.of(notification));
+
+      given(currentUserProvider.getCurrentUserId())
+          .willThrow(new MoplException(ErrorCode.INVALID_TOKEN));
 
       assertThatThrownBy(() -> notificationService.read(notificationId))
           .isInstanceOf(MoplException.class)
