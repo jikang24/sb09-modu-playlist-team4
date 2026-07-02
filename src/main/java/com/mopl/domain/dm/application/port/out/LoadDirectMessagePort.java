@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public interface LoadDirectMessagePort {
   Optional<DirectMessage> findById(UUID directMessageId);
-  Optional<DirectMessage> findByConversationId(UUID conversationId);
+  Optional<DirectMessage> findLatestByConversationId(UUID conversationId);
   boolean hasUnRead(UUID conversationId, UUID myId);
   CursorPageResponse<DirectMessage> findList(
       UUID conversationId, DirectMessageSearchCondition condition
