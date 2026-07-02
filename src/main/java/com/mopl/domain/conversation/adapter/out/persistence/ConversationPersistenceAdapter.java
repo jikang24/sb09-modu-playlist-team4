@@ -35,7 +35,7 @@ public class ConversationPersistenceAdapter implements SaveConversationPort, Loa
             (c.participant1Id.eq(myId).and(c.participant2Id.eq(withUserId)))
                 .or(c.participant1Id.eq(withUserId).and(c.participant2Id.eq(myId)))
         )
-        .fetchOne();
+        .fetchFirst();
     return Optional.ofNullable(mapper.toDomain(result));
   }
 
