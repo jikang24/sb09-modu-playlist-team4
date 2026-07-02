@@ -38,6 +38,7 @@ public enum ErrorCode {
     FORBIDDEN_ACCESS("해당 디엠방에 접근 권한이 없습니다.",HttpStatus.FORBIDDEN),
 
     //DM 모듈
+    DIRECT_MESSAGE_NOT_FOUND("해당 디엠을 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
 
 
 
