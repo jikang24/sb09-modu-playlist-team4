@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 public record UserSearchRequest(
+        String nameLike,
         String emailLike,
         Role roleEqual,
         Boolean isLocked,
