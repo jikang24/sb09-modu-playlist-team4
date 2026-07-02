@@ -8,17 +8,15 @@ import com.mopl.domain.notification.repository.NotificationRepository;
 import com.mopl.domain.notification.sse.SseNotificationSender;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
-import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.response.CursorPageResponse;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.mopl.domain.notification.support.CurrentUserProvider;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +25,7 @@ public class NotificationServiceImpl implements NotificationService {
 
   private final NotificationRepository notificationRepository;
   private final SseNotificationSender sseNotificationSender;
+  private final CurrentUserProvider currentUserProvider;
 
   @Override
   @Transactional
@@ -47,7 +46,7 @@ public class NotificationServiceImpl implements NotificationService {
   public CursorPageResponse<NotificationDto> findMyNotifications(NotificationSearchRequest request) {
     validateSearchRequest(request);
 
-    UUID receiverId = currentUserId();
+    UUID receiverId = currentUserProvider.getCurrentUserId();
     List<Notification> notifications =
         notificationRepository.findUnreadByReceiverWithCursor(receiverId, request);
 
@@ -81,7 +80,7 @@ public class NotificationServiceImpl implements NotificationService {
     Notification notification = notificationRepository.findById(notificationId)
         .orElseThrow(() -> new MoplException(ErrorCode.NOTIFICATION_NOT_FOUND));
 
-    if (!notification.getReceiverId().equals(currentUserId())) {
+    if (!notification.getReceiverId().equals(currentUserProvider.getCurrentUserId())) {
       throw new MoplException(ErrorCode.NOTIFICATION_ACCESS_DENIED);
     }
 
@@ -106,14 +105,5 @@ public class NotificationServiceImpl implements NotificationService {
         throw new MoplException(ErrorCode.INVALID_NOTIFICATION_CURSOR);
       }
     }
-  }
-
-  private UUID currentUserId() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !(authentication.getPrincipal() instanceof JwtClaims claims)) {
-      throw new MoplException(ErrorCode.INVALID_TOKEN);
-    }
-
-    return claims.getUserId();
   }
 }
