@@ -30,11 +30,15 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -57,6 +61,24 @@ public class SecurityConfig {
     @Value("${security.csrf.disabled:false}")
     private boolean csrfDisabled;
 
+    // 공통 정적 리소스 경로
+    private static final String[] PUBLIC_RESOURCES = {
+            "/", "/index.html", "/favicon.ico", "/static/**", "/assets/**",
+            "/*.js", "/*.css", "/*.png", "/*.svg", "/uploads/**" };
+
+    // 공통 오픈 API 경로
+    private static final String[] PUBLIC_APIS = {
+            "/api/auth/**", "/ws/**"};
+
+    // Swagger 문서 경로
+    private static final String[] SWAGGER_URLS = {
+            "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
+            "/swagger-resources/**", "/webjars/**"};
+
+    // CSRF 검증에서 완전히 제외할 경로들
+    private static final String[] CSRF_IGNORING_URLS = {
+            "/ws/**", "/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**"};
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            AuthenticationManager authenticationManager) throws Exception {
@@ -66,44 +88,51 @@ public class SecurityConfig {
         jsonAuthenticationFilter.setAuthenticationSuccessHandler(loginSuccessHandler);
         jsonAuthenticationFilter.setAuthenticationFailureHandler(loginFailureHandler);
 
-        http
-                .formLogin(AbstractHttpConfigurer::disable)
+        http.formLogin(AbstractHttpConfigurer::disable)
                 .authenticationProvider(authenticationProvider())
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .csrf(csrf -> {
-                    CookieCsrfTokenRepository csrfRepo = new CookieCsrfTokenRepository();
-                    csrfRepo.setCookieName("XSRF-TOKEN");
-                    csrfRepo.setHeaderName("X-XSRF-TOKEN");
-                    csrfRepo.setCookieCustomizer(cookie -> cookie.secure(false).sameSite("Lax"));
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
-                    csrf.csrfTokenRepository(csrfRepo)
-                            .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                            .ignoringRequestMatchers("/ws/**")
-                            .ignoringRequestMatchers("/api/auth/sign-in")
-                            .ignoringRequestMatchers("/api/auth/sign-out")
-                            .ignoringRequestMatchers("/api/auth/refresh")
-                            .ignoringRequestMatchers("/api/auth/reset-password")
-                            .ignoringRequestMatchers(path.matcher(HttpMethod.POST, "/api/users"));
-                })
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(authenticationEntryPoint)
-                        .accessDeniedHandler(accessDeniedHandler))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/index.html","/favicon.ico","/static/**", "/assets/**",
-                                "/*.js", "/*.css", "/*.png", "/*.svg").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/sse/**", "/ws/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
-                                "/swagger-resources/**", "/webjars/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated())
-                .logout(logout -> logout
-                        .logoutUrl("/api/auth/sign-out")
-                        .addLogoutHandler(logoutHandler)
-                        .logoutSuccessHandler(logoutSuccessHandler)
-                        .clearAuthentication(true))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+        // CSRF 설정
+        if (csrfDisabled) {
+            http.csrf(AbstractHttpConfigurer::disable);
+        } else {
+            http.csrf(csrf -> {
+                CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+                csrfRepo.setCookieName("XSRF-TOKEN");
+                csrfRepo.setHeaderName("X-XSRF-TOKEN");
+                csrfRepo.setCookieCustomizer(cookie -> cookie.secure(false).sameSite("Lax"));
+
+                CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
+                requestHandler.setCsrfRequestAttributeName(null);
+
+                csrf.csrfTokenRepository(csrfRepo)
+                        .csrfTokenRequestHandler(requestHandler)
+                        .ignoringRequestMatchers(CSRF_IGNORING_URLS)
+                        .ignoringRequestMatchers(path.matcher(HttpMethod.POST, "/api/users"));
+            });
+        }
+
+        http.authorizeHttpRequests(auth -> auth
+                .requestMatchers(PUBLIC_RESOURCES).permitAll()
+                .requestMatchers(PUBLIC_APIS).permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
+                .requestMatchers(SWAGGER_URLS).permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated());
+
+        http.exceptionHandling(ex -> ex
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler));
+
+        http.logout(logout -> logout
+                .logoutUrl("/api/auth/sign-out")
+                .addLogoutHandler(logoutHandler)
+                .logoutSuccessHandler(logoutSuccessHandler)
+                .clearAuthentication(true));
+
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jsonAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(csrfCookieFilter, CsrfFilter.class);
 
@@ -124,5 +153,19 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:8080"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }
