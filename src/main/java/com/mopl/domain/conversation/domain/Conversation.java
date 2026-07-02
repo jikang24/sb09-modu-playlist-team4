@@ -1,39 +1,53 @@
 package com.mopl.domain.conversation.domain;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 public class Conversation {
+
   private final UUID id;
-  private final List<UUID> participants;
+  private final UUID participant1Id;
+  private final UUID participant2Id;
   private final LocalDateTime createdAt;
 
-  public Conversation(UUID id, List<UUID> participants, LocalDateTime createdAt) {
+  public Conversation(UUID id, UUID participant1Id, UUID participant2Id, LocalDateTime createdAt) {
     this.id = id;
-    this.participants = participants;
+    this.participant1Id = participant1Id;
+    this.participant2Id = participant2Id;
     this.createdAt = createdAt;
   }
 
+  public static Conversation create(UUID myId, UUID otherId) {
+    if (myId.equals(otherId)) {
+      throw new MoplException(ErrorCode.CANNOT_TALK_TO_SELF);
+    }
+    return new Conversation(UUID.randomUUID(), myId, otherId, LocalDateTime.now());
+  }
+
   public UUID getOtherParticipant(UUID participantId) {
-    return participants.stream()
-        .filter(id -> !id.equals(participantId))
-        .findFirst()
-        .orElseThrow();
+    if (participant1Id.equals(participantId)) {
+      return participant2Id;
+    }
+    if (participant2Id.equals(participantId)) {
+      return participant1Id;
+    }
+    throw new MoplException(ErrorCode.PARTICIPANTS_NOT_FOUND);
   }
-  public boolean isParticipant(UUID participantId) {
-    return participants.contains(participantId);
+
+  public boolean hasParticipant(UUID participantId) {
+    return participant1Id.equals(participantId) || participant2Id.equals(participantId);
   }
-  public UUID getId() {
-    return id;
-  }
+
+  // 참여자 목록이 필요할 때 (예: WS 메시지 전송 등)
   public List<UUID> getParticipants() {
-    return participants;
-  }
-  public LocalDateTime getCreatedAt() {
-    return createdAt;
+    return List.of(participant1Id, participant2Id);
   }
 
-
-
+  public UUID getId() { return id; }
+  public UUID getParticipant1Id() { return participant1Id; }
+  public UUID getParticipant2Id() { return participant2Id; }
+  public LocalDateTime getCreatedAt() { return createdAt; }
 }
