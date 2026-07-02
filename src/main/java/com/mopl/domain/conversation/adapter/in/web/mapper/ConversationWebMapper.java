@@ -22,7 +22,7 @@ public class ConversationWebMapper {
     UUID otherParticipantId = conversation.getOtherParticipant(myId);
     UserSummary with = loadUserPort.getUserSummary(otherParticipantId);
 
-    DirectMessageDto latestMessage = getLatestDirectMessageUseCase
+    DirectMessageDto lastestMessage = getLatestDirectMessageUseCase
         .getLatest(conversation.getId())
         .map(dm -> {
           UserSummary sender = loadUserPort.getUserSummary(dm.getSenderId());
@@ -42,7 +42,7 @@ public class ConversationWebMapper {
     return new ConversationDto(
         conversation.getId(),
         with,
-        latestMessage,
+        lastestMessage,
         hasUnread
     );
   }

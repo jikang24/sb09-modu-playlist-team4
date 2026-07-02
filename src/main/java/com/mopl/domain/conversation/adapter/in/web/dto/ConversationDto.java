@@ -7,8 +7,8 @@ import java.util.UUID;
 public record ConversationDto(
     UUID id,
     UserSummary with,
-    DirectMessageDto lastMessage,
-    boolean unread
+    DirectMessageDto lastestMessage,
+    boolean hasUnread
 
 ) {
 
