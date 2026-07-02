@@ -38,8 +38,9 @@ public enum ErrorCode {
     //DM 모듈
     DIRECT_MESSAGE_NOT_FOUND("해당 디엠을 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
 
-
-
+    //s3
+    S3_UPLOAD_FAILED("파일 업로드에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    S3_DELETE_FAILED("파일 삭제에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // Notification 모듈
     NOTIFICATION_NOT_FOUND("알림을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
