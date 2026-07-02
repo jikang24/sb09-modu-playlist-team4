@@ -7,6 +7,7 @@ import com.mopl.domain.content.dto.ContentResponse;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
+import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -338,13 +339,42 @@ class ContentServiceTest {
     }
   }
 
+  @Nested
+  @DisplayName("평점 갱신 이벤트 처리 - handleReviewRatingUpdated()")
+  class HandleReviewRatingUpdated {
+
     @Test
-    @DisplayName("필수값 누락 시 예외 발생")
-    void fail_nullTitle() {
-      assertThatThrownBy(() ->
-          Content.create(ContentType.MOVIE, "tmdb-001", null, "설명", null, List.of()))
+    @DisplayName("정상 처리 - 평점/리뷰수 갱신 후 저장")
+    void success() {
+      UUID id = UUID.randomUUID();
+      Content content = makeContent(id, ContentType.MOVIE, "tmdb-001");
+      ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(
+          id, new java.math.BigDecimal("4.50"), 15);
+
+      given(contentRepository.findById(id)).willReturn(Optional.of(content));
+      given(contentRepository.save(any(Content.class))).willReturn(content);
+
+      contentService.handleReviewRatingUpdated(event);
+
+      then(contentRepository).should().findById(id);
+      then(contentRepository).should().save(any(Content.class));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 콘텐츠 - CONTENT_NOT_FOUND 예외")
+    void fail_notFound() {
+      UUID id = UUID.randomUUID();
+      ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(
+          id, new java.math.BigDecimal("3.00"), 5);
+
+      given(contentRepository.findById(id)).willReturn(Optional.empty());
+
+      assertThatThrownBy(() -> contentService.handleReviewRatingUpdated(event))
           .isInstanceOf(MoplException.class)
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
-              .isEqualTo(ErrorCode.INVALID_INPUT));
+              .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
+
+      then(contentRepository).shouldHaveNoMoreInteractions();
     }
   }
+}
