@@ -11,7 +11,7 @@
 -- [user 모듈]
 -- ================================================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     email               VARCHAR(100)    NOT NULL UNIQUE,
     password            VARCHAR(255),                       -- nullable: OAuth 전용 계정
@@ -24,7 +24,7 @@ CREATE TABLE users (
     updated_at          TIMESTAMP       NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE social_accounts (
+CREATE TABLE IF NOT EXISTS social_accounts (
     id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 내부 FK] user 모듈 → user 모듈
     user_id             UUID            NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE social_accounts (
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 내부 FK] user 모듈 → user 모듈
     user_id             UUID            NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE password_reset_tokens (
 -- [content 모듈]
 -- ================================================================
 
-CREATE TABLE contents (
+CREATE TABLE IF NOT EXISTS contents (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     type            VARCHAR(10)     NOT NULL
                                     CHECK (type IN ('MOVIE', 'TV_SERIES', 'SPORT')),
@@ -71,7 +71,7 @@ CREATE TABLE contents (
     UNIQUE (type, external_id)                             -- 중복 수집 방지
 );
 
-CREATE TABLE content_tags (
+CREATE TABLE IF NOT EXISTS content_tags (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 내부 FK] content 모듈 → content 모듈
     content_id      UUID            NOT NULL,
@@ -89,7 +89,7 @@ CREATE TABLE content_tags (
 -- [playlist 모듈]
 -- ================================================================
 
-CREATE TABLE playlists (
+CREATE TABLE IF NOT EXISTS playlists (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음
     owner_id        UUID            NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE playlists (
     updated_at      TIMESTAMP       NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE playlist_contents (
+CREATE TABLE IF NOT EXISTS playlist_contents (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 내부 FK] playlist 모듈 → playlist 모듈
     playlist_id     UUID            NOT NULL,
@@ -115,7 +115,7 @@ CREATE TABLE playlist_contents (
         FOREIGN KEY (playlist_id) REFERENCES playlists (id) ON DELETE CASCADE
 );
 
-CREATE TABLE playlist_subscriptions (
+CREATE TABLE IF NOT EXISTS playlist_subscriptions (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 내부 FK] playlist 모듈 → playlist 모듈
     playlist_id     UUID            NOT NULL,
@@ -134,7 +134,7 @@ CREATE TABLE playlist_subscriptions (
 -- [review 모듈]
 -- ================================================================
 
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음
     author_id       UUID            NOT NULL,
@@ -154,7 +154,7 @@ CREATE TABLE reviews (
 -- [follow 모듈]
 -- ================================================================
 
-CREATE TABLE follows (
+CREATE TABLE IF NOT EXISTS follows (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음 (2개)
     follower_id     UUID            NOT NULL,               -- 팔로우 하는 사람
@@ -170,7 +170,7 @@ CREATE TABLE follows (
 -- [chat 모듈]
 -- ================================================================
 
-CREATE TABLE conversations (
+CREATE TABLE IF NOT EXISTS conversations (
     id                  UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음 (2개)
     participant1_id     UUID    NOT NULL,
@@ -182,7 +182,7 @@ CREATE TABLE conversations (
                                                            -- (순서 무관 중복 방지)
 );
 
-CREATE TABLE direct_messages (
+CREATE TABLE IF NOT EXISTS direct_messages (
     id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 내부 FK] chat 모듈 → chat 모듈
     conversation_id     UUID        NOT NULL,
@@ -202,7 +202,7 @@ CREATE TABLE direct_messages (
 -- [notification 모듈]
 -- ================================================================
 
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음
     -- 알림에 필요한 텍스트는 이벤트 발행 시 미리 담아서 저장
@@ -228,55 +228,55 @@ CREATE TABLE notifications (
 -- ================================================================
 
 -- users
-CREATE INDEX idx_users_email
+CREATE INDEX IF NOT EXISTS idx_users_email
     ON users (email);
 
 -- contents
-CREATE INDEX idx_contents_type
+CREATE INDEX IF NOT EXISTS idx_contents_type
     ON contents (type);
-CREATE INDEX idx_contents_external_id
+CREATE INDEX IF NOT EXISTS idx_contents_external_id
     ON contents (type, external_id);
 
 -- playlists
-CREATE INDEX idx_playlists_owner_id
+CREATE INDEX IF NOT EXISTS idx_playlists_owner_id
     ON playlists (owner_id);                               -- 내 플레이리스트 목록 조회
 
 -- playlist_contents
-CREATE INDEX idx_playlist_contents_playlist_id
+CREATE INDEX IF NOT EXISTS idx_playlist_contents_playlist_id
     ON playlist_contents (playlist_id);
-CREATE INDEX idx_playlist_contents_content_id
+CREATE INDEX IF NOT EXISTS idx_playlist_contents_content_id
     ON playlist_contents (content_id);
 
 -- playlist_subscriptions
-CREATE INDEX idx_playlist_subscriptions_subscriber_id
+CREATE INDEX IF NOT EXISTS idx_playlist_subscriptions_subscriber_id
     ON playlist_subscriptions (subscriber_id);             -- 내가 구독한 플리 목록
 
 -- reviews
-CREATE INDEX idx_reviews_content_id
+CREATE INDEX IF NOT EXISTS idx_reviews_content_id
     ON reviews (content_id);                               -- 콘텐츠별 리뷰 목록
-CREATE INDEX idx_reviews_author_id
+CREATE INDEX IF NOT EXISTS idx_reviews_author_id
     ON reviews (author_id);                                -- 내가 쓴 리뷰 목록
 
 -- follows
-CREATE INDEX idx_follows_follower_id
+CREATE INDEX IF NOT EXISTS idx_follows_follower_id
     ON follows (follower_id);                              -- 내가 팔로우한 목록
-CREATE INDEX idx_follows_followee_id
+CREATE INDEX IF NOT EXISTS idx_follows_followee_id
     ON follows (followee_id);                              -- 나를 팔로우한 목록
 
 -- conversations
-CREATE INDEX idx_conversations_participant1_id
+CREATE INDEX IF NOT EXISTS idx_conversations_participant1_id
     ON conversations (participant1_id);
-CREATE INDEX idx_conversations_participant2_id
+CREATE INDEX IF NOT EXISTS idx_conversations_participant2_id
     ON conversations (participant2_id);
 
 -- direct_messages
-CREATE INDEX idx_direct_messages_conversation_id
+CREATE INDEX IF NOT EXISTS idx_direct_messages_conversation_id
     ON direct_messages (conversation_id);
-CREATE INDEX idx_direct_messages_receiver_id
+CREATE INDEX IF NOT EXISTS idx_direct_messages_receiver_id
     ON direct_messages (receiver_id, is_read);             -- 읽지 않은 DM 조회
 
 -- notifications
-CREATE INDEX idx_notifications_receiver_id
+CREATE INDEX IF NOT EXISTS idx_notifications_receiver_id
     ON notifications (receiver_id);                        -- 내 알림 목록
-CREATE INDEX idx_notifications_receiver_is_read
+CREATE INDEX IF NOT EXISTS idx_notifications_receiver_is_read
     ON notifications (receiver_id, is_read);               -- 읽지 않은 알림 조회
