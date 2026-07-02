@@ -5,7 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -18,12 +18,12 @@ public class FollowJpaEntity {
     @Id
     private UUID id;
 
-    @Column(name = "follower_id", nullable = false)
-    private UUID followerId;
-
     @Column(name = "followee_id", nullable = false)
     private UUID followeeId;
 
+    @Column(name = "follower_id", nullable = false)
+    private UUID followerId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 }
