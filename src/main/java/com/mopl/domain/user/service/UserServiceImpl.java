@@ -7,6 +7,7 @@ import com.mopl.domain.user.event.UserLockedEvent;
 import com.mopl.domain.user.event.UserRoleChangedEvent;
 import com.mopl.domain.user.mapper.UserMapper;
 import com.mopl.domain.user.repository.UserRepository;
+import com.mopl.global.event.PasswordChangedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -94,6 +95,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
         user.updatePassword(passwordEncoder.encode(request.password()));
+        eventPublisher.publishEvent(new PasswordChangedEvent(userId));
         return userMapper.toDto(user);
     }
 

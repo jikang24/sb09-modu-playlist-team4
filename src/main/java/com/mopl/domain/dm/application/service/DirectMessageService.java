@@ -2,16 +2,20 @@ package com.mopl.domain.dm.application.service;
 
 import com.mopl.domain.dm.application.dto.DirectMessageSearchCondition;
 import com.mopl.domain.dm.application.port.in.CheckUnreadDirectMessageUseCase;
+import com.mopl.domain.dm.application.port.in.GetConversationIdsByContentUseCase;
 import com.mopl.domain.dm.application.port.in.GetDirectMessageListUseCase;
 import com.mopl.domain.dm.application.port.in.GetLatestDirectMessageUseCase;
 import com.mopl.domain.dm.application.port.in.ReadDirectMessageUseCase;
 import com.mopl.domain.dm.application.port.in.SendDirectMessageUseCase;
 import com.mopl.domain.dm.application.port.out.LoadDirectMessagePort;
+import com.mopl.domain.dm.application.port.out.LoadUserPort;
 import com.mopl.domain.dm.application.port.out.SaveDirectMessagePort;
 import com.mopl.domain.dm.domain.DirectMessage;
+import com.mopl.global.dto.DirectMessageDto;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -26,9 +30,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
     SendDirectMessageUseCase, GetLatestDirectMessageUseCase, GetDirectMessageListUseCase,
-    ReadDirectMessageUseCase {
+    ReadDirectMessageUseCase, GetConversationIdsByContentUseCase {
   private final LoadDirectMessagePort loadDirectMessagePort;
   private final SaveDirectMessagePort saveDirectMessagePort;
+  private final LoadUserPort loadUserPort;
 
   @Override
   public boolean hasUnread(UUID conversationId, UUID myId) {
@@ -62,8 +67,29 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
 
   @Override
   @Transactional(readOnly = true)
-  public CursorPageResponse<DirectMessage> getList(UUID conversationId,
+  public CursorPageResponse<DirectMessageDto> getList(UUID conversationId,
       DirectMessageSearchCondition condition) {
-    return loadDirectMessagePort.findList(conversationId, condition);
+    CursorPageResponse<DirectMessage> result =loadDirectMessagePort.findList(conversationId, condition);
+    return new CursorPageResponse<>(
+        result.data().stream().map(dm -> new DirectMessageDto(
+            dm.getId(),
+            dm.getConversationId(),
+            dm.getCreatedAt(),
+            loadUserPort.getUserSummary(dm.getSenderId()),
+            loadUserPort.getUserSummary(dm.getReceiverId()),
+            dm.getContent()
+        )).toList(),
+        result.nextCursor(),
+        result.nextIdAfter(),
+        result.hasNext(),
+        result.totalCount(),
+        result.sortBy(),
+        result.sortDirection()
+    );
+  }
+
+  @Override
+  public List<UUID> findConversationIdsByContent(String keyword) {
+    return loadDirectMessagePort.findConversationIdsByContent(keyword);
   }
 }

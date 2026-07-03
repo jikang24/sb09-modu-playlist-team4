@@ -4,10 +4,11 @@ import com.mopl.domain.dm.application.dto.DirectMessageSearchCondition;
 import com.mopl.domain.dm.application.port.out.LoadDirectMessagePort;
 import com.mopl.domain.dm.application.port.out.SaveDirectMessagePort;
 import com.mopl.domain.dm.domain.DirectMessage;
+import com.mopl.global.dto.SortDirection;
 import com.mopl.global.response.CursorPageResponse;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,15 +59,15 @@ public class DirectMessagePersistenceAdapter implements SaveDirectMessagePort,
     BooleanBuilder builder = new BooleanBuilder();
     builder.and(dm.conversationId.eq(conversationId));
     if(!condition.isFirstPage()){
-      LocalDateTime cursorTime = LocalDateTime.parse(condition.cursor());
-      if(condition.sortDirection().name().equals("ASCENDING")){
+      Instant cursorTime = Instant.parse(condition.cursor());
+      if(condition.sortDirection().equals(SortDirection.ASCENDING)){
         builder.and(dm.createdAt.gt(cursorTime));
       }else {
         builder.and(dm.createdAt.lt(cursorTime));
       }
     }
 
-    var orderSpecifier = condition.sortDirection().name().equals("ASCENDING") ? dm.createdAt.asc() : dm.createdAt.desc();
+    var orderSpecifier = condition.sortDirection().equals(SortDirection.ASCENDING) ? dm.createdAt.asc() : dm.createdAt.desc();
 
     List<DirectMessageJpaEntity> results = queryFactory
         .selectFrom(dm)
@@ -107,5 +108,15 @@ public class DirectMessagePersistenceAdapter implements SaveDirectMessagePort,
     DirectMessageJpaEntity directMessageJpaEntity = mapper.toJpaEntity(directMessage);
     DirectMessageJpaEntity savedDirectMessage = directMessageRepository.save(directMessageJpaEntity);
     return mapper.toDomain(savedDirectMessage);
+  }
+
+  @Override
+  public List<UUID> findConversationIdsByContent(String keyword) {
+    QDirectMessageJpaEntity dm = QDirectMessageJpaEntity.directMessageJpaEntity;
+    return queryFactory.select(dm.conversationId)
+        .from(dm)
+        .where(dm.content.containsIgnoreCase(keyword))
+        .distinct()
+        .fetch();
   }
 }
