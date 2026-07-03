@@ -62,8 +62,11 @@ public class ContentRepositoryImpl implements ContentRepository {
     Sort.Direction direction = "ASCENDING".equalsIgnoreCase(request.sortDirection())
         ? Sort.Direction.ASC : Sort.Direction.DESC;
 
-    // sortBy 필드 (createdAt 기본값)
+    // sortBy 필드 (createdAt 기본값, 프론트의 "인기순"=watcherCount는 reviewCount로 매핑)
     String sortBy = request.sortBy() != null ? request.sortBy() : "createdAt";
+    if ("watcherCount".equals(sortBy)) {
+      sortBy = "reviewCount";
+    }
 
     // limit+1개 조회 → hasNext 판단용
     PageRequest pageRequest = PageRequest.of(0, request.limit() + 1,
