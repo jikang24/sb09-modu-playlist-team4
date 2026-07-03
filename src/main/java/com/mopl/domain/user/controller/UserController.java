@@ -113,7 +113,7 @@ public class UserController {
             @RequestParam UserSortBy sortBy
     ) {
         UserSearchRequest request = new UserSearchRequest(
-                emailLike, roleEqual, isLocked, cursor, idAfter,
+                null ,emailLike, roleEqual, isLocked, cursor, idAfter,
                 limit, sortDirection, sortBy
         );
         return ResponseEntity.ok(userService.findAll(request));
