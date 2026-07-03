@@ -1,6 +1,7 @@
 package com.mopl.domain.content.repository;
 
 import com.mopl.domain.content.domain.Content;
+import com.mopl.domain.content.domain.ContentSortField;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.infrastructure.ContentJpaEntity;
@@ -63,16 +64,13 @@ public class ContentRepositoryImpl implements ContentRepository {
         ? Sort.Direction.ASC : Sort.Direction.DESC;
 
     // sortBy 필드 (createdAt 기본값, 프론트의 "인기순"=watcherCount는 reviewCount로 매핑)
-    String sortBy = request.sortBy() != null ? request.sortBy() : "createdAt";
-    if ("watcherCount".equals(sortBy)) {
-      sortBy = "reviewCount";
-    }
+    ContentSortField sortField = ContentSortField.resolve(request.sortBy());
 
     // limit+1개 조회 → hasNext 판단용
     PageRequest pageRequest = PageRequest.of(0, request.limit() + 1,
-        Sort.by(direction, sortBy).and(Sort.by(direction, "id")));
+        Sort.by(direction, sortField.propertyName()).and(Sort.by(direction, "id")));
 
-    Specification<ContentJpaEntity> spec = ContentSpecification.byCondition(request);
+    Specification<ContentJpaEntity> spec = ContentSpecification.byCondition(request, sortField);
 
     return jpaRepository.findAll(spec, pageRequest)
         .stream()
@@ -82,7 +80,8 @@ public class ContentRepositoryImpl implements ContentRepository {
 
   @Override
   public long countByCondition(ContentSearchRequest request) {
-    return jpaRepository.count(ContentSpecification.byCondition(request));
+    // 커서는 빼고 필터 조건만으로 카운트 (페이지가 넘어가도 totalCount는 동일해야 함)
+    return jpaRepository.count(ContentSpecification.byFilter(request));
   }
 
   @Override
