@@ -38,6 +38,12 @@ public enum ErrorCode {
     //DM 모듈
     DIRECT_MESSAGE_NOT_FOUND("해당 디엠을 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
 
+    //s3
+    S3_UPLOAD_FAILED("파일 업로드에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    S3_DELETE_FAILED("파일 삭제에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_FILE_EXTENSION("허용되지 않는 파일 확장자입니다", HttpStatus.BAD_REQUEST),
+    INVALID_IMAGE_FILE("올바른 이미지 파일이 아닙니다", HttpStatus.BAD_REQUEST),
+
     //Follow 모듈
     CANNOT_FOLLOW_SELF("자기 자신을 팔로우할 수 없습니다.", HttpStatus.BAD_REQUEST),
 
