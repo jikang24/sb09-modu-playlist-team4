@@ -12,9 +12,13 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -30,25 +34,26 @@ public class AwsS3Service implements S3Service {
     @Value("${cloud.aws.region.static}")
     private String region;
 
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png");
+
+
     @Override
     public String upload(MultipartFile file) {
-        if (file == null || file.isEmpty()) return null;
+        String key = generateFileName(file.getOriginalFilename());
+        validateImageContent(file);
 
-        String fileName = generateFileName(file.getOriginalFilename());
-        String key = "images/" + fileName;
-
-        try (InputStream is = file.getInputStream()) {
+        try {
             PutObjectRequest request = PutObjectRequest.builder()
                     .bucket(bucket)
                     .key(key)
-                    .contentType(file.getContentType())
+                    .contentType(resolveSafeContentType(key))
                     .build();
 
-            s3Client.putObject(request, RequestBody.fromInputStream(is, file.getSize()));
+            s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
             log.info("S3 업로드 완료: {}", key);
             return buildUrl(key);
 
-        } catch (IOException e) {
+        } catch (IOException | S3Exception e) {
             log.error("S3 업로드 실패", e);
             throw new MoplException(ErrorCode.S3_UPLOAD_FAILED);
         }
@@ -68,20 +73,55 @@ public class AwsS3Service implements S3Service {
         }
     }
 
+    // 허용 확장자 검증 후 충돌 방지용 UUID 파일명 반환
     private String generateFileName(String originalFilename) {
-        String ext = (originalFilename != null && originalFilename.contains("."))
-                ? originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
-        return UUID.randomUUID() + ext;
+        String ext = extractExtension(originalFilename);
+        if (!ALLOWED_EXTENSIONS.contains(ext.toLowerCase())) {
+            throw new MoplException(ErrorCode.INVALID_FILE_EXTENSION);
+        }
+        return UUID.randomUUID() + "." + ext;
     }
 
+    // 파일명에서 확장자 추출
+    private String extractExtension(String originalFilename) {
+        if (originalFilename == null || !originalFilename.contains(".")) {
+            throw new MoplException(ErrorCode.INVALID_FILE_EXTENSION);
+        }
+        return originalFilename.substring(originalFilename.lastIndexOf('.') + 1);
+    }
+
+    //파일의 공개 URL 생성
     private String buildUrl(String key) {
         return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
     }
 
+    //공개 URL에서 S3 key만 추출
     private String extractKeyFromUrl(String url) {
         String prefix = "amazonaws.com/";
         int idx = url.indexOf(prefix);
         if (idx == -1) throw new IllegalArgumentException("올바르지 않은 S3 URL: " + url);
         return url.substring(idx + prefix.length());
+    }
+
+    // ImageIO로 실제 바이트 디코딩 시도 — null이면 이미지가 아닌 파일
+    private void validateImageContent(MultipartFile file) {
+        try (InputStream is = file.getInputStream()) {
+            BufferedImage image = ImageIO.read(is);
+            if (image == null) {
+                throw new MoplException(ErrorCode.INVALID_IMAGE_FILE);
+            }
+        } catch (IOException e) {
+            throw new MoplException(ErrorCode.INVALID_IMAGE_FILE);
+        }
+    }
+
+    // 확장자 기반 Content-Type 재계산
+    private String resolveSafeContentType(String key) {
+        String ext = key.substring(key.lastIndexOf('.') + 1).toLowerCase();
+        return switch (ext) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            default -> throw new MoplException(ErrorCode.INVALID_FILE_EXTENSION);
+        };
     }
 }
