@@ -12,8 +12,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
 @Controller
@@ -30,28 +31,24 @@ public class DirectMessageWebSocketHandler {
   public void sendMessage(
       @DestinationVariable UUID conversationId,
       DirectMessageSendRequest request,
-      @AuthenticationPrincipal JwtClaims claims
+      SimpMessageHeaderAccessor headerAccessor
   ) {
-    UUID senderId = claims.getUserId();
+    JwtClaims jwtClaims = (JwtClaims) headerAccessor.getSessionAttributes().get("claims");
+    UUID senderId = jwtClaims.getUserId();
     log.info("WebSocket DM 전송 요청 - senderId: {}, conversationId: {}", senderId, conversationId);
 
-    // 1. 대화방 조회 + 참여자 검증
     var conversation = getConversationUseCase.getById(conversationId, senderId);
 
-    // 2. 수신자 ID 구하기
     UUID receiverId = conversation.getOtherParticipant(senderId);
 
-    // 3. DM 저장
     DirectMessage directMessage = sendDirectMessageUseCase.send(
         conversationId, request.content(), senderId, receiverId
     );
 
     log.info("WebSocket DM 저장 완료 - directMessageId: {}", directMessage.getId());
 
-    // 4. DTO로 변환
     DirectMessageDto dto = directMessageWebMapper.toDto(directMessage);
 
-    // 5. 구독 중인 클라이언트에게 전달
     messagingTemplate.convertAndSend(
         "/sub/conversations/" + conversationId + "/direct-messages",
         dto
@@ -59,4 +56,5 @@ public class DirectMessageWebSocketHandler {
 
     log.info("WebSocket DM 전달 완료 - conversationId: {}", conversationId);
   }
+
 }

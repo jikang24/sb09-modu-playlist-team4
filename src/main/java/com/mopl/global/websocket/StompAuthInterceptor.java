@@ -6,17 +6,20 @@ import com.mopl.global.jwt.JwtProvider;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class StompAuthInterceptor implements ChannelInterceptor {
   private final JwtProvider jwtProvider;
   private final GetConversationUseCase getConversationUseCase;
@@ -24,9 +27,13 @@ public class StompAuthInterceptor implements ChannelInterceptor {
   @Override
   public Message<?> preSend(Message<?> message , MessageChannel channel){
     StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+
+
     if(StompCommand.CONNECT.equals(accessor.getCommand())){
+
       String token = extractToken(accessor);
       JwtClaims claims = jwtProvider.parse(token);
+      accessor.getSessionAttributes().put("claims", claims);
 
       var authentication = new UsernamePasswordAuthenticationToken(
           claims,
@@ -34,9 +41,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
           List.of(new SimpleGrantedAuthority("ROLE_" + claims.getRole()))
       );
       accessor.setUser(authentication);
+
+      return MessageBuilder.createMessage(message.getPayload(), accessor.getMessageHeaders());
     }
     if(StompCommand.SUBSCRIBE.equals(accessor.getCommand())){
     validateSubscription(accessor);
+
     }
     return message;
   }
@@ -51,9 +61,13 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
   private void validateSubscription(StompHeaderAccessor accessor) {
     String destination = accessor.getDestination();
+
     if (destination != null && destination.matches("/sub/conversations/[^/]+/direct-messages")) {
       UUID conversationId = extractConversationId(destination);
-      UUID myId = getUserIdFromAccessor(accessor);
+
+      JwtClaims claims = (JwtClaims) accessor.getSessionAttributes().get("claims");
+      UUID myId = claims.getUserId();
+
       getConversationUseCase.getById(conversationId, myId);
     }
   }
@@ -62,11 +76,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     return UUID.fromString(parts[3]);
   }
 
-  private UUID getUserIdFromAccessor(StompHeaderAccessor accessor) {
-    var authentication = (UsernamePasswordAuthenticationToken) accessor.getUser();
-    JwtClaims claims = (JwtClaims) authentication.getPrincipal();
-    return claims.getUserId();
-  }
+
 
 
 
