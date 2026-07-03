@@ -5,7 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,13 +28,13 @@ public class DirectMessageJpaEntity {
   @Column(name = "content", nullable = false)
   private String content;
   @Column(name = "created_at", nullable = false)
-  private LocalDateTime createdAt;
+  private Instant createdAt;
   @Column(name = "read", nullable = false)
   private boolean read;
 
   @Builder
   private DirectMessageJpaEntity(UUID id, UUID conversationId, UUID senderId,
-      UUID receiverId, String content, LocalDateTime createdAt, boolean read) {
+      UUID receiverId, String content, Instant createdAt, boolean read) {
     this.id = id;
     this.conversationId = conversationId;
     this.senderId = senderId;

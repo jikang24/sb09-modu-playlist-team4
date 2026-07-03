@@ -2,7 +2,7 @@ package com.mopl.domain.conversation.domain;
 
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,9 +11,9 @@ public class Conversation {
   private final UUID id;
   private final UUID participant1Id;
   private final UUID participant2Id;
-  private final LocalDateTime createdAt;
+  private final Instant createdAt;
 
-  public Conversation(UUID id, UUID participant1Id, UUID participant2Id, LocalDateTime createdAt) {
+  public Conversation(UUID id, UUID participant1Id, UUID participant2Id, Instant createdAt) {
     this.id = id;
     this.participant1Id = participant1Id;
     this.participant2Id = participant2Id;
@@ -24,7 +24,7 @@ public class Conversation {
     if (myId.equals(otherId)) {
       throw new MoplException(ErrorCode.CANNOT_TALK_TO_SELF);
     }
-    return new Conversation(UUID.randomUUID(), myId, otherId, LocalDateTime.now());
+    return new Conversation(UUID.randomUUID(), myId, otherId, Instant.now());
   }
 
   public UUID getOtherParticipant(UUID participantId) {
@@ -41,7 +41,6 @@ public class Conversation {
     return participant1Id.equals(participantId) || participant2Id.equals(participantId);
   }
 
-  // 참여자 목록이 필요할 때 (예: WS 메시지 전송 등)
   public List<UUID> getParticipants() {
     return List.of(participant1Id, participant2Id);
   }
@@ -49,5 +48,5 @@ public class Conversation {
   public UUID getId() { return id; }
   public UUID getParticipant1Id() { return participant1Id; }
   public UUID getParticipant2Id() { return participant2Id; }
-  public LocalDateTime getCreatedAt() { return createdAt; }
+  public Instant getCreatedAt() { return createdAt; }
 }

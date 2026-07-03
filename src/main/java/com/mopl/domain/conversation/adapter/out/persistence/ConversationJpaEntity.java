@@ -4,7 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -27,11 +27,11 @@ public class ConversationJpaEntity {
   private UUID participant2Id;
 
   @Column(name = "created_at", nullable = false)
-  private  LocalDateTime createdAt;
+  private  Instant createdAt;
 
 
   @Builder
-  private ConversationJpaEntity(UUID id, UUID participant1Id, UUID participant2Id, LocalDateTime createdAt) {
+  private ConversationJpaEntity(UUID id, UUID participant1Id, UUID participant2Id, Instant createdAt) {
     this.id = id;
     this.participant1Id = participant1Id;
     this.participant2Id = participant2Id;
