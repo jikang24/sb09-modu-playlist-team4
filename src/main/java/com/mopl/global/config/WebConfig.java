@@ -7,10 +7,11 @@ import org.springframework.format.FormatterRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * @RequestParam/@PathVariable으로 들어오는 enum 값의 대소문자를 구분하지 않고 바인딩
+ * @RequestParam/@PathVariable으로 들어오는 enum 값의 대소문자/구분자를 구분하지 않고 바인딩
  *
- * 프론트가 소문자(예: type=movie)로 보내도 ContentType.MOVIE 등으로 매칭되도록 함
- * (기본 StringToEnumConverterFactory는 대소문자를 구분해서 IllegalArgumentException → 500 발생)
+ * 프론트가 소문자(movie)든 카멜케이스(tvSeries)든 상관없이
+ * ContentType.MOVIE, ContentType.TV_SERIES 등으로 매칭되도록 함
+ * (기본 StringToEnumConverterFactory는 완전 일치만 허용해서 IllegalArgumentException → 500 발생)
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
@@ -29,8 +30,20 @@ public class WebConfig implements WebMvcConfigurer {
         if (source.isBlank()) {
           return null;
         }
-        return (T) Enum.valueOf((Class<? extends Enum>) targetType, source.trim().toUpperCase());
+        String normalizedSource = normalize(source);
+        for (T constant : targetType.getEnumConstants()) {
+          if (normalize(constant.name()).equals(normalizedSource)) {
+            return constant;
+          }
+        }
+        throw new IllegalArgumentException(
+            "No enum constant " + targetType.getName() + " for value [" + source + "]");
       };
+    }
+
+    // 대소문자 + '_' 구분 없이 비교 (movie == MOVIE, tvSeries == TV_SERIES 모두 매칭)
+    private String normalize(String value) {
+      return value.replace("_", "").toUpperCase();
     }
   }
 }
