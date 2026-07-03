@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
+
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +49,7 @@ public class FollowController {
     })
     @PostMapping
     public ResponseEntity<FollowDto> follow(
-        @RequestBody FollowRequest request,
+        @Valid @RequestBody FollowRequest request,
         @AuthenticationPrincipal JwtClaims claims
     ) {
         UUID followerId = claims.getUserId();
