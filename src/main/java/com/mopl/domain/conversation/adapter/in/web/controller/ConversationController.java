@@ -81,6 +81,7 @@ public class ConversationController {
       @ModelAttribute ConversationSearchRequest request,
       @AuthenticationPrincipal JwtClaims claims
   ) {
+    System.out.println("!!!!! CONTROLLER CALLED !!!!!");
     UUID myId = claims.getUserId();
     log.info("대화 목록 조회 요청 - myId: {}, limit: {}, sortBy: {}, sortDirection: {}",
         myId, request.limit(), request.sortBy(), request.sortDirection());

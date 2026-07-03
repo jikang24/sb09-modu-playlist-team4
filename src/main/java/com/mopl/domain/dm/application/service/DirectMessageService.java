@@ -2,6 +2,7 @@ package com.mopl.domain.dm.application.service;
 
 import com.mopl.domain.dm.application.dto.DirectMessageSearchCondition;
 import com.mopl.domain.dm.application.port.in.CheckUnreadDirectMessageUseCase;
+import com.mopl.domain.dm.application.port.in.GetConversationIdsByContentUseCase;
 import com.mopl.domain.dm.application.port.in.GetDirectMessageListUseCase;
 import com.mopl.domain.dm.application.port.in.GetLatestDirectMessageUseCase;
 import com.mopl.domain.dm.application.port.in.ReadDirectMessageUseCase;
@@ -14,6 +15,7 @@ import com.mopl.global.dto.DirectMessageDto;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
     SendDirectMessageUseCase, GetLatestDirectMessageUseCase, GetDirectMessageListUseCase,
-    ReadDirectMessageUseCase {
+    ReadDirectMessageUseCase, GetConversationIdsByContentUseCase {
   private final LoadDirectMessagePort loadDirectMessagePort;
   private final SaveDirectMessagePort saveDirectMessagePort;
   private final LoadUserPort loadUserPort;
@@ -84,5 +86,10 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
         result.sortBy(),
         result.sortDirection()
     );
+  }
+
+  @Override
+  public List<UUID> findConversationIdsByContent(String keyword) {
+    return loadDirectMessagePort.findConversationIdsByContent(keyword);
   }
 }

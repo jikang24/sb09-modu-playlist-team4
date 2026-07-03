@@ -5,8 +5,13 @@ import com.mopl.domain.conversation.application.dto.ConversationSearchCondition;
 import com.mopl.domain.conversation.application.port.out.LoadConversationPort;
 import com.mopl.domain.conversation.application.port.out.SaveConversationPort;
 import com.mopl.domain.conversation.domain.Conversation;
+import com.mopl.domain.dm.application.port.in.GetConversationIdsByContentUseCase;
+import com.mopl.global.dto.SortDirection;
 import com.mopl.global.response.CursorPageResponse;
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +25,7 @@ public class ConversationPersistenceAdapter implements SaveConversationPort, Loa
   private final ConversationRepository conversationRepository;
   private final ConversationPersistenceMapper mapper;
   private final JPAQueryFactory queryFactory;
+  private final GetConversationIdsByContentUseCase getConversationIdsByContentUseCase;
 
   @Override
   public Optional<Conversation> findById(UUID id) {
@@ -40,11 +46,62 @@ public class ConversationPersistenceAdapter implements SaveConversationPort, Loa
   }
 
   @Override
-//  TODO: keywordLike 검색은 DirectMessage 모듈 구현 후 추가 예정
-//  현재는 페이지네이션 기본 로직만 구성.
   public CursorPageResponse<Conversation> findList(UUID myId,
       ConversationSearchCondition condition) {
-    return null;
+    QConversationJpaEntity c = QConversationJpaEntity.conversationJpaEntity;
+    BooleanBuilder builder = new BooleanBuilder();
+    builder.and(c.participant1Id.eq(myId).or(c.participant2Id.eq(myId)));
+
+    if(condition.hasKeyword()){
+      List<UUID> conversationIds = getConversationIdsByContentUseCase
+          .findConversationIdsByContent(condition.keywordLike());
+
+      //Todo: 이름 검색은 추후 추가
+
+      if(!conversationIds.isEmpty()){
+        builder.and(c.id.in(conversationIds));
+      }else{
+        return new CursorPageResponse<>(
+            List.of(),null,null,false,0,condition.sortBy(),condition.sortDirection().name()
+        );
+      }
+    }
+
+    if(!condition.hasFirstPage()){
+      Instant cursorTime = Instant.parse(condition.cursor());
+      if(condition.sortDirection() == SortDirection.ASCENDING){
+        builder.and(c.createdAt.gt(cursorTime));
+      }else {
+        builder.and(c.createdAt.lt(cursorTime));
+      }
+    }
+
+    var orderSpecifier = condition.sortDirection() == SortDirection.ASCENDING ? c.createdAt.asc() : c.createdAt.desc();
+
+    List<ConversationJpaEntity> results = queryFactory
+        .selectFrom(c)
+        .where(builder)
+        .orderBy(orderSpecifier)
+        .limit(condition.limit()+1)
+        .fetch();
+    boolean hasNext = results.size() > condition.limit();
+    if(hasNext){
+      results = results.subList(0, condition.limit());
+    }
+    List<Conversation> data = results.stream()
+        .map(mapper::toDomain)
+        .toList();
+
+    String nexCursor = hasNext && !data.isEmpty()
+        ? data.get(data.size()-1).getCreatedAt().toString()
+        : null;
+
+    UUID nextIdAfter = hasNext && !data.isEmpty()
+        ? data.get(data.size()-1).getId()
+        : null;
+
+    return new CursorPageResponse<>(data,nexCursor,nextIdAfter,hasNext, data.size(), condition.sortBy(),condition.sortDirection().name());
+
   }
 
   @Override

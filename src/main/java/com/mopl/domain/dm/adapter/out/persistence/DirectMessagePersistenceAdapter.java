@@ -109,4 +109,14 @@ public class DirectMessagePersistenceAdapter implements SaveDirectMessagePort,
     DirectMessageJpaEntity savedDirectMessage = directMessageRepository.save(directMessageJpaEntity);
     return mapper.toDomain(savedDirectMessage);
   }
+
+  @Override
+  public List<UUID> findConversationIdsByContent(String keyword) {
+    QDirectMessageJpaEntity dm = QDirectMessageJpaEntity.directMessageJpaEntity;
+    return queryFactory.select(dm.conversationId)
+        .from(dm)
+        .where(dm.content.containsIgnoreCase(keyword))
+        .distinct()
+        .fetch();
+  }
 }
