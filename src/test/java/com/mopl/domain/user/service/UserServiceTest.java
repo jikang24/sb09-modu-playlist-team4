@@ -312,7 +312,7 @@ class UserServiceTest {
 
         private UserSearchRequest baseRequest(int limit) {
             return new UserSearchRequest(
-                    null, null, null, null, null,
+                    null, null, null, null, null, null,
                     limit, SortDirection.ASCENDING, UserSortBy.NAME
             );
         }
@@ -359,7 +359,7 @@ class UserServiceTest {
         @DisplayName("성공: sortBy 종류별로 nextCursor 분기가 정상 동작한다")
         void findAll_nextCursor_bySortBy(UserSortBy sortBy) {
             UserSearchRequest request = new UserSearchRequest(
-                    null, null, null, null, null,
+                    null, null, null, null, null, null,
                     1, SortDirection.ASCENDING, sortBy
             );
             User u1 = userOf("a");
@@ -411,7 +411,7 @@ class UserServiceTest {
         @DisplayName("성공: DESCENDING 정렬도 정상 동작한다")
         void findAll_descending() {
             UserSearchRequest request = new UserSearchRequest(
-                    null, null, null, null, null,
+                    null, null, null, null, null, null,
                     10, SortDirection.DESCENDING, UserSortBy.NAME
             );
             User u1 = userOf("a");
