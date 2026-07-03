@@ -1,5 +1,7 @@
 package com.mopl.domain.follow.domain;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,6 +17,9 @@ public class Follow {
     private final Instant createdAt;
 
     public static Follow create(UUID followerId, UUID followeeId) {
+        if (followerId.equals(followeeId)) {
+            throw new MoplException(ErrorCode.CANNOT_FOLLOW_SELF);
+        }
         return Follow.builder()
                 .id(UUID.randomUUID())
                 .followerId(followerId)

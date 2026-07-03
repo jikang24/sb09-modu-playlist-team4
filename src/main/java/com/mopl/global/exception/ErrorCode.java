@@ -38,7 +38,8 @@ public enum ErrorCode {
     //DM 모듈
     DIRECT_MESSAGE_NOT_FOUND("해당 디엠을 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
 
-
+    //Follow 모듈
+    CANNOT_FOLLOW_SELF("자기 자신을 팔로우할 수 없습니다.", HttpStatus.BAD_REQUEST),
 
 
     // Notification 모듈
