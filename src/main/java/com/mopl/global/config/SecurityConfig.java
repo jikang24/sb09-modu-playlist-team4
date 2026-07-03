@@ -61,7 +61,7 @@ public class SecurityConfig {
     @Value("${security.csrf.disabled:false}")
     private boolean csrfDisabled;
 
-    @Value("${app.cookie.secure:false}")
+    @Value("${app.cookie.secure:true}")
     private boolean cookieSecure;
 
     // 공통 정적 리소스 경로
