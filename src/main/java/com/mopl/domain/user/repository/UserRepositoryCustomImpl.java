@@ -76,6 +76,8 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
     private BooleanBuilder buildFilter(QUser u, UserSearchRequest request) {
         BooleanBuilder builder = new BooleanBuilder();
 
+        if (request.nameLike() != null)
+            builder.and(u.name.containsIgnoreCase(request.nameLike()));
         if (request.emailLike() != null)
             builder.and(u.email.containsIgnoreCase(request.emailLike()));
         if (request.roleEqual() != null)

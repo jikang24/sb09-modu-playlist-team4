@@ -1,7 +1,6 @@
-package com.mopl.domain.conversation.adapter.out.user;
+package com.mopl.domain.dm.adapter.out.user;
 
-
-import com.mopl.domain.conversation.application.port.out.LoadUserPort;
+import com.mopl.domain.dm.application.port.out.LoadUserPort;
 import com.mopl.domain.user.service.UserService;
 import com.mopl.global.dto.UserSummary;
 import java.util.UUID;
@@ -10,9 +9,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class UserAdapter implements LoadUserPort {
+public class DmUserAdapter implements LoadUserPort {
 
-private final UserService userService;
+  private final UserService userService;
 
   @Override
   public UserSummary getUserSummary(UUID userId) {
