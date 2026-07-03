@@ -61,6 +61,9 @@ public class SecurityConfig {
     @Value("${security.csrf.disabled:false}")
     private boolean csrfDisabled;
 
+    @Value("${app.cookie.secure:false}")
+    private boolean cookieSecure;
+
     // 공통 정적 리소스 경로
     private static final String[] PUBLIC_RESOURCES = {
             "/", "/index.html", "/favicon.ico", "/static/**", "/assets/**",
@@ -102,7 +105,7 @@ public class SecurityConfig {
                 CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
                 csrfRepo.setCookieName("XSRF-TOKEN");
                 csrfRepo.setHeaderName("X-XSRF-TOKEN");
-                csrfRepo.setCookieCustomizer(cookie -> cookie.secure(false).sameSite("Lax"));
+                csrfRepo.setCookieCustomizer(cookie -> cookie.secure(cookieSecure).sameSite("Lax"));
 
                 CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
                 requestHandler.setCsrfRequestAttributeName(null);
