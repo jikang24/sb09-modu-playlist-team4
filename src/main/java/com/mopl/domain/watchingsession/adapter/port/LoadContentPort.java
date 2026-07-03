@@ -1,8 +1,8 @@
 package com.mopl.domain.watchingsession.adapter.port;
 
-import com.mopl.domain.content.dto.ContentResponse;
+import com.mopl.global.dto.ContentSummary;
 import java.util.UUID;
 
 public interface LoadContentPort {
-  ContentResponse getContent(UUID contentId);
+  ContentSummary getContent(UUID contentId);
 }
