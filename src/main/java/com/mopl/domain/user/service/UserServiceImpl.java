@@ -7,6 +7,8 @@ import com.mopl.domain.user.event.UserLockedEvent;
 import com.mopl.domain.user.event.UserRoleChangedEvent;
 import com.mopl.domain.user.mapper.UserMapper;
 import com.mopl.domain.user.repository.UserRepository;
+import com.mopl.global.event.PasswordChangedEvent;
+import com.mopl.global.event.UserProfileUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
