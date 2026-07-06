@@ -28,6 +28,9 @@ public enum ErrorCode {
     PLAYLIST_NOT_FOUND("플레이리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     PLAYLIST_NOT_OWNER("본인의 플레이리스트만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
 
+    // WatchingSession 모듈
+    WATCHING_SESSION_NOT_FOUND("현재 시청 중인 세션이 없습니다.", HttpStatus.NOT_FOUND),
+
 
     //Conversation 모듈
     PARTICIPANTS_NOT_FOUND("참여자를 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
@@ -46,6 +49,8 @@ public enum ErrorCode {
 
     //Follow 모듈
     CANNOT_FOLLOW_SELF("자기 자신을 팔로우할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    FOLLOW_ALREADY_EXISTS("이미 팔로우한 사용자입니다.", HttpStatus.CONFLICT),
+    FOLLOW_NOT_FOUND("팔로우 관계를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
 
     // Notification 모듈
@@ -60,6 +65,7 @@ public enum ErrorCode {
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_REVOKED("이미 무효화된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    TOKEN_NOT_FOUND("인증 토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
 
     // 공통 응답
     INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),
