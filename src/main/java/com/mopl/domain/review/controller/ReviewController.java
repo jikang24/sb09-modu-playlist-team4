@@ -2,6 +2,7 @@ package com.mopl.domain.review.controller;
 
 import com.mopl.domain.review.dto.*;
 import com.mopl.domain.review.service.ReviewService;
+import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.response.CursorPageResponse;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
@@ -9,6 +10,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -19,22 +21,26 @@ public class ReviewController {
   private final ReviewService reviewService;
 
   @PostMapping
-  public ResponseEntity<UUID> createReview(@RequestBody @Valid ReviewCreateRequest request) {
+  public ResponseEntity<UUID> createReview(
+      @RequestBody @Valid ReviewCreateRequest request, @AuthenticationPrincipal JwtClaims claims) {
     UUID reviewId = reviewService.createReview(
-        request.contentId(), /* userId */ null, BigDecimal.valueOf(request.rating()), request.text());
+        request.contentId(), claims.getUserId(), BigDecimal.valueOf(request.rating()), request.text());
     return ResponseEntity.status(HttpStatus.CREATED).body(reviewId);
   }
 
   @PatchMapping("/{reviewId}")
   public ResponseEntity<Void> updateReview(
-      @PathVariable UUID reviewId, @RequestBody @Valid ReviewUpdateRequest request) {
-    reviewService.updateReview(reviewId, /* userId */ null, BigDecimal.valueOf(request.rating()), request.text());
+      @PathVariable UUID reviewId, @RequestBody @Valid ReviewUpdateRequest request,
+      @AuthenticationPrincipal JwtClaims claims) {
+    reviewService.updateReview(
+        reviewId, claims.getUserId(), BigDecimal.valueOf(request.rating()), request.text());
     return ResponseEntity.noContent().build();
   }
 
   @DeleteMapping("/{reviewId}")
-  public ResponseEntity<Void> deleteReview(@PathVariable UUID reviewId) {
-    reviewService.deleteReview(reviewId, /* userId */ null);
+  public ResponseEntity<Void> deleteReview(
+      @PathVariable UUID reviewId, @AuthenticationPrincipal JwtClaims claims) {
+    reviewService.deleteReview(reviewId, claims.getUserId());
     return ResponseEntity.noContent().build();
   }
 

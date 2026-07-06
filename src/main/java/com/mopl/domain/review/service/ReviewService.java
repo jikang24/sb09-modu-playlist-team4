@@ -121,13 +121,13 @@ public class ReviewService {
 
   private void validateOwner(Review review, UUID userId) {
     if (!review.getUserId().equals(userId)) {
-      throw new MoplException(ErrorCode.FORBIDDEN);
+      throw new MoplException(ErrorCode.REVIEW_NOT_OWNER);
     }
   }
 
   /** 재집계 방식 - create/update/delete 세 곳에서 공통 호출 (하나라도 빠지면 평점이 안 맞게 됨) */
   private void publishRatingUpdatedEvent(UUID contentId) {
-    Object[] result = reviewRepository.aggregateRatingStats(contentId);
+    Object[] result = reviewRepository.aggregateRatingStats(contentId).get(0);
     Double avg = (Double) result[0];
     Long count = (Long) result[1];
 
