@@ -1,6 +1,6 @@
 package com.mopl.domain.playlist.adapter.out.content;
 
-import com.mopl.domain.content.dto.ContentSummary;
+import com.mopl.global.dto.ContentSummary;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.domain.playlist.application.port.out.LoadContentPort;
 import java.util.ArrayList;

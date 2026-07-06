@@ -1,6 +1,6 @@
 package com.mopl.domain.playlist.application.port.out;
 
-import com.mopl.domain.content.dto.ContentSummary;
+import com.mopl.global.dto.ContentSummary;
 import java.util.List;
 import java.util.UUID;
 

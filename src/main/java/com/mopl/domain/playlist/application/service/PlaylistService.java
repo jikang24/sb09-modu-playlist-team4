@@ -1,6 +1,6 @@
 package com.mopl.domain.playlist.application.service;
 
-import com.mopl.domain.content.dto.ContentSummary;
+import com.mopl.global.dto.ContentSummary;
 import com.mopl.domain.notification.domain.NotificationType;
 import com.mopl.domain.playlist.application.dto.PlaylistCreateRequest;
 import com.mopl.domain.playlist.application.dto.PlaylistDto;

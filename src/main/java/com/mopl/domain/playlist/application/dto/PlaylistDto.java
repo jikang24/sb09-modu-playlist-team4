@@ -1,6 +1,6 @@
 package com.mopl.domain.playlist.application.dto;
 
-import com.mopl.domain.content.dto.ContentSummary;
+import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
 import java.time.Instant;
 import java.util.List;
