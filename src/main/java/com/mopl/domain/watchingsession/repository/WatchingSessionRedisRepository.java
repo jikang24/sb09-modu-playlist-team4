@@ -6,6 +6,7 @@ import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -95,8 +97,8 @@ public class WatchingSessionRedisRepository implements WatchingSessionRepository
       return List.of();
     }
 
-    java.util.Comparator<ZSetOperations.TypedTuple<String>> byScore =
-        java.util.Comparator.comparing(ZSetOperations.TypedTuple::getScore);
+    Comparator<TypedTuple<String>> byScore =
+        Comparator.comparing(ZSetOperations.TypedTuple::getScore);
 
     return tuples.stream()
         .sorted(isAscending ? byScore : byScore.reversed())
