@@ -100,7 +100,9 @@ public class FollowController {
     @Operation(summary = "특정 유저의 팔로워 수 조회")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "성공"),
-        @ApiResponse(responseCode = "401", description = "인증 오류")
+        @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+        @ApiResponse(responseCode = "401", description = "인증 오류"),
+        @ApiResponse(responseCode = "500", description = "서버 오류")
     })
     @GetMapping("/count")
     public ResponseEntity<Long> countFollowers(@RequestParam UUID followeeId) {
