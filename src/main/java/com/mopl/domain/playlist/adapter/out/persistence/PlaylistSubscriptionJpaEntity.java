@@ -44,7 +44,7 @@ public class PlaylistSubscriptionJpaEntity {
     return new PlaylistSubscriptionJpaEntity(subscriberId);
   }
 
-  public void assignPlaylist(PlaylistJpaEntity playlist) {
+  void assignPlaylist(PlaylistJpaEntity playlist) {
     this.playlist = playlist;
   }
 }
