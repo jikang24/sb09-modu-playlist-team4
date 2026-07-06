@@ -7,8 +7,10 @@ import com.mopl.domain.playlist.domain.Playlist;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,5 +88,24 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
     return subscriptionJpaRepository.findByPlaylistId(playlistId).stream()
         .map(PlaylistSubscriptionJpaEntity::getSubscriberId)
         .toList();
+  }
+
+  @Override
+  public Map<UUID, Long> countSubscribersBulk(List<UUID> playlistIds) {
+    return subscriptionJpaRepository.countByPlaylistIds(playlistIds).stream()
+        .collect(Collectors.toMap(
+            PlaylistSubscriptionCount::getPlaylistId,
+            PlaylistSubscriptionCount::getCount
+        ));
+  }
+
+  @Override
+  public Map<UUID, Boolean> isSubscribedBulk(List<UUID> playlistIds, UUID subscriberId) {
+    List<UUID> subscribedPlaylistIds = subscriptionJpaRepository.findSubscribedPlaylistIds(playlistIds, subscriberId);
+    return playlistIds.stream()
+        .collect(Collectors.toMap(
+            id -> id,
+            subscribedPlaylistIds::contains
+        ));
   }
 }

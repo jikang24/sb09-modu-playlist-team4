@@ -3,6 +3,7 @@ package com.mopl.domain.playlist.application.port.out;
 import com.mopl.domain.playlist.application.dto.PlaylistSearchCondition;
 import com.mopl.domain.playlist.domain.Playlist;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,4 +20,8 @@ public interface LoadPlaylistPort {
   boolean isSubscribed(UUID playlistId, UUID subscriberId);
 
   List<UUID> findSubscriberIds(UUID playlistId);
+
+  Map<UUID, Long> countSubscribersBulk(List<UUID> playlistIds);
+
+  Map<UUID, Boolean> isSubscribedBulk(List<UUID> playlistIds, UUID subscriberId);
 }

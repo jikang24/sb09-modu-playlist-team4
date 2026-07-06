@@ -93,4 +93,14 @@ public class ContentRepositoryImpl implements ContentRepository {
   public boolean existsById(UUID id) {
     return jpaRepository.existsById(id);
   }
+
+  @Override
+  public List<Content> findAllByIds(List<UUID> ids) {
+    if (ids == null || ids.isEmpty()) {
+      return List.of();
+    }
+    return jpaRepository.findAllById(ids).stream()
+        .map(contentMapper::toDomain)
+        .toList();
+  }
 }

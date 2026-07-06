@@ -25,22 +25,17 @@ public class ContentAdapter implements LoadContentPort {
     if (contentIds == null || contentIds.isEmpty()) {
       return List.of();
     }
-    List<ContentSummary> summaries = new ArrayList<>();
-    for (UUID contentId : contentIds) {
-      contentRepository.findById(contentId)
-          .ifPresent(content -> summaries.add(
-              new ContentSummary(
-                  content.getId(),
-                  content.getType().name(),
-                  content.getTitle(),
-                  content.getDescription(),
-                  content.getThumbnailUrl(),
-                  content.getTags(),
-                  content.getAverageRating(),
-                  content.getReviewCount()
-              )
-          ));
-    }
-    return summaries;
+    return contentRepository.findAllByIds(contentIds).stream()
+        .map(content -> new ContentSummary(
+            content.getId(),
+            content.getType().name(),
+            content.getTitle(),
+            content.getDescription(),
+            content.getThumbnailUrl(),
+            content.getTags(),
+            content.getAverageRating(),
+            content.getReviewCount()
+        ))
+        .toList();
   }
 }

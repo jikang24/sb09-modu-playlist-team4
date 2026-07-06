@@ -23,8 +23,13 @@ import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -85,9 +90,7 @@ public class PlaylistService implements PlaylistUseCase {
       nextIdAfter = last.getId();
     }
 
-    List<PlaylistDto> data = pageData.stream()
-        .map(playlist -> toDto(playlist, currentUserId))
-        .toList();
+    List<PlaylistDto> data = toDtoList(pageData, currentUserId);
 
     return new CursorPageResponse<>(
         data,
@@ -188,6 +191,41 @@ public class PlaylistService implements PlaylistUseCase {
           "'" + playlist.getTitle() + "' 플레이리스트에 새 콘텐츠가 추가되었습니다."
       ));
     }
+  }
+
+  private List<PlaylistDto> toDtoList(List<Playlist> playlists, UUID currentUserId) {
+    if (playlists.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    List<UUID> playlistIds = playlists.stream().map(Playlist::getId).toList();
+    Set<UUID> ownerIds = playlists.stream().map(Playlist::getOwnerId).collect(Collectors.toSet());
+    List<UUID> contentIds = playlists.stream()
+        .flatMap(p -> p.getContentIds().stream())
+        .distinct()
+        .toList();
+
+    Map<UUID, UserSummary> owners = loadUserPort.getUserSummaries(ownerIds);
+    Map<UUID, ContentSummary> contents = loadContentPort.findSummariesByIds(contentIds).stream()
+        .collect(Collectors.toMap(ContentSummary::id, c -> c, (a, b) -> a));
+    Map<UUID, Long> subscriberCounts = loadPlaylistPort.countSubscribersBulk(playlistIds);
+    Map<UUID, Boolean> isSubscribedMap = loadPlaylistPort.isSubscribedBulk(playlistIds, currentUserId);
+
+    return playlists.stream()
+        .map(playlist -> new PlaylistDto(
+            playlist.getId(),
+            owners.get(playlist.getOwnerId()),
+            playlist.getTitle(),
+            playlist.getDescription(),
+            playlist.getUpdatedAt(),
+            subscriberCounts.getOrDefault(playlist.getId(), 0L),
+            isSubscribedMap.getOrDefault(playlist.getId(), false),
+            playlist.getContentIds().stream()
+                .map(contents::get)
+                .filter(java.util.Objects::nonNull)
+                .toList()
+        ))
+        .toList();
   }
 
   private PlaylistDto toDto(Playlist playlist, UUID currentUserId) {
