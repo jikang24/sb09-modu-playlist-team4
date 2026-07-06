@@ -3,6 +3,7 @@ package com.mopl.global.websocket;
 import com.mopl.domain.conversation.application.port.in.GetConversationUseCase;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
       var authentication = new UsernamePasswordAuthenticationToken(
           claims,
           null,
-          List.of(new SimpleGrantedAuthority("ROLE_" + claims.getRole()))
+          Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + claims.getRole()))
       );
       accessor.setUser(authentication);
 
