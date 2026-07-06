@@ -24,6 +24,16 @@ spring:
         org.apache.kafka.common.security.plain.PlainLoginModule required
         username="${KAFKA_API_KEY}"
         password="${KAFKA_API_SECRET}";
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages  : "*"
 
   elasticsearch:
     uris: ${OPENSEARCH_URI}

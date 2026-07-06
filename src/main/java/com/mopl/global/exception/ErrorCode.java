@@ -32,6 +32,9 @@ public enum ErrorCode {
     PLAYLIST_ALREADY_SUBSCRIBED("이미 구독 중인 플레이리스트입니다.", HttpStatus.CONFLICT),
     PLAYLIST_NOT_SUBSCRIBED("구독 중이 아닌 플레이리스트입니다.", HttpStatus.BAD_REQUEST),
 
+    // WatchingSession 모듈
+    WATCHING_SESSION_NOT_FOUND("현재 시청 중인 세션이 없습니다.", HttpStatus.NOT_FOUND),
+
 
     //Conversation 모듈
     PARTICIPANTS_NOT_FOUND("참여자를 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
@@ -42,7 +45,16 @@ public enum ErrorCode {
     //DM 모듈
     DIRECT_MESSAGE_NOT_FOUND("해당 디엠을 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
 
+    //s3
+    S3_UPLOAD_FAILED("파일 업로드에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    S3_DELETE_FAILED("파일 삭제에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_FILE_EXTENSION("허용되지 않는 파일 확장자입니다", HttpStatus.BAD_REQUEST),
+    INVALID_IMAGE_FILE("올바른 이미지 파일이 아닙니다", HttpStatus.BAD_REQUEST),
 
+    //Follow 모듈
+    CANNOT_FOLLOW_SELF("자기 자신을 팔로우할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    FOLLOW_ALREADY_EXISTS("이미 팔로우한 사용자입니다.", HttpStatus.CONFLICT),
+    FOLLOW_NOT_FOUND("팔로우 관계를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
 
     // Notification 모듈
@@ -57,6 +69,7 @@ public enum ErrorCode {
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_REVOKED("이미 무효화된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    TOKEN_NOT_FOUND("인증 토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
 
     // 공통 응답
     INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),

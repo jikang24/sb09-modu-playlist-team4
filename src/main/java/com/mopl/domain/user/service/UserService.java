@@ -12,6 +12,9 @@ public interface UserService {
 
     UserDto find(UUID userId);
 
+    /** 존재하는 id만 반환 - 목록 조회에서 유저 정보를 배치로 붙일 때 씀 (N+1 방지용) */
+    List<UserDto> findAllByIds(Collection<UUID> userIds);
+
     UserDto updateProfile(UUID userId, UserUpdateRequest request, String imageUrl);
 
     UserDto updateRole(UUID userId, UserRoleUpdateRequest request);

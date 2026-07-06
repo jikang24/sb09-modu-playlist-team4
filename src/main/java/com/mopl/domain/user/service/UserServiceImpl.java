@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,6 +60,13 @@ public class UserServiceImpl implements UserService {
         return userRepository.findById(userId)
                 .map(userMapper::toDto)
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Override
+    public List<UserDto> findAllByIds(Collection<UUID> userIds) {
+        return userRepository.findAllById(userIds).stream()
+                .map(userMapper::toDto)
+                .toList();
     }
 
 
