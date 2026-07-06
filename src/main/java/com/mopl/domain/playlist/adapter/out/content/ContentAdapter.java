@@ -28,7 +28,7 @@ public class ContentAdapter implements LoadContentPort {
     return contentRepository.findAllByIds(contentIds).stream()
         .map(content -> new ContentSummary(
             content.getId(),
-            content.getType().name(),
+            content.getType(),
             content.getTitle(),
             content.getDescription(),
             content.getThumbnailUrl(),

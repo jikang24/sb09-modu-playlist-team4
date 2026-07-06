@@ -25,5 +25,4 @@ public interface UserService {
 
     CursorPageResponse<UserDto> findAll(UserSearchRequest request);
 
-    List<UserDto> findAllByIds(Collection<UUID> userIds);
 }
