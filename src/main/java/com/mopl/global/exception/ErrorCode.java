@@ -46,6 +46,8 @@ public enum ErrorCode {
 
     //Follow 모듈
     CANNOT_FOLLOW_SELF("자기 자신을 팔로우할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    FOLLOW_ALREADY_EXISTS("이미 팔로우한 사용자입니다.", HttpStatus.CONFLICT),
+    FOLLOW_NOT_FOUND("팔로우 관계를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
 
     // Notification 모듈

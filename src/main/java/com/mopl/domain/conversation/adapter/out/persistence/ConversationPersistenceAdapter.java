@@ -3,6 +3,7 @@ package com.mopl.domain.conversation.adapter.out.persistence;
 
 import com.mopl.domain.conversation.application.dto.ConversationSearchCondition;
 import com.mopl.domain.conversation.application.port.out.LoadConversationPort;
+import com.mopl.domain.conversation.application.port.out.LoadUserPort;
 import com.mopl.domain.conversation.application.port.out.SaveConversationPort;
 import com.mopl.domain.conversation.domain.Conversation;
 import com.mopl.domain.dm.application.port.in.GetConversationIdsByContentUseCase;
@@ -26,6 +27,7 @@ public class ConversationPersistenceAdapter implements SaveConversationPort, Loa
   private final ConversationPersistenceMapper mapper;
   private final JPAQueryFactory queryFactory;
   private final GetConversationIdsByContentUseCase getConversationIdsByContentUseCase;
+  private final LoadUserPort loadUserPort;
 
   @Override
   public Optional<Conversation> findById(UUID id) {
@@ -52,56 +54,68 @@ public class ConversationPersistenceAdapter implements SaveConversationPort, Loa
     BooleanBuilder builder = new BooleanBuilder();
     builder.and(c.participant1Id.eq(myId).or(c.participant2Id.eq(myId)));
 
-    if(condition.hasKeyword()){
+    if (condition.hasKeyword()) {
       List<UUID> conversationIds = getConversationIdsByContentUseCase
           .findConversationIdsByContent(condition.keywordLike());
+      List<UUID> userIdsByName = loadUserPort.findUserIdsByNameLike(condition.keywordLike());
 
-      //Todo: 이름 검색은 추후 추가
-
-      if(!conversationIds.isEmpty()){
-        builder.and(c.id.in(conversationIds));
-      }else{
+      if (conversationIds.isEmpty() && userIdsByName.isEmpty()) {
         return new CursorPageResponse<>(
-            List.of(),null,null,false,0,condition.sortBy(),condition.sortDirection().name()
+            List.of(), null, null, false, 0,
+            condition.sortBy(), condition.sortDirection().name()
         );
       }
+
+      BooleanBuilder keywordBuilder = new BooleanBuilder();
+      if (!conversationIds.isEmpty()) {
+        keywordBuilder.or(c.id.in(conversationIds));
+      }
+      if (!userIdsByName.isEmpty()) {
+        keywordBuilder.or(c.participant1Id.in(userIdsByName).or(c.participant2Id.in(userIdsByName)));
+      }
+
+      builder.and(keywordBuilder);
     }
 
-    if(!condition.hasFirstPage()){
+    if (!condition.hasFirstPage()) {
       Instant cursorTime = Instant.parse(condition.cursor());
-      if(condition.sortDirection() == SortDirection.ASCENDING){
+      if (condition.sortDirection() == SortDirection.ASCENDING) {
         builder.and(c.createdAt.gt(cursorTime));
-      }else {
+      } else {
         builder.and(c.createdAt.lt(cursorTime));
       }
     }
 
-    var orderSpecifier = condition.sortDirection() == SortDirection.ASCENDING ? c.createdAt.asc() : c.createdAt.desc();
+    var orderSpecifier = condition.sortDirection() == SortDirection.ASCENDING
+        ? c.createdAt.asc()
+        : c.createdAt.desc();
 
     List<ConversationJpaEntity> results = queryFactory
         .selectFrom(c)
         .where(builder)
         .orderBy(orderSpecifier)
-        .limit(condition.limit()+1)
+        .limit(condition.limit() + 1)
         .fetch();
+
     boolean hasNext = results.size() > condition.limit();
-    if(hasNext){
+    if (hasNext) {
       results = results.subList(0, condition.limit());
     }
+
     List<Conversation> data = results.stream()
         .map(mapper::toDomain)
         .toList();
 
     String nexCursor = hasNext && !data.isEmpty()
-        ? data.get(data.size()-1).getCreatedAt().toString()
+        ? data.get(data.size() - 1).getCreatedAt().toString()
         : null;
 
     UUID nextIdAfter = hasNext && !data.isEmpty()
-        ? data.get(data.size()-1).getId()
+        ? data.get(data.size() - 1).getId()
         : null;
 
-    return new CursorPageResponse<>(data,nexCursor,nextIdAfter,hasNext, data.size(), condition.sortBy(),condition.sortDirection().name());
-
+    return new CursorPageResponse<>(data, nexCursor, nextIdAfter, hasNext, data.size(),
+        condition.sortBy(), condition.sortDirection().name());
   }
 
   @Override
