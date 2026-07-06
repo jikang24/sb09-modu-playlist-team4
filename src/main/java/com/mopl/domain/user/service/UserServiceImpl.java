@@ -8,6 +8,7 @@ import com.mopl.domain.user.event.UserRoleChangedEvent;
 import com.mopl.domain.user.mapper.UserMapper;
 import com.mopl.domain.user.repository.UserRepository;
 import com.mopl.global.event.PasswordChangedEvent;
+import com.mopl.global.event.UserProfileUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -73,6 +74,11 @@ public class UserServiceImpl implements UserService {
         }
 
         user.updateProfile(request.name(), imageUrl);
+        // 프로필(이름/이미지) 변경을 다른 모듈에 알림 - Review가 저장해둔 author 스냅샷을
+        // 최신 상태로 맞추기 위해 필요 (이벤트 없이는 리뷰에 옛날 이름이 계속 박제됨)
+        eventPublisher.publishEvent(
+            new UserProfileUpdatedEvent(user.getId(), user.getName(), imageUrl)
+        );
         return userMapper.toDto(user);
     }
 
