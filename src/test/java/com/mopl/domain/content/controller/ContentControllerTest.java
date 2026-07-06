@@ -205,7 +205,7 @@ class ContentControllerTest {
             given(contentUseCase.getContents(any(ContentSearchRequest.class)))
                 .willReturn(pageResponse);
 
-            ResponseEntity<ApiResponse<CursorPageResponse<ContentResponse>>> response =
+            ResponseEntity<CursorPageResponse<ContentResponse>> response =
                 contentController.getContents(
                     ContentType.MOVIE, null, null,
                     null, null, 10,
@@ -214,7 +214,7 @@ class ContentControllerTest {
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().data().data()).hasSize(1);
+            assertThat(response.getBody().data()).hasSize(1);
         }
 
         @Test
@@ -227,7 +227,7 @@ class ContentControllerTest {
             given(contentUseCase.getContents(any(ContentSearchRequest.class)))
                 .willReturn(pageResponse);
 
-            ResponseEntity<ApiResponse<CursorPageResponse<ContentResponse>>> response =
+            ResponseEntity<CursorPageResponse<ContentResponse>> response =
                 contentController.getContents(
                     null, null, null,
                     null, null, 20,

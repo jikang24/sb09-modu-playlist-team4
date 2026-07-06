@@ -28,6 +28,9 @@ public enum ErrorCode {
     PLAYLIST_NOT_FOUND("플레이리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     PLAYLIST_NOT_OWNER("본인의 플레이리스트만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
 
+    // WatchingSession 모듈
+    WATCHING_SESSION_NOT_FOUND("현재 시청 중인 세션이 없습니다.", HttpStatus.NOT_FOUND),
+
 
     //Conversation 모듈
     PARTICIPANTS_NOT_FOUND("참여자를 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
