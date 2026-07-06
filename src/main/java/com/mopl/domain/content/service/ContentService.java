@@ -1,7 +1,7 @@
 package com.mopl.domain.content.service;
 
 import com.mopl.domain.content.domain.Content;
-import com.mopl.domain.content.domain.ContentType;
+import com.mopl.domain.content.domain.ContentSortField;
 import com.mopl.domain.content.dto.ContentCreateRequest;
 import com.mopl.domain.content.dto.ContentResponse;
 import com.mopl.domain.content.dto.ContentSearchRequest;
@@ -116,12 +116,15 @@ public class ContentService implements ContentUseCase {
         ? contents.subList(0, request.limit())
         : contents;
 
-    // 다음 커서: 마지막 항목의 createdAt + id
+    // 다음 커서: 마지막 항목의 정렬 기준 필드 값 + id (정렬 기준과 커서 기준이 항상 같아야 함)
+    ContentSortField sortField = ContentSortField.resolve(request.sortBy());
     String nextCursor = null;
     UUID nextIdAfter = null;
     if (hasNext && !pageData.isEmpty()) {
       Content last = pageData.get(pageData.size() - 1);
-      nextCursor = last.getCreatedAt().toString(); // ISO 8601 문자열
+      nextCursor = sortField == ContentSortField.REVIEW_COUNT
+          ? String.valueOf(last.getReviewCount())
+          : last.getCreatedAt().toString(); // ISO 8601 문자열
       nextIdAfter = last.getId();
     }
     List<ContentResponse> data = pageData.stream()
