@@ -12,6 +12,7 @@ import com.mopl.global.event.UserProfileUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -152,5 +153,12 @@ public class UserServiceImpl implements UserService {
                 request.sortBy().name(),
                 request.sortDirection().name()
         );
+    }
+
+    @Override
+    public List<UserDto> findAllByIds(Collection<UUID> userIds) {
+        return userRepository.findAllById(userIds).stream()
+            .map(userMapper::toDto)
+            .toList();
     }
 }
