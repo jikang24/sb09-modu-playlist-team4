@@ -27,6 +27,10 @@ public enum ErrorCode {
     // Playlist 모듈
     PLAYLIST_NOT_FOUND("플레이리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     PLAYLIST_NOT_OWNER("본인의 플레이리스트만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
+    PLAYLIST_CONTENT_ALREADY_EXISTS("이미 플레이리스트에 추가된 콘텐츠입니다.", HttpStatus.CONFLICT),
+    PLAYLIST_CONTENT_NOT_FOUND("플레이리스트에 해당 콘텐츠가 없습니다.", HttpStatus.NOT_FOUND),
+    PLAYLIST_ALREADY_SUBSCRIBED("이미 구독 중인 플레이리스트입니다.", HttpStatus.CONFLICT),
+    PLAYLIST_NOT_SUBSCRIBED("구독 중이 아닌 플레이리스트입니다.", HttpStatus.BAD_REQUEST),
 
     // WatchingSession 모듈
     WATCHING_SESSION_NOT_FOUND("현재 시청 중인 세션이 없습니다.", HttpStatus.NOT_FOUND),

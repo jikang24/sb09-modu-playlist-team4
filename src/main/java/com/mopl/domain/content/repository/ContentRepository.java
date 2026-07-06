@@ -35,4 +35,5 @@ public interface ContentRepository {
 
   boolean existsById(UUID id);
 
+  List<Content> findAllByIds(List<UUID> ids);
 }
