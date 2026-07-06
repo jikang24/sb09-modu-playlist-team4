@@ -27,6 +27,8 @@ bin/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+uploads/
+src/main/resources/static/uploads/
 
 ### NetBeans ###
 /nbproject/private/
@@ -59,3 +61,5 @@ logs/          # logs 폴더도 혹시 모르니 같이 추가
 
 ### yaml-local ###
 application-local.yaml
+
+.DS_Store

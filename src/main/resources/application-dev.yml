@@ -6,10 +6,9 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:mopl}
     username: ${DB_USERNAME:mopl}
     password: ${DB_PASSWORD:moduplay123}
-
   mail:
-    username: ${EMAIL_USERNAME:mopl}
-    password: ${EMAIL_PASSWORD:}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
 
   jpa:
     hibernate:
@@ -30,6 +29,16 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     properties:
       security.protocol: PLAINTEXT
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
 
   elasticsearch:
     uris: ${OPENSEARCH_URI:http://localhost:9200}

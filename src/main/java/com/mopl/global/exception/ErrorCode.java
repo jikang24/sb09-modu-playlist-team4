@@ -38,7 +38,14 @@ public enum ErrorCode {
     //DM 모듈
     DIRECT_MESSAGE_NOT_FOUND("해당 디엠을 찾을 수 없습니다.",HttpStatus.NOT_FOUND),
 
+    //s3
+    S3_UPLOAD_FAILED("파일 업로드에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    S3_DELETE_FAILED("파일 삭제에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_FILE_EXTENSION("허용되지 않는 파일 확장자입니다", HttpStatus.BAD_REQUEST),
+    INVALID_IMAGE_FILE("올바른 이미지 파일이 아닙니다", HttpStatus.BAD_REQUEST),
 
+    //Follow 모듈
+    CANNOT_FOLLOW_SELF("자기 자신을 팔로우할 수 없습니다.", HttpStatus.BAD_REQUEST),
 
 
     // Notification 모듈
@@ -53,6 +60,7 @@ public enum ErrorCode {
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_REVOKED("이미 무효화된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    TOKEN_NOT_FOUND("인증 토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
 
     // 공통 응답
     INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),
