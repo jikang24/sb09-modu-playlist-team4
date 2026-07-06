@@ -44,6 +44,10 @@ public enum ErrorCode {
     INVALID_FILE_EXTENSION("허용되지 않는 파일 확장자입니다", HttpStatus.BAD_REQUEST),
     INVALID_IMAGE_FILE("올바른 이미지 파일이 아닙니다", HttpStatus.BAD_REQUEST),
 
+    //Follow 모듈
+    CANNOT_FOLLOW_SELF("자기 자신을 팔로우할 수 없습니다.", HttpStatus.BAD_REQUEST),
+
+
     // Notification 모듈
     NOTIFICATION_NOT_FOUND("알림을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTIFICATION_ACCESS_DENIED("본인의 알림만 읽음 처리할 수 있습니다.", HttpStatus.FORBIDDEN),
