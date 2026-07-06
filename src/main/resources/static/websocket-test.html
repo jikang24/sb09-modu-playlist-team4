@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>WebSocket DM 테스트</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    input { padding: 6px; margin: 4px 0; }
+    button { padding: 6px 16px; margin: 4px; cursor: pointer; }
+    #log { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; background: #f9f9f9; font-family: monospace; font-size: 13px; margin-top: 10px; }
+    .row { margin-bottom: 10px; }
+    label { display: inline-block; width: 90px; }
+  </style>
+</head>
+<body>
+<h2>WebSocket DM 테스트</h2>
+
+<div class="row">
+  <label>토큰:</label>
+  <input type="text" id="token" style="width: 500px;" placeholder="Bearer 없이 토큰 값만 붙여넣기">
+</div>
+<div class="row">
+  <label>대화방 ID:</label>
+  <input type="text" id="conversationId" style="width: 300px;">
+</div>
+<div class="row">
+  <button onclick="connect()">1. 연결</button>
+  <button onclick="subscribe()">2. 구독</button>
+</div>
+
+<hr>
+
+<div class="row">
+  <label>메시지:</label>
+  <input type="text" id="messageContent" style="width: 300px;">
+  <button onclick="sendMessage()">전송</button>
+</div>
+
+<h3>로그</h3>
+<div id="log"></div>
+
+<script>
+  let stompClient = null;
+
+  function log(message) {
+    const logDiv = document.getElementById('log');
+    const time = new Date().toLocaleTimeString();
+    logDiv.innerHTML += `<div>[${time}] ${message}</div>`;
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  function connect() {
+    const token = document.getElementById('token').value.trim();
+    if (!token) {
+      log('토큰을 입력해주세요.');
+      return;
+    }
+
+    const socket = new WebSocket('ws://localhost:8080/ws');
+    stompClient = Stomp.over(socket);
+
+    stompClient.connect(
+        { 'Authorization': 'Bearer ' + token },
+        function (frame) {
+          log('연결 성공: ' + frame);
+        },
+        function (error) {
+          log('연결 실패: ' + JSON.stringify(error));
+        }
+    );
+  }
+
+  function subscribe() {
+    if (!stompClient || !stompClient.connected) {
+      log('먼저 연결을 진행해주세요.');
+      return;
+    }
+
+    const conversationId = document.getElementById('conversationId').value.trim();
+    if (!conversationId) {
+      log('대화방 ID를 입력해주세요.');
+      return;
+    }
+
+    stompClient.subscribe('/sub/conversations/' + conversationId + '/direct-messages', function (message) {
+      log('메시지 수신: ' + message.body);
+    }, function(error) {
+      log('구독 실패: ' + JSON.stringify(error));
+    });
+
+    log('구독 시도: /sub/conversations/' + conversationId + '/direct-messages');
+  }
+
+  function sendMessage() {
+    if (!stompClient || !stompClient.connected) {
+      log('먼저 연결을 진행해주세요.');
+      return;
+    }
+
+    const conversationId = document.getElementById('conversationId').value.trim();
+    const content = document.getElementById('messageContent').value.trim();
+
+    if (!conversationId || !content) {
+      log('대화방 ID와 메시지 내용을 입력해주세요.');
+      return;
+    }
+
+    stompClient.send('/pub/conversations/' + conversationId + '/direct-messages', {}, JSON.stringify({
+      content: content
+    }));
+
+    log('메시지 전송 시도: ' + content);
+    document.getElementById('messageContent').value = '';
+  }
+</script>
+</body>
+</html>

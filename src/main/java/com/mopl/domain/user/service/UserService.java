@@ -24,4 +24,5 @@ public interface UserService {
     UserDto updateLocked(UUID userId, UserLockUpdateRequest request);
 
     CursorPageResponse<UserDto> findAll(UserSearchRequest request);
+
 }
