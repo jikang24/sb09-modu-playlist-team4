@@ -5,6 +5,7 @@ import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +44,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
       var authentication = new UsernamePasswordAuthenticationToken(
           claims,
           null,
-          List.of(new SimpleGrantedAuthority("ROLE_" + claims.getRole()))
+          Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + claims.getRole()))
       );
       accessor.setUser(authentication);
 
