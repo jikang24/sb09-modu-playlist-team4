@@ -1,6 +1,8 @@
 package com.mopl.global.websocket;
 
 import com.mopl.domain.conversation.application.port.in.GetConversationUseCase;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
 import java.util.List;
@@ -54,7 +56,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
   private String extractToken(StompHeaderAccessor accessor){
     String authHeader = accessor.getFirstNativeHeader("Authorization");
     if(authHeader == null || !authHeader.startsWith("Bearer ")){
-      throw new IllegalArgumentException("토큰이 없습니다.");
+      throw new MoplException(ErrorCode.TOKEN_NOT_FOUND);
     }
     return authHeader.substring(7);
   }
