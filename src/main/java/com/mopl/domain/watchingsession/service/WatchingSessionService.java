@@ -10,6 +10,7 @@ import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.response.CursorPageResponse;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,17 @@ public class WatchingSessionService {
     boolean hasNext = sessions.size() > request.limit();
     List<WatchingSession> pageData = hasNext ? sessions.subList(0, request.limit()) : sessions;
 
-    List<WatchingSessionDto> data = pageData.stream().map(this::toDto).toList();
+    // 페이지 안의 세션이 전부 같은 contentId라 한 번만 조회해서 재사용 (N+1 방지)
+    ContentSummary content = loadContentPort.getContent(request.contentId());
+
+    // watcherId별로 한 번에 배치 조회 (N+1 방지)
+    List<UUID> watcherIds = pageData.stream().map(WatchingSession::watcherId).distinct().toList();
+    Map<UUID, UserSummary> watchersById = loadUserPort.getUserSummaries(watcherIds);
+
+    List<WatchingSessionDto> data = pageData.stream()
+        .map(session -> new WatchingSessionDto(
+            session.id(), session.createdAt(), watchersById.get(session.watcherId()), content))
+        .toList();
 
     String nextCursor = null;
     UUID nextIdAfter = null;
