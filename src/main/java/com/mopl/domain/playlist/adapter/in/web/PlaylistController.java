@@ -4,14 +4,13 @@ import com.mopl.domain.playlist.application.dto.PlaylistCreateRequest;
 import com.mopl.domain.playlist.application.dto.PlaylistDto;
 import com.mopl.domain.playlist.application.dto.PlaylistSearchRequest;
 import com.mopl.domain.playlist.application.dto.PlaylistUpdateRequest;
-import com.mopl.domain.playlist.application.dto.SortBy;
 import com.mopl.domain.playlist.application.port.in.PlaylistUseCase;
-import com.mopl.global.dto.SortDirection;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.response.CursorPageResponse;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,9 +20,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/playlists")
 @RequiredArgsConstructor
@@ -34,25 +33,9 @@ public class PlaylistController {
   @GetMapping
   public ResponseEntity<CursorPageResponse<PlaylistDto>> getPlaylists(
       @AuthenticationPrincipal JwtClaims claims,
-      @RequestParam(required = false) String keywordLike,
-      @RequestParam(required = false) UUID ownerIdEqual,
-      @RequestParam(required = false) UUID subscriberIdEqual,
-      @RequestParam(required = false) String cursor,
-      @RequestParam(required = false) UUID idAfter,
-      @RequestParam int limit,
-      @RequestParam(defaultValue = "updatedAt") SortBy sortBy,
-      @RequestParam(defaultValue = "DESCENDING") SortDirection sortDirection) {
-
-    PlaylistSearchRequest request = new PlaylistSearchRequest(
-        keywordLike,
-        ownerIdEqual,
-        subscriberIdEqual,
-        cursor,
-        idAfter,
-        limit,
-        sortBy,
-        sortDirection
-    );
+      PlaylistSearchRequest request
+  ) {
+    log.info("[Playlist] 목록 조회 요청 - userId: {}", claims.getUserId());
 
     return ResponseEntity.ok(
         playlistUseCase.getList(claims.getUserId(), request)
@@ -64,6 +47,8 @@ public class PlaylistController {
       @AuthenticationPrincipal JwtClaims claims,
       @Valid @RequestBody PlaylistCreateRequest request) {
 
+    log.info("[Playlist] 생성 요청 - userId: {}", claims.getUserId());
+
     PlaylistDto response = playlistUseCase.create(claims.getUserId(), request);
     return ResponseEntity.status(201).body(response);
   }
@@ -72,6 +57,9 @@ public class PlaylistController {
   public ResponseEntity<PlaylistDto> getPlaylist(
       @AuthenticationPrincipal JwtClaims claims,
       @PathVariable UUID playlistId) {
+
+    log.info("[Playlist] 단건 조회 요청 - playlistId: {}, userId: {}",
+        playlistId, claims.getUserId());
 
     return ResponseEntity.ok(
         playlistUseCase.getById(playlistId, claims.getUserId())
@@ -84,6 +72,9 @@ public class PlaylistController {
       @PathVariable UUID playlistId,
       @Valid @RequestBody PlaylistUpdateRequest request) {
 
+    log.info("[Playlist] 수정 요청 - playlistId: {}, userId: {}",
+        playlistId, claims.getUserId());
+
     return ResponseEntity.ok(
         playlistUseCase.update(playlistId, claims.getUserId(), request)
     );
@@ -94,6 +85,9 @@ public class PlaylistController {
       @AuthenticationPrincipal JwtClaims claims,
       @PathVariable UUID playlistId) {
 
+    log.info("[Playlist] 삭제 요청 - playlistId: {}, userId: {}",
+        playlistId, claims.getUserId());
+
     playlistUseCase.delete(playlistId, claims.getUserId());
     return ResponseEntity.noContent().build();
   }
@@ -103,6 +97,9 @@ public class PlaylistController {
       @AuthenticationPrincipal JwtClaims claims,
       @PathVariable UUID playlistId) {
 
+    log.info("[Playlist] 구독 요청 - playlistId: {}, userId: {}",
+        playlistId, claims.getUserId());
+
     playlistUseCase.subscribe(playlistId, claims.getUserId());
     return ResponseEntity.noContent().build();
   }
@@ -111,6 +108,9 @@ public class PlaylistController {
   public ResponseEntity<Void> unsubscribe(
       @AuthenticationPrincipal JwtClaims claims,
       @PathVariable UUID playlistId) {
+
+    log.info("[Playlist] 구독 취소 요청 - playlistId: {}, userId: {}",
+        playlistId, claims.getUserId());
 
     playlistUseCase.unsubscribe(playlistId, claims.getUserId());
     return ResponseEntity.noContent().build();
@@ -122,6 +122,9 @@ public class PlaylistController {
       @PathVariable UUID playlistId,
       @PathVariable UUID contentId) {
 
+    log.info("[Playlist] 콘텐츠 추가 요청 - playlistId: {}, contentId: {}, userId: {}",
+        playlistId, contentId, claims.getUserId());
+
     playlistUseCase.addContent(playlistId, contentId, claims.getUserId());
     return ResponseEntity.noContent().build();
   }
@@ -131,6 +134,9 @@ public class PlaylistController {
       @AuthenticationPrincipal JwtClaims claims,
       @PathVariable UUID playlistId,
       @PathVariable UUID contentId) {
+
+    log.info("[Playlist] 콘텐츠 삭제 요청 - playlistId: {}, contentId: {}, userId: {}",
+        playlistId, contentId, claims.getUserId());
 
     playlistUseCase.removeContent(playlistId, contentId, claims.getUserId());
     return ResponseEntity.noContent().build();
