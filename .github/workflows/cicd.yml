@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ "develop" ]
 
+permissions:
+  contents: write
+  pull-requests: write
+  checks: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,7 +32,34 @@ jobs:
       - name: Build with Gradle
         run: |
           chmod +x gradlew
-          ./gradlew build -x test
+          ./gradlew build
+
+      - name: Add coverage to PR comment
+        uses: madrapps/jacoco-report@v1.7.1
+        if: github.event_name == 'pull_request'
+        with:
+          paths: '**/build/reports/jacoco/test/jacocoTestReport.xml'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: '📊 테스트 커버리지 리포트'
+          update-comment: true
+
+      - name: Generate coverage badge
+        uses: cicirello/jacoco-badge-generator@v2
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          jacoco-csv-file: build/reports/jacoco/test/jacocoTestReport.csv
+          badges-directory: .github/badges
+          generate-coverage-badge: true
+          coverage-badge-filename: coverage.svg
+
+      - name: Commit badge to main
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .github/badges/coverage.svg
+          git diff --staged --quiet || git commit -m "chore: 커버리지 배지 업데이트"
+          git push
 
       - name: Build Docker Image
         env:
