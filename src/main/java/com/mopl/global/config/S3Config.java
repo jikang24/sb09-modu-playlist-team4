@@ -9,7 +9,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
 @Configuration
-@Profile("!local")
+@Profile("prod")
 public class S3Config {
     @Value("${cloud.aws.region.static}")
     private String region;
