@@ -93,7 +93,7 @@ public class ContentController {
   }
 
   @GetMapping
-  public ResponseEntity<ApiResponse<CursorPageResponse<ContentResponse>>> getContents(
+  public ResponseEntity<CursorPageResponse<ContentResponse>> getContents(
       @RequestParam(required = false) ContentType typeEqual,
       @RequestParam(required = false) String keywordLike,
       @RequestParam(required = false) List<String> tagsIn,
@@ -108,6 +108,6 @@ public class ContentController {
         cursor, idAfter, limit, sortBy, sortDirection
     );
 
-    return ResponseEntity.ok(ApiResponse.ok(contentUseCase.getContents(request)));
+    return ResponseEntity.ok(contentUseCase.getContents(request));
   }
 }
