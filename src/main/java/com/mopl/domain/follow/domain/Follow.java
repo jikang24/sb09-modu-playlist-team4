@@ -16,7 +16,7 @@ public class Follow {
     private final UUID followeeId;
     private final Instant createdAt;
 
-    public static Follow create(UUID followerId, UUID followeeId) {
+    public static Follow create(UUID followeeId, UUID followerId) {
         if (followerId.equals(followeeId)) {
             throw new MoplException(ErrorCode.CANNOT_FOLLOW_SELF);
         }
