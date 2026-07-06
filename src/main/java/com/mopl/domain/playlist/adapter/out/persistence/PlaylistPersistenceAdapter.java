@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -46,7 +47,7 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
   }
 
   @Override
-  @org.springframework.transaction.annotation.Transactional
+  @Transactional
   public void unsubscribe(UUID playlistId, UUID subscriberId) {
     subscriptionJpaRepository.deleteByPlaylistIdAndSubscriberId(playlistId, subscriberId);
   }
