@@ -56,12 +56,15 @@ public class WatchingSessionRedisRepository implements WatchingSessionRepository
   }
 
   @Override
-  public void leave(UUID watcherId) {
+  public WatchingSession leave(UUID watcherId) {
     String sessionId = redisTemplate.opsForValue().get(watcherIndexKey(watcherId));
     if (sessionId == null) {
       throw new MoplException(ErrorCode.WATCHING_SESSION_NOT_FOUND);
     }
+    WatchingSession session = findSession(sessionId)
+        .orElseThrow(() -> new MoplException(ErrorCode.WATCHING_SESSION_NOT_FOUND));
     removeSession(watcherId, sessionId);
+    return session;
   }
 
   @Override

@@ -25,6 +25,12 @@ public interface ContentRepository {
    */
   Set<String> findExternalIdsByType(ContentType type);
 
+  /**
+   * 타입별 전체 콘텐츠 조회
+   * Batch 수집 시 신규 저장 대상과, 이미 있지만 썸네일 보정이 필요한 대상을 함께 판별하기 위해 사용
+   */
+  List<Content> findAllByType(ContentType type);
+
   List<Content> findAllByCondition(ContentSearchRequest request);
 
   /** 검색 조건에 맞는 전체 개수 (totalCount용) */

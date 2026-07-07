@@ -125,17 +125,22 @@ class WatchingSessionRedisRepositoryTest {
   class Leave {
 
     @Test
-    @DisplayName("정상 퇴장 - 세션/역인덱스/ZSet 항목이 모두 정리된다")
+    @DisplayName("정상 퇴장 - 세션/역인덱스/ZSet 항목이 모두 정리되고, 종료된 세션을 반환한다")
     void success() {
       UUID watcherId = UUID.randomUUID();
       UUID contentId = UUID.randomUUID();
       UUID sessionId = UUID.randomUUID();
+      Instant createdAt = Instant.now();
 
       given(valueOperations.get(watcherKey(watcherId))).willReturn(sessionId.toString());
+      given(hashOperations.entries(sessionKey(sessionId)))
+          .willReturn(sessionFields(watcherId, contentId, createdAt));
       given(hashOperations.get(sessionKey(sessionId), "contentId")).willReturn(contentId.toString());
 
-      repository.leave(watcherId);
+      WatchingSession session = repository.leave(watcherId);
 
+      assertThat(session.watcherId()).isEqualTo(watcherId);
+      assertThat(session.contentId()).isEqualTo(contentId);
       then(zSetOperations).should().remove(contentKey(contentId), sessionId.toString());
       then(redisTemplate).should().delete(sessionKey(sessionId));
       then(redisTemplate).should().delete(watcherKey(watcherId));

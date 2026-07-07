@@ -33,8 +33,22 @@ public class ContentRepositoryImpl implements ContentRepository {
 
   @Override
   public Content save(Content domain) {
-    // 도메인 → JPA 엔티티 변환 후 저장
-    ContentJpaEntity entity = contentMapper.toJpaEntity(domain);
+    // 기존에 저장된 콘텐츠면 관리 중인 엔티티를 그대로 갱신 (신규 엔티티로 통째로
+    // 갈아끼우면 태그 컬렉션이 매번 새 객체가 되어 merge 시 삭제보다 삽입이 먼저 실행되고,
+    // 겹치는 태그가 있을 때 content_tags(content_id, tag) 유니크 제약 위반이 남)
+    Optional<ContentJpaEntity> existing = jpaRepository.findById(domain.getId());
+
+    ContentJpaEntity entity;
+    if (existing.isPresent()) {
+      entity = existing.get();
+      entity.update(domain.getTitle(), domain.getDescription(), domain.getThumbnailUrl(),
+          domain.getAverageRating(), domain.getReviewCount());
+      entity.syncTags(domain.getTags());
+    } else {
+      // 신규 콘텐츠 → 도메인 → JPA 엔티티 변환 후 저장
+      entity = contentMapper.toJpaEntity(domain);
+    }
+
     ContentJpaEntity saved = jpaRepository.save(entity);
     // 저장된 JPA 엔티티 → 도메인으로 다시 변환해서 반환
     return contentMapper.toDomain(saved);
@@ -55,6 +69,11 @@ public class ContentRepositoryImpl implements ContentRepository {
   @Override
   public Set<String> findExternalIdsByType(ContentType type) {
     return jpaRepository.findExternalIdsByType(type);
+  }
+
+  @Override
+  public List<Content> findAllByType(ContentType type) {
+    return contentMapper.toDomainList(jpaRepository.findByType(type));
   }
 
   @Override
