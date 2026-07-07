@@ -58,6 +58,11 @@ public class ContentRepositoryImpl implements ContentRepository {
   }
 
   @Override
+  public List<Content> findAllByType(ContentType type) {
+    return contentMapper.toDomainList(jpaRepository.findByType(type));
+  }
+
+  @Override
   public List<Content> findAllByCondition(ContentSearchRequest request) {
     // 정렬 방향 결정
     Sort.Direction direction = "ASCENDING".equalsIgnoreCase(request.sortDirection())

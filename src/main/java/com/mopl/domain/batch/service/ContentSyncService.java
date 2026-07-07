@@ -8,7 +8,10 @@ import com.mopl.infra.sportsdb.SportsDbClient.SportsDbEvent;
 import com.mopl.infra.tmdb.TmdbClient;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbMovieResult;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbTvResult;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,24 +46,31 @@ public class ContentSyncService {
 
   @Transactional
   public int saveMovies(List<TmdbMovieResult> movies) {
-    // 기존 저장된 MOVIE externalId를 한번에 조회 (쿼리 1번)
-    Set<String> existingIds = contentRepository.findExternalIdsByType(ContentType.MOVIE);
+    // 기존 저장된 MOVIE를 externalId 기준으로 한번에 조회 (쿼리 1번, N+1 방지)
+    Map<String, Content> existingByExternalId = findExistingByExternalId(ContentType.MOVIE);
     int savedCount = 0;
 
     for (TmdbMovieResult movie : movies) {
-      // Set.contains() → O(1) 중복 체크 (DB 조회 없음)
-      if (existingIds.contains(String.valueOf(movie.id()))) continue;
       try {
-        Content content = Content.create(
-            ContentType.MOVIE,
-            String.valueOf(movie.id()),
-            movie.title(),
-            movie.overview(),
-            tmdbClient.buildImageUrl(movie.posterPath()),
-            List.of()// TODO 태그는 장르 API 별도 호출 필요 → 추후 추가
-        );
-        contentRepository.save(content);
-        savedCount++;
+        String externalId = String.valueOf(movie.id());
+        Content existing = existingByExternalId.get(externalId);
+        String thumbnailUrl = tmdbClient.buildImageUrl(movie.posterPath());
+
+        if (existing == null) {
+          Content content = Content.create(
+              ContentType.MOVIE,
+              externalId,
+              movie.title(),
+              movie.overview(),
+              thumbnailUrl,
+              List.of()// TODO 태그는 장르 API 별도 호출 필요 → 추후 추가
+          );
+          contentRepository.save(content);
+          savedCount++;
+        } else {
+          // 신규 수집 시점엔 TMDB가 poster_path를 안 내려줘서 썸네일이 비어있던 콘텐츠 보정
+          fillMissingThumbnail(existing, thumbnailUrl);
+        }
       } catch (Exception e) {
         log.warn("[Batch] 영화 저장 실패 - id: {}, 원인: {}", movie.id(), e.getMessage());
       }
@@ -81,23 +91,30 @@ public class ContentSyncService {
 
   @Transactional
   public int saveDramas(List<TmdbTvResult> tvSeries) {
-    // 기존 저장된 TV_SERIES externalId를 한번에 조회 (쿼리 1번)
-    Set<String> existingIds = contentRepository.findExternalIdsByType(ContentType.TV_SERIES);
+    // 기존 저장된 TV_SERIES를 externalId 기준으로 한번에 조회 (쿼리 1번, N+1 방지)
+    Map<String, Content> existingByExternalId = findExistingByExternalId(ContentType.TV_SERIES);
     int savedCount = 0;
 
     for (TmdbTvResult drama : tvSeries) {
-      if (existingIds.contains(String.valueOf(drama.id()))) continue;
       try {
-        Content content = Content.create(
-            ContentType.TV_SERIES,
-            String.valueOf(drama.id()),
-            drama.name(),
-            drama.overview(),
-            tmdbClient.buildImageUrl(drama.posterPath()),
-            List.of()
-        );
-        contentRepository.save(content);
-        savedCount++;
+        String externalId = String.valueOf(drama.id());
+        Content existing = existingByExternalId.get(externalId);
+        String thumbnailUrl = tmdbClient.buildImageUrl(drama.posterPath());
+
+        if (existing == null) {
+          Content content = Content.create(
+              ContentType.TV_SERIES,
+              externalId,
+              drama.name(),
+              drama.overview(),
+              thumbnailUrl,
+              List.of()
+          );
+          contentRepository.save(content);
+          savedCount++;
+        } else {
+          fillMissingThumbnail(existing, thumbnailUrl);
+        }
       } catch (Exception e) {
         log.warn("[Batch] TV시리즈 저장 실패 - id: {}, 원인: {}", drama.id(), e.getMessage());
       }
@@ -143,6 +160,25 @@ public class ContentSyncService {
     }
     log.info("[Batch] 스포츠 수집 완료 - 저장: {}건", savedCount);
     return savedCount;
+  }
+
+  /** 타입별 기존 콘텐츠를 externalId 기준 Map으로 조회 (신규/보정 대상 판별용, 쿼리 1번) */
+  private Map<String, Content> findExistingByExternalId(ContentType type) {
+    return contentRepository.findAllByType(type).stream()
+        .collect(Collectors.toMap(Content::getExternalId, Function.identity()));
+  }
+
+  /**
+   * 최초 수집 시점에 TMDB가 poster_path를 내려주지 않아 thumbnailUrl이 비어있던 콘텐츠를
+   * 이후 배치 회차에서 값이 채워지면 갱신한다. (신규 URL이 없거나 이미 채워져 있으면 스킵)
+   */
+  private void fillMissingThumbnail(Content existing, String thumbnailUrl) {
+    if (existing.getThumbnailUrl() != null || thumbnailUrl == null) {
+      return;
+    }
+    existing.update(existing.getTitle(), existing.getDescription(), thumbnailUrl, existing.getTags());
+    contentRepository.save(existing);
+    log.info("[Batch] 썸네일 보정 완료 - externalId: {}, title: {}", existing.getExternalId(), existing.getTitle());
   }
 
 }
