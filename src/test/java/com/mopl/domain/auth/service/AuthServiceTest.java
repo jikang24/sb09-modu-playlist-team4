@@ -1,7 +1,7 @@
 package com.mopl.domain.auth.service;
 
 import com.mopl.domain.auth.domain.PasswordResetToken;
-import com.mopl.domain.auth.dto.JwtDto;
+import com.mopl.domain.auth.dto.RefreshResult;
 import com.mopl.domain.auth.dto.ResetPasswordRequest;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
 import com.mopl.domain.user.dto.Role;
@@ -188,12 +188,14 @@ class AuthServiceTest {
                 .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
         when(jwtProvider.getExpiration(newAccessToken)).thenReturn(accessExpiry);
 
-        JwtDto result = authService.refresh(refreshToken);
+        RefreshResult result = authService.refresh(refreshToken);
 
         assertNotNull(result);
-        assertEquals(newAccessToken, result.accessToken());
-        assertEquals(testUserId, result.userDto().id());
-        assertEquals("test@email.com", result.userDto().email());
+        assertEquals(newAccessToken, result.jwtDto().accessToken());
+        assertEquals(testUserId, result.jwtDto().userDto().id());
+        assertEquals("test@email.com", result.jwtDto().userDto().email());
+        assertEquals(newRefreshToken, result.refreshToken());
+        assertEquals(Duration.ofDays(7), result.refreshTokenTtl());
 
         verify(authTokenService).findUserIdByRefreshToken(refreshToken);
         verify(authTokenService).deleteRefreshToken(refreshToken);
@@ -279,7 +281,7 @@ class AuthServiceTest {
                 .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
         when(jwtProvider.getExpiration(newAccessToken)).thenReturn(Instant.now().plus(Duration.ofMinutes(30)));
 
-        JwtDto result = authService.refresh(refreshToken);
+        RefreshResult result = authService.refresh(refreshToken);
 
         verify(authTokenService).findUserIdByRefreshToken(refreshToken);
         verify(authTokenService).deleteRefreshToken(refreshToken);
@@ -305,9 +307,9 @@ class AuthServiceTest {
                 .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
         when(jwtProvider.getExpiration(newAccessToken)).thenReturn(Instant.now().plus(Duration.ofMinutes(30)));
 
-        JwtDto result = authService.refresh(refreshToken);
+        RefreshResult result = authService.refresh(refreshToken);
 
-        assertEquals(newAccessToken, result.accessToken());
+        assertEquals(newAccessToken, result.jwtDto().accessToken());
         verify(jwtProvider).generateAccessToken(testUserId, "test@email.com", "USER");
         verify(jwtProvider).generateRefreshToken(testUserId, "test@email.com", "USER");
     }
@@ -331,10 +333,10 @@ class AuthServiceTest {
                 .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
         when(jwtProvider.getExpiration(newAccessToken)).thenReturn(Instant.now().plus(Duration.ofMinutes(30)));
 
-        JwtDto result = authService.refresh(refreshToken);
+        RefreshResult result = authService.refresh(refreshToken);
 
-        assertEquals(testUserId, result.userDto().id());
-        assertEquals("test@email.com", result.userDto().email());
-        assertEquals("Test User", result.userDto().name());
+        assertEquals(testUserId, result.jwtDto().userDto().id());
+        assertEquals("test@email.com", result.jwtDto().userDto().email());
+        assertEquals("Test User", result.jwtDto().userDto().name());
     }
 }
