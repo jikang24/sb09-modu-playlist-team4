@@ -18,6 +18,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -326,6 +328,27 @@ class ContentRepositoryImplTest {
 
         assertThat(result).isNotEmpty();
         assertThat(result).noneMatch(c -> c.getId().equals(movie1.getId()));
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=rate(평점순) - averageRating 내림차순으로 정렬된다")
+    void findAll_sortByRate_ordersByAverageRating() {
+        // 프론트 "평점순" 옵션이 실제로 보내는 값은 sortBy=rate (averageRating이 아님)
+        Content lowRated = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "rate-low", "낮은 평점", "설명", null,
+            new BigDecimal("1.00"), 0, Instant.now(), Instant.now(), List.of()));
+        Content highRated = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "rate-high", "높은 평점", "설명", null,
+            new BigDecimal("4.50"), 0, Instant.now(), Instant.now(), List.of()));
+
+        ContentSearchRequest req = request(null, null, null, null, null, 10, "rate", "DESCENDING");
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        List<Content> ratedOnly = result.stream()
+            .filter(c -> c.getId().equals(lowRated.getId()) || c.getId().equals(highRated.getId()))
+            .toList();
+        assertThat(ratedOnly).extracting(Content::getId)
+            .containsExactly(highRated.getId(), lowRated.getId());
     }
 
     @Test
