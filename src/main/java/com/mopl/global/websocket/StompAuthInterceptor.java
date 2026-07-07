@@ -35,9 +35,8 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
     if(StompCommand.CONNECT.equals(accessor.getCommand())){
 
-      String token = extractToken(accessor);
-
       try{
+        String token = extractToken(accessor);
         JwtClaims claims = jwtProvider.parse(token);
       accessor.getSessionAttributes().put("claims", claims);
 

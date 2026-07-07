@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doThrow;
@@ -14,6 +15,7 @@ import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.watchingsession.adapter.port.LoadContentPort;
 import com.mopl.domain.watchingsession.adapter.port.LoadUserPort;
 import com.mopl.domain.watchingsession.domain.WatchingSession;
+import com.mopl.domain.watchingsession.dto.WatchingSessionChange;
 import com.mopl.domain.watchingsession.dto.WatchingSessionDto;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
@@ -35,6 +37,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class WatchingSessionServiceTest {
@@ -47,6 +50,9 @@ class WatchingSessionServiceTest {
 
   @Mock
   private LoadContentPort loadContentPort;
+
+  @Mock
+  private SimpMessagingTemplate messagingTemplate;
 
   @InjectMocks
   private WatchingSessionService watchingSessionService;
@@ -66,7 +72,7 @@ class WatchingSessionServiceTest {
   class Enter {
 
     @Test
-    @DisplayName("정상 입장 - 유저/콘텐츠 정보를 조회해 DTO로 반환한다")
+    @DisplayName("정상 입장 - 유저/콘텐츠 정보를 조회해 DTO로 반환하고, JOIN 브로드캐스트한다")
     void success() {
       UUID watcherId = UUID.randomUUID();
       UUID contentId = UUID.randomUUID();
@@ -77,6 +83,7 @@ class WatchingSessionServiceTest {
       given(watchingSessionRepository.enter(watcherId, contentId)).willReturn(session);
       given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
       given(loadContentPort.getContent(contentId)).willReturn(content);
+      given(watchingSessionRepository.countByContentId(contentId)).willReturn(3L);
 
       WatchingSessionDto dto = watchingSessionService.enter(watcherId, contentId);
 
@@ -84,6 +91,14 @@ class WatchingSessionServiceTest {
       assertThat(dto.createdAt()).isEqualTo(session.createdAt());
       assertThat(dto.watcher()).isEqualTo(user);
       assertThat(dto.content()).isEqualTo(content);
+
+      ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
+      then(messagingTemplate).should().convertAndSend(
+          eq("/sub/contents/" + contentId + "/watch"), captor.capture());
+      WatchingSessionChange change = captor.getValue();
+      assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.JOIN);
+      assertThat(change.watchingSession()).isEqualTo(dto);
+      assertThat(change.watcherCount()).isEqualTo(3L);
     }
   }
 
@@ -92,13 +107,30 @@ class WatchingSessionServiceTest {
   class Leave {
 
     @Test
-    @DisplayName("정상 퇴장 - repository.leave 호출")
+    @DisplayName("정상 퇴장 - repository.leave 호출 후 /sub/contents/{contentId}/watch 로 LEAVE 브로드캐스트")
     void success() {
       UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      WatchingSession session = WatchingSession.create(watcherId, contentId);
+      UserSummary user = makeUser(watcherId);
+      ContentSummary content = makeContent(contentId);
+
+      given(watchingSessionRepository.leave(watcherId)).willReturn(session);
+      given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
+      given(loadContentPort.getContent(contentId)).willReturn(content);
+      given(watchingSessionRepository.countByContentId(contentId)).willReturn(1L);
 
       watchingSessionService.leave(watcherId);
 
       then(watchingSessionRepository).should().leave(watcherId);
+
+      ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
+      then(messagingTemplate).should().convertAndSend(
+          eq("/sub/contents/" + contentId + "/watch"), captor.capture());
+      WatchingSessionChange change = captor.getValue();
+      assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
+      assertThat(change.watchingSession().watcher()).isEqualTo(user);
+      assertThat(change.watcherCount()).isEqualTo(1L);
     }
 
     @Test

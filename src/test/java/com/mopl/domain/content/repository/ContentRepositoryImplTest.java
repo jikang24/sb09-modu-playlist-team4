@@ -115,6 +115,45 @@ class ContentRepositoryImplTest {
         assertThat(saved.getTags()).containsExactlyInAnyOrder("액션", "모험");
     }
 
+    @Test
+    @DisplayName("[save] 기존 태그를 일부 유지한 채 수정해도 유니크 제약 위반 없이 갱신된다")
+    void save_update_keepingOverlappingTag_doesNotViolateUniqueConstraint() {
+        Content saved = save(ContentType.MOVIE, "tmdb-201", "겹치는 태그 테스트", List.of("액션", "모험"));
+        em.flush();
+        em.clear();
+
+        Content loaded = contentRepository.findById(saved.getId()).orElseThrow();
+        // "액션"은 그대로 유지, "모험"은 제거, "신규"는 추가 → 겹치는 태그가 있는 갱신
+        loaded.update(loaded.getTitle(), loaded.getDescription(), loaded.getThumbnailUrl(),
+            List.of("액션", "신규"));
+
+        Content updated = contentRepository.save(loaded);
+        em.flush(); // 여기서 예외 없이 flush 되어야 함 (버그: content_tags 유니크 제약 위반으로 500)
+
+        assertThat(updated.getTags()).containsExactlyInAnyOrder("액션", "신규");
+
+        em.clear();
+        Content reloaded = contentRepository.findById(saved.getId()).orElseThrow();
+        assertThat(reloaded.getTags()).containsExactlyInAnyOrder("액션", "신규");
+    }
+
+    @Test
+    @DisplayName("[save] 태그 값이 완전히 동일하면 재삽입 없이 그대로 유지된다")
+    void save_update_withIdenticalTags_isNoOp() {
+        Content saved = save(ContentType.MOVIE, "tmdb-202", "동일 태그 테스트", List.of("액션", "모험"));
+        em.flush();
+        em.clear();
+
+        Content loaded = contentRepository.findById(saved.getId()).orElseThrow();
+        loaded.update(loaded.getTitle(), loaded.getDescription(), loaded.getThumbnailUrl(),
+            List.of("액션", "모험"));
+
+        Content updated = contentRepository.save(loaded);
+        em.flush();
+
+        assertThat(updated.getTags()).containsExactlyInAnyOrder("액션", "모험");
+    }
+
     // ── findById ─────────────────────────────────────────────────────────────
 
     @Test
