@@ -26,7 +26,6 @@ import com.mopl.global.security.handler.MoplLoginFailureHandler;
 import com.mopl.global.security.handler.MoplLoginSuccessHandler;
 import com.mopl.global.security.handler.MoplLogoutHandler;
 import com.mopl.global.security.handler.MoplLogoutSuccessHandler;
-import com.mopl.global.jwt.JwtClaims;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
 import java.time.Instant;
 import java.util.List;
@@ -36,12 +35,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import com.mopl.global.config.SecurityConfig;
 import com.mopl.global.security.MoplAuthenticationProvider;
 
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -52,20 +49,21 @@ class PlaylistControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private PlaylistUseCase playlistUseCase;
-    @MockBean private MoplAuthenticationProvider moplAuthenticationProvider;
+    @MockitoBean
+    private PlaylistUseCase playlistUseCase;
+    @MockitoBean private MoplAuthenticationProvider moplAuthenticationProvider;
 
-    @MockBean private JwtAuthenticationFilter jwtAuthenticationFilter;
-    @MockBean private CsrfCookieFilter csrfCookieFilter;
-    @MockBean private MoplAuthenticationEntryPoint authenticationEntryPoint;
-    @MockBean private MoplAccessDeniedHandler accessDeniedHandler;
-    @MockBean private PasswordResetTokenPort passwordResetTokenPort;
-    @MockBean private MoplLoginSuccessHandler loginSuccessHandler;
-    @MockBean private MoplLoginFailureHandler loginFailureHandler;
-    @MockBean private MoplLogoutHandler logoutHandler;
-    @MockBean private MoplLogoutSuccessHandler logoutSuccessHandler;
-    @MockBean private UserAuthPort userAuthPort;
-    @MockBean private JwtProperties jwtProperties;
+    @MockitoBean private JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockitoBean private CsrfCookieFilter csrfCookieFilter;
+    @MockitoBean private MoplAuthenticationEntryPoint authenticationEntryPoint;
+    @MockitoBean private MoplAccessDeniedHandler accessDeniedHandler;
+    @MockitoBean private PasswordResetTokenPort passwordResetTokenPort;
+    @MockitoBean private MoplLoginSuccessHandler loginSuccessHandler;
+    @MockitoBean private MoplLoginFailureHandler loginFailureHandler;
+    @MockitoBean private MoplLogoutHandler logoutHandler;
+    @MockitoBean private MoplLogoutSuccessHandler logoutSuccessHandler;
+    @MockitoBean private UserAuthPort userAuthPort;
+    @MockitoBean private JwtProperties jwtProperties;
 
     private UUID userId;
     private UUID playlistId;
