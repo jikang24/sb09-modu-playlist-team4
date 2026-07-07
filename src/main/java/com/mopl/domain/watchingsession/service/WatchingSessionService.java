@@ -3,6 +3,8 @@ package com.mopl.domain.watchingsession.service;
 import com.mopl.domain.watchingsession.adapter.port.LoadContentPort;
 import com.mopl.domain.watchingsession.adapter.port.LoadUserPort;
 import com.mopl.domain.watchingsession.domain.WatchingSession;
+import com.mopl.domain.watchingsession.dto.WatchingSessionChange;
+import com.mopl.domain.watchingsession.dto.WatchingSessionChange.ChangeType;
 import com.mopl.domain.watchingsession.dto.WatchingSessionDto;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,16 +25,28 @@ public class WatchingSessionService {
   private final WatchingSessionRepository watchingSessionRepository;
   private final LoadUserPort loadUserPort;
   private final LoadContentPort loadContentPort;
+  private final SimpMessagingTemplate messagingTemplate;
 
   /** 시청 입장 - 이미 다른 콘텐츠를 보고 있었다면 그 세션은 자동 종료됨 */
   public WatchingSessionDto enter(UUID watcherId, UUID contentId) {
     WatchingSession session = watchingSessionRepository.enter(watcherId, contentId);
-    return toDto(session);
+    WatchingSessionDto dto = toDto(session);
+    broadcast(ChangeType.JOIN, contentId, dto);
+    return dto;
   }
 
   /** 시청 퇴장 - 보고 있는 게 없으면 WATCHING_SESSION_NOT_FOUND */
   public void leave(UUID watcherId) {
-    watchingSessionRepository.leave(watcherId);
+    WatchingSession session = watchingSessionRepository.leave(watcherId);
+    WatchingSessionDto dto = toDto(session);
+    broadcast(ChangeType.LEAVE, session.contentId(), dto);
+  }
+
+  /** 시청자 입장/퇴장을 같은 콘텐츠를 보고 있는 다른 시청자들에게 실시간으로 알림 */
+  private void broadcast(ChangeType type, UUID contentId, WatchingSessionDto dto) {
+    long watcherCount = watchingSessionRepository.countByContentId(contentId);
+    WatchingSessionChange change = new WatchingSessionChange(type, dto, watcherCount);
+    messagingTemplate.convertAndSend("/sub/contents/" + contentId + "/watch", change);
   }
 
   /** 특정 사용자가 지금 보고 있는 세션 (없으면 null) */
