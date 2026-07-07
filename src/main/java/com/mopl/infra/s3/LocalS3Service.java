@@ -14,7 +14,7 @@ import java.util.UUID;
 
 @Slf4j
 @Component
-@Profile("local")
+@Profile({"local","dev"})
 public class LocalS3Service implements S3Service {
     private static final Path UPLOAD_DIR = Paths.get(System.getProperty("user.dir"), "uploads");
 

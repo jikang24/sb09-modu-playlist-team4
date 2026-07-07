@@ -22,6 +22,8 @@ RUN useradd --system --create-home --home-dir /home/mopl mopl
 
 COPY --from=build /workspace/build/libs/*.jar app.jar
 
+RUN mkdir -p /app/uploads && chown -R mopl:mopl /app
+
 USER mopl
 
 EXPOSE 8080
