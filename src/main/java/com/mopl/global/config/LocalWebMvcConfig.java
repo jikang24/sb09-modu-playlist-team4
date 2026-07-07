@@ -8,7 +8,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.nio.file.Paths;
 
 @Configuration
-@Profile("local")
+@Profile({"local", "dev"})
 public class LocalWebMvcConfig implements WebMvcConfigurer {
 
     @Override

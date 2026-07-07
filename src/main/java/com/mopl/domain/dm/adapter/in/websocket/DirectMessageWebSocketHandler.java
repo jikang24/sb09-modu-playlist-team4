@@ -6,6 +6,8 @@ import com.mopl.domain.dm.adapter.in.web.mapper.DirectMessageWebMapper;
 import com.mopl.domain.dm.application.port.in.SendDirectMessageUseCase;
 import com.mopl.domain.dm.domain.DirectMessage;
 import com.mopl.global.dto.DirectMessageDto;
+import com.mopl.global.event.NotificationEventPublisher;
+import com.mopl.global.event.NotificationRequestedEvent;
 import com.mopl.global.jwt.JwtClaims;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class DirectMessageWebSocketHandler {
   private final GetConversationUseCase getConversationUseCase;
   private final DirectMessageWebMapper directMessageWebMapper;
   private final SimpMessagingTemplate messagingTemplate;
+  private final NotificationEventPublisher notificationEventPublisher;
 
   @MessageMapping("/conversations/{conversationId}/direct-messages")
   public void sendMessage(
@@ -55,6 +58,13 @@ public class DirectMessageWebSocketHandler {
     );
 
     log.info("WebSocket DM 전달 완료 - conversationId: {}", conversationId);
+
+    notificationEventPublisher.publish(new NotificationRequestedEvent(
+        receiverId,
+        "DIRECT_MESSAGE",
+        dto.sender().name() + "님의 메시지",
+        request.content()
+    ));
   }
 
 }

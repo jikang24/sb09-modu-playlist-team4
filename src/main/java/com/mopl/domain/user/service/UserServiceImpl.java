@@ -12,6 +12,7 @@ import com.mopl.global.event.UserProfileUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -161,4 +162,5 @@ public class UserServiceImpl implements UserService {
                 request.sortDirection().name()
         );
     }
+
 }

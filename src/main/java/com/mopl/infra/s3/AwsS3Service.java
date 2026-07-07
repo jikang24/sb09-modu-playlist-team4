@@ -23,7 +23,7 @@ import java.util.UUID;
 
 @Slf4j
 @Component
-@Profile("!local")
+@Profile("prod")
 @RequiredArgsConstructor
 public class AwsS3Service implements S3Service {
     private final S3Client s3Client;
