@@ -14,11 +14,10 @@ public record ContentResponse(
     String thumbnailUrl,
     List<String> tags,
     BigDecimal averageRating,
-    int reviewCount
-    // TODO: watching_session 확정 후 추가
-    // long watcherCount
+    int reviewCount,
+    long watcherCount
 ) {
-  public static ContentResponse from(Content content) {
+  public static ContentResponse from(Content content, long watcherCount) {
     return new ContentResponse(
         content.getId(),
         content.getType(),
@@ -27,7 +26,8 @@ public record ContentResponse(
         content.getThumbnailUrl(),
         content.getTags(),
         content.getAverageRating(),
-        content.getReviewCount()
+        content.getReviewCount(),
+        watcherCount
     );
   }
 }

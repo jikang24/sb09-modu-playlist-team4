@@ -4,11 +4,13 @@ package com.mopl.domain.content.domain;
  * 콘텐츠 목록 정렬 기준
  *
  * 프론트가 보내는 sortBy 문자열을 실제 정렬/커서 비교에 쓸 엔티티 필드로 매핑
- * (프론트 "인기순" 옵션은 watcherCount로 오지만, 실제 엔티티엔 reviewCount만 존재)
+ * (프론트 "인기순" 옵션은 watcherCount로 오지만, 실제 엔티티엔 reviewCount만 존재.
+ *  "평점순" 옵션은 rate로 옴)
  */
 public enum ContentSortField {
   CREATED_AT("createdAt"),
-  REVIEW_COUNT("reviewCount");
+  REVIEW_COUNT("reviewCount"),
+  AVERAGE_RATING("averageRating");
 
   private final String propertyName;
 
@@ -23,6 +25,9 @@ public enum ContentSortField {
   public static ContentSortField resolve(String sortBy) {
     if ("watcherCount".equals(sortBy) || "reviewCount".equals(sortBy)) {
       return REVIEW_COUNT;
+    }
+    if ("rate".equals(sortBy) || "averageRating".equals(sortBy)) {
+      return AVERAGE_RATING;
     }
     return CREATED_AT;
   }

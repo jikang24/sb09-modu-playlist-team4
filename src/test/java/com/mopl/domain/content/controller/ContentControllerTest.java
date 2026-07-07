@@ -18,7 +18,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,7 +46,7 @@ class ContentControllerTest {
         sampleResponse = new ContentResponse(
             UUID.randomUUID(), ContentType.MOVIE,
             "테스트 제목", "테스트 설명", null,
-            List.of("액션"), BigDecimal.ZERO, 0
+            List.of("액션"), BigDecimal.ZERO, 0, 0L
         );
     }
 

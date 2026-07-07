@@ -1,5 +1,6 @@
 package com.mopl.domain.content.service;
 
+import com.mopl.domain.content.adapter.port.LoadWatcherCountPort;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentCreateRequest;
@@ -23,12 +24,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -38,6 +41,9 @@ class ContentServiceTest {
 
   @Mock
   private ContentRepository contentRepository;
+
+  @Mock
+  private LoadWatcherCountPort loadWatcherCountPort;
 
   @InjectMocks
   private ContentService contentService;
@@ -177,16 +183,18 @@ class ContentServiceTest {
   class GetContent {
 
     @Test
-    @DisplayName("정상 조회 - ContentResponse 반환")
+    @DisplayName("정상 조회 - ContentResponse 반환, 시청자 수가 함께 채워진다")
     void success() {
       UUID id = UUID.randomUUID();
       Content content = makeContent(id, ContentType.TV_SERIES, "tmdb-002");
       given(contentRepository.findById(id)).willReturn(Optional.of(content));
+      given(loadWatcherCountPort.countByContentId(id)).willReturn(7L);
 
       ContentResponse response = contentService.getContent(id);
 
       assertThat(response.id()).isEqualTo(id);
       assertThat(response.type()).isEqualTo(ContentType.TV_SERIES);
+      assertThat(response.watcherCount()).isEqualTo(7L);
     }
 
     @Test
@@ -219,6 +227,7 @@ class ContentServiceTest {
 
       given(contentRepository.findAllByCondition(request)).willReturn(contents);
       given(contentRepository.countByCondition(request)).willReturn(2L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
@@ -244,6 +253,9 @@ class ContentServiceTest {
 
       given(contentRepository.findAllByCondition(request)).willReturn(contents);
       given(contentRepository.countByCondition(request)).willReturn(10L);
+      // second는 배치 조회 결과에 없는 경우(0으로 대체)까지 함께 검증
+      given(loadWatcherCountPort.countByContentIds(anyCollection()))
+          .willReturn(Map.of(first.getId(), 3L));
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
@@ -254,6 +266,8 @@ class ContentServiceTest {
       assertThat(response.nextCursor()).isEqualTo(second.getCreatedAt().toString());
       assertThat(response.nextIdAfter()).isEqualTo(second.getId());
       assertThat(response.totalCount()).isEqualTo(10L);
+      assertThat(response.data().get(0).watcherCount()).isEqualTo(3L);
+      assertThat(response.data().get(1).watcherCount()).isEqualTo(0L);
     }
 
     @Test
@@ -263,6 +277,7 @@ class ContentServiceTest {
       ContentSearchRequest request = makeSearchRequest(20);
       given(contentRepository.findAllByCondition(request)).willReturn(List.of());
       given(contentRepository.countByCondition(request)).willReturn(0L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
@@ -289,6 +304,7 @@ class ContentServiceTest {
 
       given(contentRepository.findAllByCondition(request)).willReturn(sportsContents);
       given(contentRepository.countByCondition(request)).willReturn(1L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
@@ -310,6 +326,7 @@ class ContentServiceTest {
 
       given(contentRepository.findAllByCondition(request)).willReturn(List.of());
       given(contentRepository.countByCondition(request)).willReturn(0L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
