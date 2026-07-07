@@ -1,6 +1,7 @@
 package com.mopl.global.jwt;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,5 +19,12 @@ public interface AuthTokenService {
     void deleteRefreshToken(String refreshToken);
 
     void deleteRefreshTokenByUserId(UUID userId);
+
+    // 유저별 현재 액세스 토큰 jti 관리 (기존 로그인 강제 로그아웃용)
+    void saveAccessJti(UUID userId, String jti, Instant expiresAt);
+
+    Optional<AccessJtiEntry> findAccessJtiByUserId(UUID userId);
+
+    void deleteAccessJtiByUserId(UUID userId);
 }
 
