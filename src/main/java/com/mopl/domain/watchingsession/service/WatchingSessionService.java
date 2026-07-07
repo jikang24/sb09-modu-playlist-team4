@@ -10,11 +10,13 @@ import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
 import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
+import com.mopl.global.event.WatchingSessionStartedEvent;
 import com.mopl.global.response.CursorPageResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -26,12 +28,15 @@ public class WatchingSessionService {
   private final LoadUserPort loadUserPort;
   private final LoadContentPort loadContentPort;
   private final SimpMessagingTemplate messagingTemplate;
+  private final ApplicationEventPublisher applicationEventPublisher;
 
   /** 시청 입장 - 이미 다른 콘텐츠를 보고 있었다면 그 세션은 자동 종료됨 */
   public WatchingSessionDto enter(UUID watcherId, UUID contentId) {
     WatchingSession session = watchingSessionRepository.enter(watcherId, contentId);
     WatchingSessionDto dto = toDto(session);
     broadcast(ChangeType.JOIN, contentId, dto);
+    applicationEventPublisher.publishEvent(
+        new WatchingSessionStartedEvent(watcherId, contentId, dto.content().title()));
     return dto;
   }
 
