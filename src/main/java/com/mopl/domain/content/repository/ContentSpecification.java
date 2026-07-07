@@ -12,6 +12,7 @@ import jakarta.persistence.criteria.Subquery;
 import java.time.format.DateTimeParseException;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,6 +80,27 @@ public class ContentSpecification {
         int cursorValue;
         try {
           cursorValue = Integer.parseInt(request.cursor());
+        } catch (NumberFormatException e) {
+          throw new MoplException(ErrorCode.INVALID_CURSOR_FORMAT);
+        }
+
+        return isAscending
+            ? cb.or(
+                cb.greaterThan(root.get(property), cursorValue),
+                cb.and(
+                    cb.equal(root.get(property), cursorValue),
+                    cb.greaterThan(root.get("id"), request.idAfter())))
+            : cb.or(
+                cb.lessThan(root.get(property), cursorValue),
+                cb.and(
+                    cb.equal(root.get(property), cursorValue),
+                    cb.lessThan(root.get("id"), request.idAfter())));
+      }
+
+      if (sortField == ContentSortField.AVERAGE_RATING) {
+        BigDecimal cursorValue;
+        try {
+          cursorValue = new BigDecimal(request.cursor());
         } catch (NumberFormatException e) {
           throw new MoplException(ErrorCode.INVALID_CURSOR_FORMAT);
         }

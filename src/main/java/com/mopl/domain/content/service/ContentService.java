@@ -1,5 +1,6 @@
 package com.mopl.domain.content.service;
 
+import com.mopl.domain.content.adapter.port.LoadWatcherCountPort;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentSortField;
 import com.mopl.domain.content.dto.ContentCreateRequest;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -34,6 +36,7 @@ import java.util.UUID;
 public class ContentService implements ContentUseCase {
 
   private final ContentRepository contentRepository;
+  private final LoadWatcherCountPort loadWatcherCountPort;
   // TODO: S3Uploader 구현 완료 후 주입
   // private final S3Uploader s3Uploader;
 
@@ -64,7 +67,7 @@ public class ContentService implements ContentUseCase {
 
     Content saved = contentRepository.save(content);
     log.info("[Content] 등록 완료 - id: {}, type: {}", saved.getId(), saved.getType());
-    return ContentResponse.from(saved);
+    return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()));
   }
 
   @Override
@@ -84,7 +87,7 @@ public class ContentService implements ContentUseCase {
 
     Content saved = contentRepository.save(content);
     log.info("[Content] 수정 완료 - id: {}", id);
-    return ContentResponse.from(saved);
+    return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()));
   }
 
   @Override
@@ -99,7 +102,8 @@ public class ContentService implements ContentUseCase {
 
   @Override
   public ContentResponse getContent(UUID id) {
-    return ContentResponse.from(findContentOrThrow(id));
+    Content content = findContentOrThrow(id);
+    return ContentResponse.from(content, loadWatcherCountPort.countByContentId(id));
   }
 
   @Override
@@ -122,13 +126,19 @@ public class ContentService implements ContentUseCase {
     UUID nextIdAfter = null;
     if (hasNext && !pageData.isEmpty()) {
       Content last = pageData.get(pageData.size() - 1);
-      nextCursor = sortField == ContentSortField.REVIEW_COUNT
-          ? String.valueOf(last.getReviewCount())
-          : last.getCreatedAt().toString(); // ISO 8601 문자열
+      nextCursor = switch (sortField) {
+        case REVIEW_COUNT -> String.valueOf(last.getReviewCount());
+        case AVERAGE_RATING -> last.getAverageRating().toString();
+        case CREATED_AT -> last.getCreatedAt().toString(); // ISO 8601 문자열
+      };
       nextIdAfter = last.getId();
     }
+    // 콘텐츠마다 개별 조회하지 않도록 페이지 안 콘텐츠 전체의 시청자 수를 한 번에 조회 (N+1 방지)
+    List<UUID> contentIds = pageData.stream().map(Content::getId).toList();
+    Map<UUID, Long> watcherCounts = loadWatcherCountPort.countByContentIds(contentIds);
+
     List<ContentResponse> data = pageData.stream()
-        .map(ContentResponse::from)
+        .map(c -> ContentResponse.from(c, watcherCounts.getOrDefault(c.getId(), 0L)))
         .toList();
 
     return new CursorPageResponse<>(
