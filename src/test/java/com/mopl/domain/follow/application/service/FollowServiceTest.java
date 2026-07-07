@@ -265,6 +265,34 @@ class FollowServiceTest {
     }
 
     @Nested
+    @DisplayName("getFollowerIds: 팔로워 ID 목록 조회")
+    class GetFollowerIds {
+
+        @Test
+        @DisplayName("성공: 팔로워 ID 목록을 반환한다")
+        void getFollowerIds_success() {
+            java.util.List<UUID> followerIds = java.util.List.of(followerId, UUID.randomUUID());
+            given(loadFollowPort.findFollowerIdsByFolloweeId(followeeId))
+                    .willReturn(followerIds);
+
+            java.util.List<UUID> result = followService.getFollowerIds(followeeId);
+
+            assertThat(result).isEqualTo(followerIds);
+        }
+
+        @Test
+        @DisplayName("성공: 팔로워가 없으면 빈 목록을 반환한다")
+        void getFollowerIds_empty() {
+            given(loadFollowPort.findFollowerIdsByFolloweeId(followeeId))
+                    .willReturn(java.util.List.of());
+
+            java.util.List<UUID> result = followService.getFollowerIds(followeeId);
+
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
     @DisplayName("countFollowers: 팔로워 수 조회")
     class CountFollowers {
 

@@ -3,6 +3,7 @@ package com.mopl.domain.follow.application.service;
 import com.mopl.domain.follow.application.port.in.FollowUserUseCase;
 import com.mopl.domain.follow.application.port.in.GetFollowedByMeUseCase;
 import com.mopl.domain.follow.application.port.in.GetFollowerCountUseCase;
+import com.mopl.domain.follow.application.port.in.GetFollowerIdsUseCase;
 import com.mopl.domain.follow.application.port.in.UnfollowUserUseCase;
 import com.mopl.domain.follow.application.port.out.DeleteFollowPort;
 import com.mopl.domain.follow.application.port.out.LoadFollowPort;
@@ -14,6 +15,7 @@ import com.mopl.global.event.NotificationEventPublisher;
 import com.mopl.global.event.NotificationRequestedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Transactional
 public class FollowService implements FollowUserUseCase, UnfollowUserUseCase,
-    GetFollowedByMeUseCase, GetFollowerCountUseCase {
+    GetFollowedByMeUseCase, GetFollowerCountUseCase, GetFollowerIdsUseCase {
 
     private final SaveFollowPort saveFollowPort;
     private final LoadFollowPort loadFollowPort;
@@ -74,6 +76,12 @@ public class FollowService implements FollowUserUseCase, UnfollowUserUseCase,
     @Transactional(readOnly = true)
     public long countFollowers(UUID followeeId) {
         return loadFollowPort.countByFolloweeId(followeeId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UUID> getFollowerIds(UUID followeeId) {
+        return loadFollowPort.findFollowerIdsByFolloweeId(followeeId);
     }
 
 }

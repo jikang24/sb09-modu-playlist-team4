@@ -1,6 +1,7 @@
 package com.mopl.domain.follow.application.port.out;
 
 import com.mopl.domain.follow.domain.Follow;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -12,4 +13,6 @@ public interface LoadFollowPort {
     boolean existsByFolloweeIdAndFollowerId(UUID followeeId, UUID followerId);
 
     long countByFolloweeId(UUID followeeId);
+
+    List<UUID> findFollowerIdsByFolloweeId(UUID followeeId);
 }
