@@ -20,8 +20,6 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 
 /**
  * @DataJpaTest 에는 @Transactional 이 포함되어 있어
@@ -118,7 +116,7 @@ class ReviewRepositoryTest {
   }
 
   @Test
-  @DisplayName("ReviewSpecification - contentId로 필터링한다")
+  @DisplayName("findAllByCondition - contentId로 필터링한다")
   void findAll_filtersByContentId() {
     UUID targetContentId = UUID.randomUUID();
     persistReview(targetContentId, UUID.randomUUID(), BigDecimal.valueOf(4));
@@ -127,16 +125,14 @@ class ReviewRepositoryTest {
     ReviewSearchRequest request = new ReviewSearchRequest(
         targetContentId, null, null, 10, "createdAt", "DESCENDING");
 
-    List<Review> result = reviewRepository
-        .findAll(ReviewSpecification.byCondition(request), PageRequest.of(0, 10, Sort.by("createdAt")))
-        .getContent();
+    List<Review> result = reviewRepository.findAllByCondition(request);
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).getContentId()).isEqualTo(targetContentId);
   }
 
   @Test
-  @DisplayName("ReviewSpecification - createdAt 커서보다 이전 데이터만 조회한다 (내림차순)")
+  @DisplayName("findAllByCondition - createdAt 커서보다 이전 데이터만 조회한다 (내림차순)")
   void findAll_cursorByCreatedAt_descending() throws InterruptedException {
     UUID contentId = UUID.randomUUID();
     Review first = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(4));
@@ -146,16 +142,13 @@ class ReviewRepositoryTest {
     ReviewSearchRequest request = new ReviewSearchRequest(
         contentId, second.getCreatedAt().toString(), second.getId(), 10, "createdAt", "DESCENDING");
 
-    List<Review> result = reviewRepository
-        .findAll(ReviewSpecification.byCondition(request),
-            PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")))
-        .getContent();
+    List<Review> result = reviewRepository.findAllByCondition(request);
 
     assertThat(result).extracting(Review::getId).containsExactly(first.getId());
   }
 
   @Test
-  @DisplayName("ReviewSpecification - rating 커서 기준으로 필터링한다 (오름차순)")
+  @DisplayName("findAllByCondition - rating 커서 기준으로 필터링한다 (오름차순)")
   void findAll_cursorByRating_ascending() {
     UUID contentId = UUID.randomUUID();
     Review low = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(2));
@@ -164,37 +157,47 @@ class ReviewRepositoryTest {
     ReviewSearchRequest request = new ReviewSearchRequest(
         contentId, low.getRating().toString(), low.getId(), 10, "rating", "ASCENDING");
 
-    List<Review> result = reviewRepository
-        .findAll(ReviewSpecification.byCondition(request),
-            PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "rating")))
-        .getContent();
+    List<Review> result = reviewRepository.findAllByCondition(request);
 
     assertThat(result).extracting(Review::getId).containsExactly(high.getId());
   }
 
   @Test
-  @DisplayName("ReviewSpecification - createdAt 정렬인데 커서 형식이 잘못되면 예외 발생")
+  @DisplayName("findAllByCondition - createdAt 정렬인데 커서 형식이 잘못되면 예외 발생")
   void findAll_invalidCreatedAtCursor() {
     ReviewSearchRequest request = new ReviewSearchRequest(
         UUID.randomUUID(), "not-an-instant", UUID.randomUUID(), 10, "createdAt", "DESCENDING");
 
-    assertThatThrownBy(() -> reviewRepository.findAll(
-        ReviewSpecification.byCondition(request), PageRequest.of(0, 10)).getContent())
+    assertThatThrownBy(() -> reviewRepository.findAllByCondition(request))
         .isInstanceOf(MoplException.class)
         .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
             .isEqualTo(ErrorCode.INVALID_CURSOR_FORMAT));
   }
 
   @Test
-  @DisplayName("ReviewSpecification - rating 정렬인데 커서 형식이 잘못되면 예외 발생")
+  @DisplayName("findAllByCondition - rating 정렬인데 커서 형식이 잘못되면 예외 발생")
   void findAll_invalidRatingCursor() {
     ReviewSearchRequest request = new ReviewSearchRequest(
         UUID.randomUUID(), "not-a-number", UUID.randomUUID(), 10, "rating", "DESCENDING");
 
-    assertThatThrownBy(() -> reviewRepository.findAll(
-        ReviewSpecification.byCondition(request), PageRequest.of(0, 10)).getContent())
+    assertThatThrownBy(() -> reviewRepository.findAllByCondition(request))
         .isInstanceOf(MoplException.class)
         .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
             .isEqualTo(ErrorCode.INVALID_CURSOR_FORMAT));
+  }
+
+  @Test
+  @DisplayName("countByCondition - 커서와 무관하게 콘텐츠 전체 리뷰 개수를 센다")
+  void countByCondition_ignoresCursor() {
+    UUID contentId = UUID.randomUUID();
+    Review first = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(4));
+    persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(3));
+    persistReview(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.valueOf(5)); // 다른 콘텐츠
+
+    // 커서가 걸려있어도(마치 두 번째 페이지를 요청하듯) totalCount는 그대로 2여야 함
+    ReviewSearchRequest request = new ReviewSearchRequest(
+        contentId, first.getCreatedAt().toString(), first.getId(), 10, "createdAt", "DESCENDING");
+
+    assertThat(reviewRepository.countByCondition(request)).isEqualTo(2L);
   }
 }

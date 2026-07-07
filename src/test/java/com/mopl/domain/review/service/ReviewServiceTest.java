@@ -241,11 +241,10 @@ class ReviewServiceTest {
       return new ReviewSearchRequest(UUID.randomUUID(), null, null, limit, sortBy, sortDirection);
     }
 
-    @SuppressWarnings("unchecked")
+
     private void mockFindAll(List<Review> reviews) {
-      given(reviewRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class),
-          any(org.springframework.data.domain.PageRequest.class)))
-          .willReturn(new org.springframework.data.domain.PageImpl<>(reviews));
+      given(reviewRepository.findAllByCondition(any(ReviewSearchRequest.class)))
+          .willReturn(reviews);
     }
 
     @Test
@@ -255,7 +254,7 @@ class ReviewServiceTest {
       Review review = makeReview(request.contentId(), UUID.randomUUID(), BigDecimal.valueOf(4));
 
       mockFindAll(List.of(review));
-      given(reviewRepository.count(any(org.springframework.data.jpa.domain.Specification.class)))
+      given(reviewRepository.countByCondition(any(ReviewSearchRequest.class)))
           .willReturn(1L);
 
       CursorPageResponse<ReviewDto> response = reviewService.getReviews(request);
@@ -276,7 +275,7 @@ class ReviewServiceTest {
       Review second = makeReview(request.contentId(), UUID.randomUUID(), BigDecimal.valueOf(3));
 
       mockFindAll(List.of(first, second)); // limit(1)+1=2건
-      given(reviewRepository.count(any(org.springframework.data.jpa.domain.Specification.class)))
+      given(reviewRepository.countByCondition(any(ReviewSearchRequest.class)))
           .willReturn(5L);
 
       CursorPageResponse<ReviewDto> response = reviewService.getReviews(request);
@@ -296,7 +295,7 @@ class ReviewServiceTest {
       Review second = makeReview(request.contentId(), UUID.randomUUID(), BigDecimal.valueOf(3.5));
 
       mockFindAll(List.of(first, second));
-      given(reviewRepository.count(any(org.springframework.data.jpa.domain.Specification.class)))
+      given(reviewRepository.countByCondition(any(ReviewSearchRequest.class)))
           .willReturn(2L);
 
       CursorPageResponse<ReviewDto> response = reviewService.getReviews(request);
@@ -311,7 +310,7 @@ class ReviewServiceTest {
       ReviewSearchRequest request = makeRequest(10, null, "DESCENDING");
 
       mockFindAll(List.of());
-      given(reviewRepository.count(any(org.springframework.data.jpa.domain.Specification.class)))
+      given(reviewRepository.countByCondition(any(ReviewSearchRequest.class)))
           .willReturn(0L);
 
       CursorPageResponse<ReviewDto> response = reviewService.getReviews(request);
@@ -329,7 +328,7 @@ class ReviewServiceTest {
       Review review = makeReview(request.contentId(), userId, BigDecimal.valueOf(4));
 
       mockFindAll(List.of(review));
-      given(reviewRepository.count(any(org.springframework.data.jpa.domain.Specification.class)))
+      given(reviewRepository.countByCondition(any(ReviewSearchRequest.class)))
           .willReturn(1L);
 
       CursorPageResponse<ReviewDto> response = reviewService.getReviews(request);
