@@ -12,6 +12,7 @@ import com.mopl.global.event.TempPasswordIssuedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.AuthTokenService;
+import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,6 +81,9 @@ public class AuthService implements AuthUseCase {
 
         Duration refreshTtl = jwtProvider.calculateTtl(newRefreshToken);
         authTokenService.saveRefreshToken(user.id(), newRefreshToken, refreshTtl);
+
+        JwtClaims accessClaims = jwtProvider.parse(newAccessToken);
+        authTokenService.saveAccessJti(user.id(), accessClaims.getTokenId(), jwtProvider.getExpiration(newAccessToken));
 
         log.info("토큰 재발급 완료 - userId: {}", userId);
         return new JwtDto(toUserDto(user), newAccessToken);
