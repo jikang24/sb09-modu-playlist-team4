@@ -7,13 +7,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-//JpaSpecificationExecutor: 동적 쿼리(검색/필터) 지원
-interface ContentJpaRepository extends JpaRepository<ContentJpaEntity, UUID>,
-    JpaSpecificationExecutor<ContentJpaEntity> {
+interface ContentJpaRepository extends JpaRepository<ContentJpaEntity, UUID> {
 
   Optional<ContentJpaEntity> findByTypeAndExternalId(ContentType type, String externalId);
 

@@ -6,11 +6,20 @@ import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.infrastructure.ContentJpaEntity;
 import com.mopl.domain.content.infrastructure.ContentMapper;
+import com.mopl.domain.content.infrastructure.QContentJpaEntity;
+import com.mopl.domain.content.infrastructure.QContentTagJpaEntity;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
+import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -23,6 +32,8 @@ import java.util.UUID;
  * 순수 도메인 ↔ JPA 엔티티 변환을 ContentMapper가 담당
  * Service는 Content(순수 도메인)만 다루고
  * JPA 기술은 이 클래스 안에서만 사용됨
+ *
+ * 동적 검색/커서 쿼리는 QueryDSL로 작성 (다른 도메인과 통일)
  */
 @Repository
 @RequiredArgsConstructor
@@ -30,6 +41,7 @@ public class ContentRepositoryImpl implements ContentRepository {
 
   private final ContentJpaRepository jpaRepository;
   private final ContentMapper contentMapper;  // MapStruct 생성 구현체 주입
+  private final JPAQueryFactory queryFactory;
 
   @Override
   public Content save(Content domain) {
@@ -78,29 +90,36 @@ public class ContentRepositoryImpl implements ContentRepository {
 
   @Override
   public List<Content> findAllByCondition(ContentSearchRequest request) {
-    // 정렬 방향 결정
-    Sort.Direction direction = "ASCENDING".equalsIgnoreCase(request.sortDirection())
-        ? Sort.Direction.ASC : Sort.Direction.DESC;
-
-    // sortBy 필드 (createdAt 기본값, 프론트의 "인기순"=watcherCount는 reviewCount로 매핑)
+    QContentJpaEntity content = QContentJpaEntity.contentJpaEntity;
     ContentSortField sortField = ContentSortField.resolve(request.sortBy());
+    boolean isAscending = "ASCENDING".equalsIgnoreCase(request.sortDirection());
 
-    // limit+1개 조회 → hasNext 판단용
-    PageRequest pageRequest = PageRequest.of(0, request.limit() + 1,
-        Sort.by(direction, sortField.propertyName()).and(Sort.by(direction, "id")));
+    BooleanBuilder builder = filterPredicate(content, request);
+    if (request.cursor() != null && request.idAfter() != null) {
+      builder.and(cursorPredicate(content, sortField, request, isAscending));
+    }
 
-    Specification<ContentJpaEntity> spec = ContentSpecification.byCondition(request, sortField);
+    List<ContentJpaEntity> entities = queryFactory.selectFrom(content)
+        .where(builder)
+        .orderBy(sortOrder(content, sortField, isAscending),
+            isAscending ? content.id.asc() : content.id.desc())
+        .limit(request.limit() + 1L) // limit+1개 조회 → hasNext 판단용
+        .fetch();
 
-    return jpaRepository.findAll(spec, pageRequest)
-        .stream()
-        .map(contentMapper::toDomain)
-        .toList();
+    return entities.stream().map(contentMapper::toDomain).toList();
   }
 
   @Override
   public long countByCondition(ContentSearchRequest request) {
+    QContentJpaEntity content = QContentJpaEntity.contentJpaEntity;
+
     // 커서는 빼고 필터 조건만으로 카운트 (페이지가 넘어가도 totalCount는 동일해야 함)
-    return jpaRepository.count(ContentSpecification.byFilter(request));
+    Long count = queryFactory.select(content.count())
+        .from(content)
+        .where(filterPredicate(content, request))
+        .fetchOne();
+
+    return count != null ? count : 0L;
   }
 
   @Override
@@ -121,5 +140,85 @@ public class ContentRepositoryImpl implements ContentRepository {
     return jpaRepository.findAllById(ids).stream()
         .map(contentMapper::toDomain)
         .toList();
+  }
+
+  /** 타입/키워드/태그 필터 조건 (커서 제외 - totalCount 계산에도 그대로 재사용됨) */
+  private BooleanBuilder filterPredicate(QContentJpaEntity content, ContentSearchRequest request) {
+    BooleanBuilder builder = new BooleanBuilder();
+
+    if (request.typeEqual() != null) {
+      builder.and(content.type.eq(request.typeEqual()));
+    }
+
+    if (request.keywordLike() != null && !request.keywordLike().isBlank()) {
+      builder.and(content.title.lower().like("%" + request.keywordLike().toLowerCase() + "%"));
+    }
+
+    if (request.tagsIn() != null && !request.tagsIn().isEmpty()) {
+      QContentTagJpaEntity tag = QContentTagJpaEntity.contentTagJpaEntity;
+      builder.and(JPAExpressions.selectOne()
+          .from(tag)
+          .where(tag.content.eq(content).and(tag.tag.in(request.tagsIn())))
+          .exists());
+    }
+
+    return builder;
+  }
+
+  /** sortField(정렬 기준과 커서 기준은 항상 같아야 함)에 맞는 정렬 표현식 */
+  private OrderSpecifier<?> sortOrder(
+      QContentJpaEntity content, ContentSortField sortField, boolean isAscending) {
+    return switch (sortField) {
+      case CREATED_AT -> isAscending ? content.createdAt.asc() : content.createdAt.desc();
+      case REVIEW_COUNT -> isAscending ? content.reviewCount.asc() : content.reviewCount.desc();
+      case AVERAGE_RATING -> isAscending ? content.averageRating.asc() : content.averageRating.desc();
+    };
+  }
+
+  /** sortField별 커서 비교 (같으면 id로 순서 고정) */
+  private BooleanExpression cursorPredicate(
+      QContentJpaEntity content, ContentSortField sortField,
+      ContentSearchRequest request, boolean isAscending) {
+    return switch (sortField) {
+      case CREATED_AT -> {
+        Instant cursorTime;
+        try {
+          cursorTime = Instant.parse(request.cursor());
+        } catch (DateTimeParseException e) {
+          throw new MoplException(ErrorCode.INVALID_CURSOR_FORMAT);
+        }
+        yield isAscending
+            ? content.createdAt.gt(cursorTime)
+                .or(content.createdAt.eq(cursorTime).and(content.id.gt(request.idAfter())))
+            : content.createdAt.lt(cursorTime)
+                .or(content.createdAt.eq(cursorTime).and(content.id.lt(request.idAfter())));
+      }
+      case REVIEW_COUNT -> {
+        int cursorValue;
+        try {
+          cursorValue = Integer.parseInt(request.cursor());
+        } catch (NumberFormatException e) {
+          throw new MoplException(ErrorCode.INVALID_CURSOR_FORMAT);
+        }
+        yield isAscending
+            ? content.reviewCount.gt(cursorValue)
+                .or(content.reviewCount.eq(cursorValue).and(content.id.gt(request.idAfter())))
+            : content.reviewCount.lt(cursorValue)
+                .or(content.reviewCount.eq(cursorValue).and(content.id.lt(request.idAfter())));
+      }
+      case AVERAGE_RATING -> {
+        BigDecimal cursorValue;
+        try {
+          cursorValue = new BigDecimal(request.cursor());
+        } catch (NumberFormatException e) {
+          throw new MoplException(ErrorCode.INVALID_CURSOR_FORMAT);
+        }
+        yield isAscending
+            ? content.averageRating.gt(cursorValue)
+                .or(content.averageRating.eq(cursorValue).and(content.id.gt(request.idAfter())))
+            : content.averageRating.lt(cursorValue)
+                .or(content.averageRating.eq(cursorValue).and(content.id.lt(request.idAfter())));
+      }
+    };
   }
 }
