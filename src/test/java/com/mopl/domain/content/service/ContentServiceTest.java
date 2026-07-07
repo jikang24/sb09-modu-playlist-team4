@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -51,9 +52,9 @@ class ContentServiceTest {
     );
   }
 
-  private ContentCreateRequest makeCreateRequest(ContentType type, String externalId) {
+  private ContentCreateRequest makeCreateRequest(ContentType type) {
     return new ContentCreateRequest(
-        type, externalId,
+        type,
         "테스트 제목", "테스트 설명",
         List.of("액션", "SF")
     );
@@ -72,16 +73,14 @@ class ContentServiceTest {
   class CreateContent {
 
     @Test
-    @DisplayName("정상 등록 - 새로운 콘텐츠가 저장")
+    @DisplayName("정상 등록 - 새로운 콘텐츠가 저장되고, 외부 ID는 서버에서 생성된다")
     void success() {
-      ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE, "tmdb-001");
+      ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE);
       MultipartFile thumbnail = mock(MultipartFile.class);
 
       UUID savedId = UUID.randomUUID();
       Content saved = makeContent(savedId, ContentType.MOVIE, "tmdb-001");
 
-      given(contentRepository.findByTypeAndExternalId(ContentType.MOVIE, "tmdb-001"))
-          .willReturn(Optional.empty());
       given(contentRepository.save(any(Content.class)))
           .willReturn(saved);
 
@@ -90,28 +89,10 @@ class ContentServiceTest {
       assertThat(response.id()).isEqualTo(savedId);
       assertThat(response.type()).isEqualTo(ContentType.MOVIE);
       assertThat(response.title()).isEqualTo("테스트 제목");
-      then(contentRepository).should().save(any(Content.class));
-    }
 
-    @Test
-    @DisplayName("중복 등록 - 같은 타입+외부ID면 예외 발생")
-    void fail_duplicate() {
-      ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE, "tmdb-001");
-      MultipartFile thumbnail = mock(MultipartFile.class);
-
-      Content existing = makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-001");
-
-      given(contentRepository.findByTypeAndExternalId(ContentType.MOVIE, "tmdb-001"))
-          .willReturn(Optional.of(existing));
-
-      assertThatThrownBy(() -> contentService.createContent(request, thumbnail))
-          .isInstanceOf(MoplException.class)
-          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
-              .isEqualTo(ErrorCode.CONTENT_ALREADY_EXISTS));
-
-
-      then(contentRepository).should().findByTypeAndExternalId(any(), any());
-      then(contentRepository).shouldHaveNoMoreInteractions();
+      ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+      then(contentRepository).should().save(captor.capture());
+      assertThat(captor.getValue().getExternalId()).isNotBlank();
     }
   }
 

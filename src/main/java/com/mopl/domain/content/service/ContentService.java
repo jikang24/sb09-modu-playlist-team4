@@ -45,17 +45,17 @@ public class ContentService implements ContentUseCase {
   @Transactional
   public ContentResponse createContent(ContentCreateRequest request, MultipartFile thumbnail) {
 
-    contentRepository.findByTypeAndExternalId(request.type(), request.externalId())
-        .ifPresent(c -> { throw new MoplException(ErrorCode.CONTENT_ALREADY_EXISTS); });
-
     // TODO: S3 업로드
     // String thumbnailUrl = s3Uploader.upload(thumbnail, "contents");
     String thumbnailUrl = null;
 
+    // 관리자가 직접 등록하는 콘텐츠는 TMDB 등 외부 연동 ID가 없으므로 서버에서 고유값 생성
+    String externalId = "MANUAL-" + UUID.randomUUID();
+
     // 순수 도메인 생성 (JPA 어노테이션 없음)
     Content content = Content.create(
         request.type(),
-        request.externalId(),
+        externalId,
         request.title(),
         request.description(),
         thumbnailUrl,
