@@ -11,6 +11,7 @@ import com.mopl.global.event.TempPasswordIssuedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.AuthTokenService;
+import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -182,6 +183,10 @@ class AuthServiceTest {
         when(jwtProvider.generateRefreshToken(testUserId, "test@email.com", "USER"))
                 .thenReturn(newRefreshToken);
         when(jwtProvider.calculateTtl(newRefreshToken)).thenReturn(Duration.ofDays(7));
+        Instant accessExpiry = Instant.now().plus(Duration.ofMinutes(30));
+        when(jwtProvider.parse(newAccessToken))
+                .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
+        when(jwtProvider.getExpiration(newAccessToken)).thenReturn(accessExpiry);
 
         JwtDto result = authService.refresh(refreshToken);
 
@@ -193,6 +198,7 @@ class AuthServiceTest {
         verify(authTokenService).findUserIdByRefreshToken(refreshToken);
         verify(authTokenService).deleteRefreshToken(refreshToken);
         verify(authTokenService).saveRefreshToken(testUserId, newRefreshToken, Duration.ofDays(7));
+        verify(authTokenService).saveAccessJti(testUserId, "new-access-jti", accessExpiry);
         verify(userAuthPort).findById(testUserId);
     }
 
@@ -269,6 +275,9 @@ class AuthServiceTest {
         when(jwtProvider.generateRefreshToken(testUserId, "test@email.com", "USER"))
                 .thenReturn(newRefreshToken);
         when(jwtProvider.calculateTtl(newRefreshToken)).thenReturn(Duration.ofDays(7));
+        when(jwtProvider.parse(newAccessToken))
+                .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
+        when(jwtProvider.getExpiration(newAccessToken)).thenReturn(Instant.now().plus(Duration.ofMinutes(30)));
 
         JwtDto result = authService.refresh(refreshToken);
 
@@ -292,6 +301,9 @@ class AuthServiceTest {
         when(jwtProvider.generateRefreshToken(testUserId, "test@email.com", "USER"))
                 .thenReturn(newRefreshToken);
         when(jwtProvider.calculateTtl(newRefreshToken)).thenReturn(Duration.ofDays(7));
+        when(jwtProvider.parse(newAccessToken))
+                .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
+        when(jwtProvider.getExpiration(newAccessToken)).thenReturn(Instant.now().plus(Duration.ofMinutes(30)));
 
         JwtDto result = authService.refresh(refreshToken);
 
@@ -315,6 +327,9 @@ class AuthServiceTest {
         when(jwtProvider.generateRefreshToken(testUserId, "test@email.com", "USER"))
                 .thenReturn(newRefreshToken);
         when(jwtProvider.calculateTtl(newRefreshToken)).thenReturn(Duration.ofDays(7));
+        when(jwtProvider.parse(newAccessToken))
+                .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
+        when(jwtProvider.getExpiration(newAccessToken)).thenReturn(Instant.now().plus(Duration.ofMinutes(30)));
 
         JwtDto result = authService.refresh(refreshToken);
 
