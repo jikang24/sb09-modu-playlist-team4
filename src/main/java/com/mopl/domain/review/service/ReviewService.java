@@ -5,7 +5,6 @@ import com.mopl.domain.review.domain.Review;
 import com.mopl.domain.review.dto.ReviewDto;
 import com.mopl.domain.review.dto.ReviewSearchRequest;
 import com.mopl.domain.review.repository.ReviewRepository;
-import com.mopl.domain.review.repository.ReviewSpecification;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
@@ -17,8 +16,6 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,17 +77,10 @@ public class ReviewService {
 
   @Transactional(readOnly = true)
   public CursorPageResponse<ReviewDto> getReviews(ReviewSearchRequest request) {
-    boolean isAscending = "ASCENDING".equalsIgnoreCase(request.sortDirection());
-    Sort.Direction direction = isAscending ? Sort.Direction.ASC : Sort.Direction.DESC;
     String sortBy = request.sortBy() != null ? request.sortBy() : "createdAt";
 
     // limit+1개 조회해서 hasNext 판단 (Content 쪽과 동일 패턴)
-    PageRequest pageRequest = PageRequest.of(0, request.limit() + 1,
-        Sort.by(direction, sortBy).and(Sort.by(direction, "id")));
-
-    List<Review> reviews = reviewRepository
-        .findAll(ReviewSpecification.byCondition(request), pageRequest)
-        .getContent();
+    List<Review> reviews = reviewRepository.findAllByCondition(request);
 
     boolean hasNext = reviews.size() > request.limit();
     List<Review> content = hasNext ? reviews.subList(0, request.limit()) : reviews;
@@ -103,7 +93,7 @@ public class ReviewService {
             r.getText(), r.getRating()))
         .toList();
 
-    long totalCount = reviewRepository.count(ReviewSpecification.byCondition(request));
+    long totalCount = reviewRepository.countByCondition(request);
 
     String nextCursor = null;
     UUID nextIdAfter = null;
