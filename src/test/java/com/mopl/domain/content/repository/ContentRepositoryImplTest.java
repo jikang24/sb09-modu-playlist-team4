@@ -18,6 +18,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -76,6 +77,17 @@ class ContentRepositoryImplTest {
         sport1 = save(ContentType.SPORT, "sports-001", "EPL 하이라이트", List.of("스포츠"));
         em.flush();
         em.clear();
+    }
+    private Content saveContentWithCreatedAt(Content content, Instant createdAt) {
+        Content saved = contentRepository.save(content);
+        em.createQuery(
+                        "UPDATE ContentJpaEntity c SET c.createdAt = :createdAt WHERE c.id = :id")
+                .setParameter("createdAt", createdAt)
+                .setParameter("id", saved.getId())
+                .executeUpdate();
+        em.flush();
+        em.clear();
+        return contentRepository.findById(saved.getId()).orElseThrow();
     }
 
     private Content save(ContentType type, String externalId, String title, List<String> tags) {
