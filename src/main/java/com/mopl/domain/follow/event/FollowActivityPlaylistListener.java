@@ -25,8 +25,6 @@ public class FollowActivityPlaylistListener {
     private final NotificationEventPublisher notificationEventPublisher;
 
     // 팔로워 수만큼 Kafka publish를 반복하므로 요청 스레드를 막지 않도록 @Async로 별도 스레드에서 처리.
-    // @Async 워커 스레드는 원본 트랜잭션의 동기화 상태를 공유하지 않아, AFTER_COMMIT으로 실행된 시점에
-    // notificationEventPublisher.publish()가 즉시 발행되는 것도 보장된다 (ReviewAuthorSyncListener와 동일 패턴).
     @Async("followActivityTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPlaylistCreated(PlaylistCreatedEvent event) {

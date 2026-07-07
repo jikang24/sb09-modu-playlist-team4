@@ -23,8 +23,6 @@ public class FollowActivityWatchingSessionListener {
     private final LoadUserPort loadUserPort;
     private final NotificationEventPublisher notificationEventPublisher;
 
-    // watchingsession은 Redis 기반이라 JPA 트랜잭션이 없어 @TransactionalEventListener를 쓸 수 없음.
-    // 팔로워 수만큼 반복 발행하므로 STOMP 처리 스레드를 막지 않도록 @Async로 처리 (FollowActivityPlaylistListener와 동일한 이유).
     @Async("followActivityTaskExecutor")
     @EventListener
     public void onWatchingSessionStarted(WatchingSessionStartedEvent event) {
