@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @Slf4j
 @Component
@@ -21,6 +22,24 @@ public class SseEmitterRegistry implements SseNotificationSender {
   private static final long TIMEOUT_MILLIS = 30L * 60L * 1000L;
   private final Map<UUID, Set<SseEmitter>> emitters = new ConcurrentHashMap<>();
   private final NotificationRepository notificationRepository;
+
+  @Scheduled(fixedRate = 30000) // 30초마다
+  public void heartbeat() {
+    emitters.forEach((userId, userEmitters) -> {
+      for (SseEmitter emitter : userEmitters) {
+        try {
+          emitter.send(
+              SseEmitter.event()
+                  .name("heartbeat")
+                  .data("ping")
+          );
+        } catch (IOException | IllegalStateException e) {
+          log.trace("Failed to send heartbeat to userId: {}", userId);
+          remove(userId, emitter);
+        }
+      }
+    });
+  }
 
   public SseEmitter connect(UUID userId, UUID lastEventId) {
     SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
