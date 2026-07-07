@@ -10,6 +10,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -89,6 +90,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
             .status(403)
             .body(new ErrorResponse("FORBIDDEN", "권한이 없습니다."));
+    }
+
+    /**
+     * 존재하지 않는 정적 리소스 요청 (예: 없는 이미지 경로)
+     * 최후 안전망(Exception.class)이 잡으면 단순 404가 500으로 둔갑하므로 여기서 먼저 처리
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException e) {
+        log.warn("[정적 리소스 없음] {}", e.getResourcePath());
+
+        return ResponseEntity
+            .status(404)
+            .body(new ErrorResponse("NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."));
     }
 
     /**
