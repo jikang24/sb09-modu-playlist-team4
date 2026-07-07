@@ -1,6 +1,7 @@
 package com.mopl.domain.auth.adapter.in;
 
 import com.mopl.domain.auth.dto.JwtDto;
+import com.mopl.domain.auth.dto.RefreshResult;
 import com.mopl.domain.auth.dto.ResetPasswordRequest;
 import com.mopl.domain.auth.port.in.AuthUseCase;
 import com.mopl.domain.user.dto.Role;
@@ -8,18 +9,23 @@ import com.mopl.domain.user.dto.UserDto;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.ApiResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @DisplayName("AuthController 테스트")
@@ -27,14 +33,17 @@ class AuthControllerTest {
 
     private AuthController authController;
     private AuthUseCase authUseCase;
+    private HttpServletResponse httpServletResponse;
     private UUID testUserId;
     private UserDto testUserDto;
     private JwtDto testJwtDto;
+    private RefreshResult testRefreshResult;
 
     @BeforeEach
     void setUp() {
         authUseCase = mock(AuthUseCase.class);
         authController = new AuthController(authUseCase);
+        httpServletResponse = mock(HttpServletResponse.class);
 
         testUserId = UUID.randomUUID();
         testUserDto = new UserDto(
@@ -47,6 +56,7 @@ class AuthControllerTest {
                 false
         );
         testJwtDto = new JwtDto(testUserDto, "access_token_123");
+        testRefreshResult = new RefreshResult(testJwtDto, "new_refresh_token_123", Duration.ofDays(7));
     }
 
     @Test
@@ -127,9 +137,9 @@ class AuthControllerTest {
     @DisplayName("성공: 유효한 쿠키로 토큰을 재발급한다")
     void refresh() {
         String refreshToken = "refresh_token_123";
-        when(authUseCase.refresh(refreshToken)).thenReturn(testJwtDto);
+        when(authUseCase.refresh(refreshToken)).thenReturn(testRefreshResult);
 
-        ResponseEntity<?> response = authController.refresh(refreshToken);
+        ResponseEntity<?> response = authController.refresh(refreshToken, httpServletResponse);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -141,9 +151,9 @@ class AuthControllerTest {
     @DisplayName("성공: 토큰 재발급 응답에 JWT 정보가 포함된다")
     void refresh_Success_ReturnsJwtDto() {
         String refreshToken = "refresh_token_123";
-        when(authUseCase.refresh(refreshToken)).thenReturn(testJwtDto);
+        when(authUseCase.refresh(refreshToken)).thenReturn(testRefreshResult);
 
-        ResponseEntity<?> response = authController.refresh(refreshToken);
+        ResponseEntity<?> response = authController.refresh(refreshToken, httpServletResponse);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -151,12 +161,23 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("성공: 토큰 재발급 시 새 REFRESH_TOKEN 쿠키를 내려준다")
+    void refresh_SetsNewRefreshTokenCookie() {
+        String refreshToken = "refresh_token_123";
+        when(authUseCase.refresh(refreshToken)).thenReturn(testRefreshResult);
+
+        authController.refresh(refreshToken, httpServletResponse);
+
+        verify(httpServletResponse).addHeader(eq(HttpHeaders.SET_COOKIE), contains("REFRESH_TOKEN=new_refresh_token_123"));
+    }
+
+    @Test
     @DisplayName("성공: 토큰 재발급 시 UseCase가 호출된다")
     void refresh_WithValidToken_CallsUseCase() {
         String refreshToken = "valid_token";
-        when(authUseCase.refresh(refreshToken)).thenReturn(testJwtDto);
+        when(authUseCase.refresh(refreshToken)).thenReturn(testRefreshResult);
 
-        authController.refresh(refreshToken);
+        authController.refresh(refreshToken, httpServletResponse);
 
         verify(authUseCase).refresh(refreshToken);
     }
@@ -164,7 +185,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("실패: 쿠키가 없으면 401 Unauthorized를 반환한다")
     void refresh_NullToken_Returns401() {
-        ResponseEntity<?> response = authController.refresh(null);
+        ResponseEntity<?> response = authController.refresh(null, httpServletResponse);
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
@@ -176,7 +197,7 @@ class AuthControllerTest {
         when(authUseCase.refresh(emptyToken))
                 .thenThrow(new MoplException(ErrorCode.REFRESH_TOKEN_NOT_FOUND));
 
-        assertThrows(MoplException.class, () -> authController.refresh(emptyToken));
+        assertThrows(MoplException.class, () -> authController.refresh(emptyToken, httpServletResponse));
     }
 
     @Test
@@ -186,7 +207,7 @@ class AuthControllerTest {
         doThrow(new MoplException(ErrorCode.REFRESH_TOKEN_NOT_FOUND))
                 .when(authUseCase).refresh(refreshToken);
 
-        assertThrows(MoplException.class, () -> authController.refresh(refreshToken));
+        assertThrows(MoplException.class, () -> authController.refresh(refreshToken, httpServletResponse));
         verify(authUseCase).refresh(refreshToken);
     }
 
@@ -197,7 +218,7 @@ class AuthControllerTest {
         doThrow(new MoplException(ErrorCode.USER_LOCKED))
                 .when(authUseCase).refresh(refreshToken);
 
-        assertThrows(MoplException.class, () -> authController.refresh(refreshToken));
+        assertThrows(MoplException.class, () -> authController.refresh(refreshToken, httpServletResponse));
         verify(authUseCase).refresh(refreshToken);
     }
 
@@ -216,12 +237,13 @@ class AuthControllerTest {
                 false
         );
         JwtDto jwtDto2 = new JwtDto(userDto2, "access_token_2");
+        RefreshResult refreshResult2 = new RefreshResult(jwtDto2, "new_refresh_token_2", Duration.ofDays(7));
 
-        when(authUseCase.refresh(token1)).thenReturn(testJwtDto);
-        when(authUseCase.refresh(token2)).thenReturn(jwtDto2);
+        when(authUseCase.refresh(token1)).thenReturn(testRefreshResult);
+        when(authUseCase.refresh(token2)).thenReturn(refreshResult2);
 
-        ResponseEntity<?> response1 = authController.refresh(token1);
-        ResponseEntity<?> response2 = authController.refresh(token2);
+        ResponseEntity<?> response1 = authController.refresh(token1, httpServletResponse);
+        ResponseEntity<?> response2 = authController.refresh(token2, httpServletResponse);
 
         assertEquals(HttpStatus.OK, response1.getStatusCode());
         assertEquals(HttpStatus.OK, response2.getStatusCode());
