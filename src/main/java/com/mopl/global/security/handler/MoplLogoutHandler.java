@@ -42,6 +42,7 @@ public class MoplLogoutHandler implements LogoutHandler {
         }
 
         authTokenService.deleteRefreshTokenByUserId(claims.getUserId());
+        authTokenService.deleteAccessJtiByUserId(claims.getUserId());
         log.info("로그아웃 성공 - userId: {}", claims.getUserId());
     }
 

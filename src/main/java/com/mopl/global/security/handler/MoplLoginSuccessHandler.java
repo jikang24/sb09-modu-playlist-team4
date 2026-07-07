@@ -5,10 +5,9 @@ import com.mopl.domain.auth.dto.JwtDto;
 import com.mopl.domain.user.dto.UserDto;
 import com.mopl.global.auth.UserAuthInfo;
 import com.mopl.global.jwt.AuthTokenService;
+import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
-import com.mopl.global.response.ApiResponse;
 import com.mopl.global.security.userdetails.MoplUserDetails;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +37,13 @@ public class MoplLoginSuccessHandler implements AuthenticationSuccessHandler {
         MoplUserDetails userDetails = (MoplUserDetails) authentication.getPrincipal();
         UserAuthInfo user = userDetails.getUserAuthInfo();
 
+        // 기존 로그인 세션 강제 로그아웃: 살아있는 액세스 토큰을 블랙리스트에 등록
+        authTokenService.findAccessJtiByUserId(user.id()).ifPresent(entry -> {
+            Duration remaining = Duration.between(Instant.now(), entry.expiresAt());
+            if (!remaining.isNegative()) {
+                authTokenService.blacklistJti(entry.jti(), remaining);
+            }
+        });
         authTokenService.deleteRefreshTokenByUserId(user.id());
 
         String accessToken = jwtProvider.generateAccessToken(user.id(), user.email(), user.role().name());
@@ -46,10 +52,13 @@ public class MoplLoginSuccessHandler implements AuthenticationSuccessHandler {
         Duration refreshTtl = jwtProvider.calculateTtl(refreshToken);
         authTokenService.saveRefreshToken(user.id(), refreshToken, refreshTtl);
 
+        JwtClaims accessClaims = jwtProvider.parse(accessToken);
+        authTokenService.saveAccessJti(user.id(), accessClaims.getTokenId(), jwtProvider.getExpiration(accessToken));
+
         ResponseCookie refreshCookie = ResponseCookie.from("REFRESH_TOKEN", refreshToken)
                 .httpOnly(true)
                 .secure(false)
-                .path("/api/auth")
+                .path("/")
                 .maxAge(refreshTtl)
                 .sameSite("Lax")
                 .build();
