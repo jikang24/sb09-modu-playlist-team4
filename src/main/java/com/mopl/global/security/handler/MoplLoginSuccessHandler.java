@@ -7,9 +7,7 @@ import com.mopl.global.auth.UserAuthInfo;
 import com.mopl.global.jwt.AuthTokenService;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
-import com.mopl.global.response.ApiResponse;
 import com.mopl.global.security.userdetails.MoplUserDetails;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -60,7 +58,7 @@ public class MoplLoginSuccessHandler implements AuthenticationSuccessHandler {
         ResponseCookie refreshCookie = ResponseCookie.from("REFRESH_TOKEN", refreshToken)
                 .httpOnly(true)
                 .secure(false)
-                .path("/api/auth")
+                .path("/")
                 .maxAge(refreshTtl)
                 .sameSite("Lax")
                 .build();
