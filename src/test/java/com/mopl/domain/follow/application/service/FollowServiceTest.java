@@ -2,8 +2,12 @@ package com.mopl.domain.follow.application.service;
 
 import com.mopl.domain.follow.application.port.out.DeleteFollowPort;
 import com.mopl.domain.follow.application.port.out.LoadFollowPort;
+import com.mopl.domain.follow.application.port.out.LoadUserPort;
 import com.mopl.domain.follow.application.port.out.SaveFollowPort;
 import com.mopl.domain.follow.domain.Follow;
+import com.mopl.global.dto.UserSummary;
+import com.mopl.global.event.NotificationEventPublisher;
+import com.mopl.global.event.NotificationRequestedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +42,12 @@ class FollowServiceTest {
     @Mock
     private DeleteFollowPort deleteFollowPort;
 
+    @Mock
+    private LoadUserPort loadUserPort;
+
+    @Mock
+    private NotificationEventPublisher notificationEventPublisher;
+
     private FollowService followService;
 
     private UUID followerId;
@@ -47,7 +57,8 @@ class FollowServiceTest {
 
     @BeforeEach
     void setUp() {
-        followService = new FollowService(saveFollowPort, loadFollowPort, deleteFollowPort);
+        followService = new FollowService(saveFollowPort, loadFollowPort, deleteFollowPort,
+                loadUserPort, notificationEventPublisher);
 
         followerId = UUID.randomUUID();
         followeeId = UUID.randomUUID();
@@ -71,6 +82,8 @@ class FollowServiceTest {
                     .willReturn(false);
             given(saveFollowPort.save(any(Follow.class)))
                     .willReturn(follow);
+            given(loadUserPort.getUserSummary(followerId))
+                    .willReturn(new UserSummary(followerId, "홍길동", null));
 
             Follow result = followService.follow(followeeId, followerId);
 
@@ -78,6 +91,7 @@ class FollowServiceTest {
             assertThat(result.getFolloweeId()).isEqualTo(followeeId);
             assertThat(result.getFollowerId()).isEqualTo(followerId);
             verify(saveFollowPort).save(any(Follow.class));
+            verify(notificationEventPublisher).publish(any(NotificationRequestedEvent.class));
         }
 
         @Test
@@ -114,6 +128,8 @@ class FollowServiceTest {
                     .willReturn(false);
             given(saveFollowPort.save(any(Follow.class)))
                     .willReturn(follow);
+            given(loadUserPort.getUserSummary(followerId))
+                    .willReturn(new UserSummary(followerId, "홍길동", null));
 
             Follow result = followService.follow(followeeId, followerId);
 
@@ -323,6 +339,8 @@ class FollowServiceTest {
                     .willReturn(false);
             given(saveFollowPort.save(any(Follow.class)))
                     .willReturn(follow);
+            given(loadUserPort.getUserSummary(userA))
+                    .willReturn(new UserSummary(userA, "홍길동", null));
 
             Follow followResult = followService.follow(userB, userA);
             assertThat(followResult.getFolloweeId()).isEqualTo(userB);

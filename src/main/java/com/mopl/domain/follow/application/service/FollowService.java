@@ -6,8 +6,12 @@ import com.mopl.domain.follow.application.port.in.GetFollowerCountUseCase;
 import com.mopl.domain.follow.application.port.in.UnfollowUserUseCase;
 import com.mopl.domain.follow.application.port.out.DeleteFollowPort;
 import com.mopl.domain.follow.application.port.out.LoadFollowPort;
+import com.mopl.domain.follow.application.port.out.LoadUserPort;
 import com.mopl.domain.follow.application.port.out.SaveFollowPort;
 import com.mopl.domain.follow.domain.Follow;
+import com.mopl.domain.notification.domain.NotificationType;
+import com.mopl.global.event.NotificationEventPublisher;
+import com.mopl.global.event.NotificationRequestedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import java.util.UUID;
@@ -26,6 +30,8 @@ public class FollowService implements FollowUserUseCase, UnfollowUserUseCase,
     private final SaveFollowPort saveFollowPort;
     private final LoadFollowPort loadFollowPort;
     private final DeleteFollowPort deleteFollowPort;
+    private final LoadUserPort loadUserPort;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     @Override
     public Follow follow(UUID followeeId, UUID followerId) {
@@ -34,7 +40,16 @@ public class FollowService implements FollowUserUseCase, UnfollowUserUseCase,
         }
         Follow follow = Follow.create(followeeId, followerId);
         log.info("팔로우 생성 - followeeId: {}, followerId: {}", followeeId, followerId);
-        return saveFollowPort.save(follow);
+        Follow saved = saveFollowPort.save(follow);
+
+        notificationEventPublisher.publish(new NotificationRequestedEvent(
+            followeeId,
+            NotificationType.FOLLOW.name(),
+            "새 팔로워",
+            loadUserPort.getUserSummary(followerId).name() + "님이 나를 팔로우했습니다."
+        ));
+
+        return saved;
     }
 
     @Override
