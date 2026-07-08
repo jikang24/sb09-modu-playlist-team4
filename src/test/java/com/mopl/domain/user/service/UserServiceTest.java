@@ -220,6 +220,7 @@ class UserServiceTest {
 
             ArgumentCaptor<UserRoleChangedEvent> captor = ArgumentCaptor.forClass(UserRoleChangedEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().oldRole()).isEqualTo(Role.USER);
             assertThat(captor.getValue().newRole()).isEqualTo(Role.ADMIN);
         }
 
@@ -231,6 +232,18 @@ class UserServiceTest {
 
             assertThatThrownBy(() -> userService.updateRole(userId, request))
                     .isInstanceOf(MoplException.class);
+
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("성공: 기존 권한과 동일한 권한이면 이벤트를 발행하지 않는다")
+        void updateRole_success_sameRole_doesNotPublishEvent() {
+            UserRoleUpdateRequest request = new UserRoleUpdateRequest(Role.USER);
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
+            given(userMapper.toDto(user)).willReturn(userDto);
+
+            userService.updateRole(userId, request);
 
             verify(eventPublisher, never()).publishEvent(any());
         }

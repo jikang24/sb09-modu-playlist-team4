@@ -19,7 +19,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -83,7 +82,6 @@ public class UserServiceImpl implements UserService {
         }
 
         user.updateProfile(request.name(), imageUrl);
-        // 프로필(이름/이미지) 변경을 다른 모듈에 알림 - Review가 저장해둔 author 스냅샷을
         // 최신 상태로 맞추기 위해 필요 (이벤트 없이는 리뷰에 옛날 이름이 계속 박제됨)
         eventPublisher.publishEvent(
             new UserProfileUpdatedEvent(user.getId(), user.getName(), imageUrl)
@@ -97,8 +95,11 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
+        Role oldRole = user.getRole();
         user.updateRole(request.role());
-        eventPublisher.publishEvent(new UserRoleChangedEvent(user.getId(), request.role()));
+        if (oldRole != request.role()) {
+            eventPublisher.publishEvent(new UserRoleChangedEvent(user.getId(), oldRole, request.role()));
+        }
         return userMapper.toDto(user);
     }
 

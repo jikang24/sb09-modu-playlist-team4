@@ -73,7 +73,7 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "[어드민] 권한 수정")
     @PatchMapping("/{userId}/role")
-    public ResponseEntity<UserDto> updateRole(@PathVariable UUID userId, @RequestBody UserRoleUpdateRequest request) {
+    public ResponseEntity<UserDto> updateRole(@PathVariable UUID userId, @Valid @RequestBody UserRoleUpdateRequest request) {
         UserDto userDto = userService.updateRole(userId, request);
         return ResponseEntity.status(HttpStatus.OK).body(userDto);
     }
