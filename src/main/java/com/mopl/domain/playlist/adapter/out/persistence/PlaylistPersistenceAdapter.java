@@ -26,7 +26,13 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
   @Override
   public Playlist save(Playlist playlist) {
     PlaylistJpaEntity existing = playlistJpaRepository.findById(playlist.getId()).orElse(null);
+
     PlaylistJpaEntity entity = mapper.toJpaEntity(playlist, existing);
+
+    if (existing != null) {
+      syncContents(entity, playlist);
+    }
+
     PlaylistJpaEntity saved = playlistJpaRepository.save(entity);
     return mapper.toDomain(saved);
   }
@@ -101,11 +107,45 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
 
   @Override
   public Map<UUID, Boolean> isSubscribedBulk(List<UUID> playlistIds, UUID subscriberId) {
-    List<UUID> subscribedPlaylistIds = subscriptionJpaRepository.findSubscribedPlaylistIds(playlistIds, subscriberId);
+    List<UUID> subscribedPlaylistIds = subscriptionJpaRepository.findSubscribedPlaylistIds(
+        playlistIds, subscriberId);
     return playlistIds.stream()
         .collect(Collectors.toMap(
             id -> id,
             subscribedPlaylistIds::contains
         ));
+  }
+
+  private void syncContents(PlaylistJpaEntity entity, Playlist playlist) {
+
+    List<PlaylistContentJpaEntity> contents = entity.getContents();
+
+    contents.removeIf(content ->
+        !playlist.getContentIds().contains(content.getContentId())
+    );
+
+    Map<UUID, PlaylistContentJpaEntity> existingMap =
+        contents.stream()
+            .collect(Collectors.toMap(
+                PlaylistContentJpaEntity::getContentId,
+                c -> c
+            ));
+
+    int position = 0;
+
+    for (UUID contentId : playlist.getContentIds()) {
+
+      PlaylistContentJpaEntity content = existingMap.get(contentId);
+
+      if (content == null) {
+        content = PlaylistContentJpaEntity.of(contentId, position);
+        content.assignPlaylist(entity);
+        contents.add(content);
+      } else {
+        content.updatePosition(position);
+      }
+
+      position++;
+    }
   }
 }

@@ -62,12 +62,6 @@ public class PlaylistJpaEntity {
     return new PlaylistJpaEntity(id, ownerId, title, description, createdAt, updatedAt);
   }
 
-  void updateContents(List<PlaylistContentJpaEntity> newContents) {
-    this.contents.clear();
-    this.contents.addAll(newContents);
-    newContents.forEach(content -> content.assignPlaylist(this));
-  }
-
   void updateMetadata(String title, String description, Instant updatedAt) {
     this.title = title;
     this.description = description;

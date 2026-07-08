@@ -42,19 +42,6 @@ public class PlaylistPersistenceMapper {
     if (existing != null) {
       entity.updateMetadata(playlist.getTitle(), playlist.getDescription(), playlist.getUpdatedAt());
     }
-
-    List<UUID> currentContentIds = entity.getContents().stream()
-        .map(PlaylistContentJpaEntity::getContentId)
-        .toList();
-
-    if (!currentContentIds.equals(playlist.getContentIds())) {
-      List<PlaylistContentJpaEntity> contentEntities = new ArrayList<>();
-      int position = 0;
-      for (UUID contentId : playlist.getContentIds()) {
-        contentEntities.add(PlaylistContentJpaEntity.of(contentId, position++));
-      }
-      entity.updateContents(contentEntities);
-    }
     return entity;
   }
 }
