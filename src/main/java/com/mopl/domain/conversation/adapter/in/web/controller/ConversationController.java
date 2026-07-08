@@ -21,6 +21,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,7 +59,7 @@ public class ConversationController {
   })
   @PostMapping
   public ResponseEntity<ConversationDto> createConversation(
-      @RequestBody ConversationCreateRequest request,
+      @Valid @RequestBody ConversationCreateRequest request,
       @AuthenticationPrincipal JwtClaims claims
   ) {
     UUID myId = claims.getUserId();
