@@ -4,6 +4,7 @@ import com.mopl.domain.review.adapter.port.LoadUserPort;
 import com.mopl.domain.review.domain.Review;
 import com.mopl.domain.review.dto.ReviewDto;
 import com.mopl.domain.review.dto.ReviewSearchRequest;
+import com.mopl.domain.review.dto.ReviewSortBy;
 import com.mopl.domain.review.repository.ReviewRepository;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
@@ -77,7 +78,7 @@ public class ReviewService {
 
   @Transactional(readOnly = true)
   public CursorPageResponse<ReviewDto> getReviews(ReviewSearchRequest request) {
-    String sortBy = request.sortBy() != null ? request.sortBy() : "createdAt";
+    ReviewSortBy sortBy = request.sortBy() != null ? request.sortBy() : ReviewSortBy.CREATED_AT;
 
     // limit+1개 조회해서 hasNext 판단 (Content 쪽과 동일 패턴)
     List<Review> reviews = reviewRepository.findAllByCondition(request);
@@ -99,14 +100,15 @@ public class ReviewService {
     UUID nextIdAfter = null;
     if (hasNext && !content.isEmpty()) {
       Review last = content.get(content.size() - 1);
-      nextCursor = "rating".equals(sortBy)
+      nextCursor = sortBy == ReviewSortBy.RATING
           ? last.getRating().toString()
           : last.getCreatedAt().toString();
       nextIdAfter = last.getId();
     }
 
     return new CursorPageResponse<>(
-        reviewDtos, nextCursor, nextIdAfter, hasNext, totalCount, sortBy, request.sortDirection());
+        reviewDtos, nextCursor, nextIdAfter, hasNext, totalCount,
+        sortBy.name(), request.sortDirection().name());
   }
 
   private void validateOwner(Review review, UUID userId) {

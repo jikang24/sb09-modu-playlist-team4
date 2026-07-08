@@ -3,6 +3,8 @@ package com.mopl.domain.review.repository;
 import com.mopl.domain.review.domain.QReview;
 import com.mopl.domain.review.domain.Review;
 import com.mopl.domain.review.dto.ReviewSearchRequest;
+import com.mopl.domain.review.dto.ReviewSortBy;
+import com.mopl.global.dto.SortDirection;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.querydsl.core.BooleanBuilder;
@@ -18,8 +20,8 @@ import org.springframework.stereotype.Repository;
 
 /**
  * 커서 기반 페이지네이션용 동적 쿼리
- * sortBy가 "createdAt"이냐 "rating"이냐에 따라 cursor 파싱 타입이 다르므로 if로 분기함
- * (정렬 기준이 딱 2개뿐이고 당장 늘어날 계획 없어서, 굳이 제네릭으로 추상화 안 하기로 결정함)
+ * sortBy(ReviewSortBy)가 CREATED_AT이냐 RATING이냐에 따라 커서 파싱 타입과 정렬 필드가 다르므로
+ * switch로 분기함 (정렬 기준이 딱 2개뿐이고 당장 늘어날 계획 없어서, 굳이 제네릭으로 추상화 안 하기로 결정함)
  */
 @Repository
 @RequiredArgsConstructor
@@ -30,21 +32,25 @@ public class ReviewRepositoryCustomImpl implements ReviewRepositoryCustom {
   @Override
   public List<Review> findAllByCondition(ReviewSearchRequest request) {
     QReview review = QReview.review;
-    boolean isAscending = "ASCENDING".equalsIgnoreCase(request.sortDirection());
-    String sortBy = request.sortBy() != null ? request.sortBy() : "createdAt";
+    boolean isAscending = request.sortDirection() == SortDirection.ASCENDING;
+    ReviewSortBy sortBy = request.sortBy();
 
     BooleanBuilder builder = new BooleanBuilder()
         .and(review.contentId.eq(request.contentId()));
 
     if (request.cursor() != null && request.idAfter() != null) {
-      builder.and("rating".equals(sortBy)
-          ? ratingCursorPredicate(review, request, isAscending)
-          : createdAtCursorPredicate(review, request, isAscending));
+      // switch로 명확하게 분기 - 새로운 정렬 기준 추가 시 컴파일러가 누락된 case를 잡아줌
+      builder.and(switch (sortBy) {
+        case RATING -> ratingCursorPredicate(review, request, isAscending);
+        case CREATED_AT -> createdAtCursorPredicate(review, request, isAscending);
+      });
     }
 
-    OrderSpecifier<?> primaryOrder = "rating".equals(sortBy)
-        ? (isAscending ? review.rating.asc() : review.rating.desc())
-        : (isAscending ? review.createdAt.asc() : review.createdAt.desc());
+    // 중첩 삼항연산자 대신 switch로 분리 - sortBy(2단계)와 isAscending(1단계)을 한 번에 섞지 않음
+    OrderSpecifier<?> primaryOrder = switch (sortBy) {
+      case RATING -> isAscending ? review.rating.asc() : review.rating.desc();
+      case CREATED_AT -> isAscending ? review.createdAt.asc() : review.createdAt.desc();
+    };
     OrderSpecifier<?> idOrder = isAscending ? review.id.asc() : review.id.desc();
 
     return queryFactory.selectFrom(review)
