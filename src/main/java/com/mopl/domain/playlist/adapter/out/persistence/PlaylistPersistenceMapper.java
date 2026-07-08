@@ -1,7 +1,6 @@
 package com.mopl.domain.playlist.adapter.out.persistence;
 
 import com.mopl.domain.playlist.domain.Playlist;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
