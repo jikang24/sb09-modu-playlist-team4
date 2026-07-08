@@ -12,6 +12,7 @@ import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,9 @@ class ContentServiceTest {
 
   @Mock
   private LoadWatcherCountPort loadWatcherCountPort;
+
+  @Mock
+  private S3Service s3Service;
 
   @InjectMocks
   private ContentService contentService;
@@ -100,6 +104,22 @@ class ContentServiceTest {
       then(contentRepository).should().save(captor.capture());
       assertThat(captor.getValue().getExternalId()).isNotBlank();
     }
+
+    @Test
+    @DisplayName("썸네일이 S3에 업로드되고, 그 URL이 콘텐츠에 반영된다")
+    void success_uploadsThumbnailToS3() {
+      ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE);
+      MultipartFile thumbnail = mock(MultipartFile.class);
+
+      given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/thumb.jpg");
+      given(contentRepository.save(any(Content.class)))
+          .willAnswer(invocation -> invocation.getArgument(0));
+
+      ContentResponse response = contentService.createContent(request, thumbnail);
+
+      assertThat(response.thumbnailUrl()).isEqualTo("https://s3.example.com/thumb.jpg");
+      then(s3Service).should().upload(thumbnail);
+    }
   }
 
   @Nested
@@ -127,6 +147,49 @@ class ContentServiceTest {
       ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
       then(contentRepository).should().save(captor.capture());
       assertThat(captor.getValue().getTitle()).isEqualTo("수정된 제목");
+    }
+
+    @Test
+    @DisplayName("새 썸네일을 보내면 S3에 업로드되고, 그 URL로 갱신된다")
+    void success_newThumbnail_uploadsToS3() {
+      UUID id = UUID.randomUUID();
+      Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
+
+      ContentUpdateRequest request = new ContentUpdateRequest(
+          ContentType.MOVIE, "수정된 제목", "수정된 설명", List.of("드라마")
+      );
+      MultipartFile thumbnail = mock(MultipartFile.class);
+      given(thumbnail.isEmpty()).willReturn(false);
+      given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/new-thumb.jpg");
+
+      given(contentRepository.findById(id)).willReturn(Optional.of(existing));
+      given(contentRepository.save(any(Content.class)))
+          .willAnswer(invocation -> invocation.getArgument(0));
+
+      ContentResponse response = contentService.updateContent(id, request, thumbnail);
+
+      assertThat(response.thumbnailUrl()).isEqualTo("https://s3.example.com/new-thumb.jpg");
+      then(s3Service).should().upload(thumbnail);
+    }
+
+    @Test
+    @DisplayName("썸네일을 안 보내면 S3 업로드 없이 기존 썸네일이 유지된다")
+    void success_noThumbnail_keepsExisting() {
+      UUID id = UUID.randomUUID();
+      Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
+
+      ContentUpdateRequest request = new ContentUpdateRequest(
+          ContentType.MOVIE, "수정된 제목", "수정된 설명", List.of("드라마")
+      );
+
+      given(contentRepository.findById(id)).willReturn(Optional.of(existing));
+      given(contentRepository.save(any(Content.class)))
+          .willAnswer(invocation -> invocation.getArgument(0));
+
+      ContentResponse response = contentService.updateContent(id, request, null);
+
+      assertThat(response.thumbnailUrl()).isEqualTo(existing.getThumbnailUrl());
+      then(s3Service).should(org.mockito.Mockito.never()).upload(any());
     }
 
     @Test
