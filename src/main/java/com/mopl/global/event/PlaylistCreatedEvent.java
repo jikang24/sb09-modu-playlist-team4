@@ -6,6 +6,6 @@ public record PlaylistCreatedEvent(
     UUID playlistId,
     UUID ownerId,
     String title,
-    String content
+    String description
 ) {
 }

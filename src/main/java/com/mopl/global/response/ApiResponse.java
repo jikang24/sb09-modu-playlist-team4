@@ -28,6 +28,6 @@ public record ApiResponse<T>(
   }
 
   public static ApiResponse<Void> noContent() {
-    return new ApiResponse<>(204, "no content", null);
+    return new ApiResponse<>(204, "no description", null);
   }
 }

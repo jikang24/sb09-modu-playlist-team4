@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 
 
 -- ================================================================
--- [content 모듈]
+-- [description 모듈]
 -- ================================================================
 
 CREATE TABLE IF NOT EXISTS contents (
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS contents (
 
 CREATE TABLE IF NOT EXISTS content_tags (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-    -- [모듈 내부 FK] content 모듈 → content 모듈
+    -- [모듈 내부 FK] description 모듈 → description 모듈
     content_id      UUID            NOT NULL,
     tag             VARCHAR(50)     NOT NULL,
     created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS playlist_contents (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 내부 FK] playlist 모듈 → playlist 모듈
     playlist_id     UUID            NOT NULL,
-    -- [모듈 간 REF] content 모듈의 contents.id 참조 — FK 없음
+    -- [모듈 간 REF] description 모듈의 contents.id 참조 — FK 없음
     content_id      UUID            NOT NULL,
     created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
 
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음
     author_id       UUID            NOT NULL,
-    -- [모듈 간 REF] content 모듈의 contents.id 참조 — FK 없음
+    -- [모듈 간 REF] description 모듈의 contents.id 참조 — FK 없음
     content_id      UUID            NOT NULL,
     rating          DECIMAL(2, 1)   NOT NULL
                                     CHECK (rating >= 0.5 AND rating <= 5.0),
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음
     -- 알림에 필요한 텍스트는 이벤트 발행 시 미리 담아서 저장
-    -- → user/content 모듈 재조회 불필요
+    -- → user/description 모듈 재조회 불필요
     receiver_id     UUID        NOT NULL,
     type            VARCHAR(50) NOT NULL,                   -- ROLE_CHANGED, PLAYLIST_UPDATED 등
     title           VARCHAR(100) NOT NULL,

@@ -60,7 +60,7 @@ class NotificationDtoTest {
         Instant.now(),
         UUID.randomUUID(),
         "title",
-        "content",
+        "description",
         NotificationLevel.INFO
     );
     var page = new com.mopl.global.response.CursorPageResponse<>(

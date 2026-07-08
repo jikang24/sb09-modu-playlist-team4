@@ -43,7 +43,7 @@ class NotificationRepositoryCustomImplTest {
         .receiverId(receiverId)
         .type(type)
         .title("title")
-        .content("content")
+        .content("description")
         .isRead(isRead)
         .createdAt(createdAt)
         .build();

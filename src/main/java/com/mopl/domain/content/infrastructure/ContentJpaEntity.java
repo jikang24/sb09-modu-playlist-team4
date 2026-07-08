@@ -49,7 +49,7 @@ public class ContentJpaEntity {
   @Column(name = "title", nullable = false, length = 200)
   private String title;
 
-  @Column(name = "content", columnDefinition = "TEXT")
+  @Column(name = "description", columnDefinition = "TEXT")
   private String description;
 
   @Column(name = "thumbnail_url", length = 500)

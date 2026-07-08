@@ -25,7 +25,7 @@ public class DirectMessageJpaEntity {
   private UUID receiverId;
   @Column(name = "conversation_id", nullable = false)
   private UUID conversationId;
-  @Column(name = "content", nullable = false)
+  @Column(name = "description", nullable = false)
   private String content;
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;

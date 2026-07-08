@@ -39,7 +39,7 @@ public class FollowActivityPlaylistListener {
                 followerId,
                 NotificationType.FOLLOW_ACTIVITY.name(),
                 ownerName + "님이 플레이리스트를 만들었어요.",
-                "["+ event.title() + "] " + event.content()
+                "["+ event.title() + "] " + event.description()
 
             ));
         }

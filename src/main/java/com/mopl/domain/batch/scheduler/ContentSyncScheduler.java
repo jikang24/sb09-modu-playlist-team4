@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 /**
  * 콘텐츠 수집 Job 자동 실행
  *
- * BatchController의 수동 트리거(POST /api/admin/batch/content-sync)와는 별개로,
+ * BatchController의 수동 트리거(POST /api/admin/batch/description-sync)와는 별개로,
  * 앱 기동 직후 1회 + 이후 주기적으로 자동 실행되어 매번 수동으로 배치를 트리거하지 않아도 됨
  */
 @Slf4j
