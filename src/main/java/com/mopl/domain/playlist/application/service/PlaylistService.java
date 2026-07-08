@@ -23,7 +23,6 @@ import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +55,7 @@ public class PlaylistService implements PlaylistUseCase {
     Playlist saved = savePlaylistPort.save(playlist);
 
     applicationEventPublisher.publishEvent(
-        new PlaylistCreatedEvent(saved.getId(), saved.getOwnerId(), saved.getTitle())
+        new PlaylistCreatedEvent(saved.getId(), saved.getOwnerId(), saved.getTitle(), saved.getDescription())
     );
     log.info("[Playlist] 생성 완료 - id: {}, ownerId: {}", saved.getId(), ownerId);
     return toDto(saved, ownerId);

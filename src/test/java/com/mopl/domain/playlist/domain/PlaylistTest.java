@@ -37,9 +37,9 @@ class PlaylistTest {
     @DisplayName("제목이 비어있으면 플레이리스트 생성 실패")
     void create_fail_emptyTitle() {
         UUID ownerId = UUID.randomUUID();
-        assertThatThrownBy(() -> Playlist.create(ownerId, "", "description"))
+        assertThatThrownBy(() -> Playlist.create(ownerId, "", "content"))
                 .isInstanceOf(MoplException.class);
-        assertThatThrownBy(() -> Playlist.create(ownerId, null, "description"))
+        assertThatThrownBy(() -> Playlist.create(ownerId, null, "content"))
                 .isInstanceOf(MoplException.class);
     }
 

@@ -62,7 +62,7 @@ public class DirectMessageWebSocketHandler {
     notificationEventPublisher.publish(new NotificationRequestedEvent(
         receiverId,
         "DIRECT_MESSAGE",
-        dto.sender().name() + "님의 메시지",
+        "[DM]" + " " + dto.sender().name(),
         request.content()
     ));
   }
