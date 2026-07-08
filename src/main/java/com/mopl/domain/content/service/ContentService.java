@@ -12,6 +12,7 @@ import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -37,8 +38,7 @@ public class ContentService implements ContentUseCase {
 
   private final ContentRepository contentRepository;
   private final LoadWatcherCountPort loadWatcherCountPort;
-  // TODO: S3Uploader 구현 완료 후 주입
-  // private final S3Uploader s3Uploader;
+  private final S3Service s3Service;
 
   // ──────────────────────────────────────────────
   // 관리자 전용
@@ -48,9 +48,7 @@ public class ContentService implements ContentUseCase {
   @Transactional
   public ContentResponse createContent(ContentCreateRequest request, MultipartFile thumbnail) {
 
-    // TODO: S3 업로드
-    // String thumbnailUrl = s3Uploader.upload(thumbnail, "contents");
-    String thumbnailUrl = null;
+    String thumbnailUrl = s3Service.upload(thumbnail);
 
     // 관리자가 직접 등록하는 콘텐츠는 TMDB 등 외부 연동 ID가 없으므로 서버에서 고유값 생성
     String externalId = Content.MANUAL_EXTERNAL_ID_PREFIX + UUID.randomUUID();
@@ -78,8 +76,7 @@ public class ContentService implements ContentUseCase {
 
     String thumbnailUrl = content.getThumbnailUrl();
     if (thumbnail != null && !thumbnail.isEmpty()) {
-      // TODO: S3 업로드
-      // thumbnailUrl = s3Uploader.upload(thumbnail, "contents");
+      thumbnailUrl = s3Service.upload(thumbnail);
     }
 
     // 순수 도메인 메서드로 상태 변경
