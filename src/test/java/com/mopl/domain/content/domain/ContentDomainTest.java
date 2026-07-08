@@ -137,13 +137,15 @@ class ContentDomainTest {
     class Update {
 
         @Test
-        @DisplayName("제목/설명/썸네일/태그가 변경된다")
+        @DisplayName("유형/제목/설명/썸네일/태그가 변경된다")
         void success() {
             Content content = Content.create(
                 ContentType.MOVIE, "tmdb-001", "원래 제목", "원래 설명", null, List.of("액션"));
 
-            content.update("새 제목", "새 설명", "https://new.jpg", List.of("드라마", "로맨스"));
+            content.update(ContentType.TV_SERIES, "새 제목", "새 설명", "https://new.jpg",
+                List.of("드라마", "로맨스"));
 
+            assertThat(content.getType()).isEqualTo(ContentType.TV_SERIES);
             assertThat(content.getTitle()).isEqualTo("새 제목");
             assertThat(content.getDescription()).isEqualTo("새 설명");
             assertThat(content.getThumbnailUrl()).isEqualTo("https://new.jpg");
@@ -156,7 +158,7 @@ class ContentDomainTest {
             Content content = Content.create(
                 ContentType.MOVIE, "tmdb-001", "제목", null, null, List.of("액션"));
 
-            content.update("제목", null, null, null);
+            content.update(ContentType.MOVIE, "제목", null, null, null);
 
             assertThat(content.getTags()).isEmpty();
         }
@@ -169,9 +171,21 @@ class ContentDomainTest {
             Instant before = content.getUpdatedAt();
 
             Thread.sleep(5);
-            content.update("새 제목", null, null, List.of());
+            content.update(ContentType.MOVIE, "새 제목", null, null, List.of());
 
             assertThat(content.getUpdatedAt()).isAfter(before);
+        }
+
+        @Test
+        @DisplayName("type이 null이면 예외 발생")
+        void nullType_throwsException() {
+            Content content = Content.create(
+                ContentType.MOVIE, "tmdb-001", "제목", null, null, List.of());
+
+            assertThatThrownBy(() -> content.update(null, "새 제목", null, null, List.of()))
+                .isInstanceOf(MoplException.class)
+                .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.INVALID_INPUT));
         }
     }
 

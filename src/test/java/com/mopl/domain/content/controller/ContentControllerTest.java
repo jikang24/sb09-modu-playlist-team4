@@ -96,7 +96,8 @@ class ContentControllerTest {
         @DisplayName("정상 수정 - 200 반환")
         void success() {
             UUID id = sampleResponse.id();
-            ContentUpdateRequest request = new ContentUpdateRequest("새 제목", "새 설명", List.of());
+            ContentUpdateRequest request =
+                new ContentUpdateRequest(ContentType.MOVIE, "새 제목", "새 설명", List.of());
             MultipartFile thumbnail = mock(MultipartFile.class);
 
             given(contentUseCase.updateContent(id, request, thumbnail)).willReturn(sampleResponse);
@@ -112,7 +113,8 @@ class ContentControllerTest {
         @DisplayName("존재하지 않는 콘텐츠 수정 - MoplException 전파")
         void fail_notFound() {
             UUID id = UUID.randomUUID();
-            ContentUpdateRequest request = new ContentUpdateRequest("새 제목", null, List.of());
+            ContentUpdateRequest request =
+                new ContentUpdateRequest(ContentType.MOVIE, "새 제목", null, List.of());
 
             given(contentUseCase.updateContent(eq(id), eq(request), any()))
                 .willThrow(new MoplException(ErrorCode.CONTENT_NOT_FOUND));

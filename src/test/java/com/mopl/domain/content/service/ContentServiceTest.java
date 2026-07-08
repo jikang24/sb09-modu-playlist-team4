@@ -114,7 +114,7 @@ class ContentServiceTest {
       Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
 
       ContentUpdateRequest request = new ContentUpdateRequest(
-          "수정된 제목", "수정된 설명", List.of("드라마")
+          ContentType.TV_SERIES, "수정된 제목", "수정된 설명", List.of("드라마")
       );
       MultipartFile thumbnail = mock(MultipartFile.class);
 
@@ -124,7 +124,9 @@ class ContentServiceTest {
       ContentResponse response = contentService.updateContent(id, request, thumbnail);
 
       assertThat(response).isNotNull();
-      then(contentRepository).should().save(any(Content.class));
+      ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+      then(contentRepository).should().save(captor.capture());
+      assertThat(captor.getValue().getType()).isEqualTo(ContentType.TV_SERIES);
     }
 
     @Test
@@ -134,7 +136,7 @@ class ContentServiceTest {
       given(contentRepository.findById(id)).willReturn(Optional.empty());
 
       ContentUpdateRequest request = new ContentUpdateRequest(
-          "수정된 제목", "수정된 설명", List.of()
+          ContentType.MOVIE, "수정된 제목", "수정된 설명", List.of()
       );
 
       assertThatThrownBy(() ->
