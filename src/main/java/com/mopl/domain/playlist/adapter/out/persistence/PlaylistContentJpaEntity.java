@@ -51,4 +51,8 @@ public class PlaylistContentJpaEntity {
   void assignPlaylist(PlaylistJpaEntity playlist) {
     this.playlist = playlist;
   }
+
+  void updatePosition(int position) {
+    this.position = position;
+  }
 }
