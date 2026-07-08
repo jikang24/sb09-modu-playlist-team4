@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -333,6 +334,45 @@ class FollowPersistenceAdapterTest {
 
             assertThat(result1).isEqualTo(10L);
             assertThat(result2).isEqualTo(20L);
+        }
+    }
+
+    @Nested
+    @DisplayName("findFollowerIdsByFolloweeId: 팔로워 ID 목록 조회")
+    class FindFollowerIdsByFolloweeId {
+
+        @Test
+        @DisplayName("성공: 팔로워 ID 목록을 반환한다")
+        void findFollowerIdsByFolloweeId_success() {
+            List<UUID> followerIds = List.of(followerId, UUID.randomUUID());
+            given(followJpaRepository.findFollowerIdsByFolloweeId(followeeId))
+                    .willReturn(followerIds);
+
+            List<UUID> result = adapter.findFollowerIdsByFolloweeId(followeeId);
+
+            assertThat(result).isEqualTo(followerIds);
+        }
+
+        @Test
+        @DisplayName("성공: 팔로워가 없으면 빈 목록을 반환한다")
+        void findFollowerIdsByFolloweeId_empty() {
+            given(followJpaRepository.findFollowerIdsByFolloweeId(followeeId))
+                    .willReturn(List.of());
+
+            List<UUID> result = adapter.findFollowerIdsByFolloweeId(followeeId);
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("성공: 리포지토리가 올바른 ID로 호출된다")
+        void findFollowerIdsByFolloweeId_calls_repository_with_correct_id() {
+            given(followJpaRepository.findFollowerIdsByFolloweeId(followeeId))
+                    .willReturn(List.of());
+
+            adapter.findFollowerIdsByFolloweeId(followeeId);
+
+            verify(followJpaRepository).findFollowerIdsByFolloweeId(followeeId);
         }
     }
 

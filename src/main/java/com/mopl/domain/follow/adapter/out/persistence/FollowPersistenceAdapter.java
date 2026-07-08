@@ -4,6 +4,7 @@ import com.mopl.domain.follow.application.port.out.DeleteFollowPort;
 import com.mopl.domain.follow.application.port.out.LoadFollowPort;
 import com.mopl.domain.follow.application.port.out.SaveFollowPort;
 import com.mopl.domain.follow.domain.Follow;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,11 @@ public class FollowPersistenceAdapter implements SaveFollowPort, LoadFollowPort,
     @Override
     public long countByFolloweeId(UUID followeeId) {
         return followJpaRepository.countByFolloweeId(followeeId);
+    }
+
+    @Override
+    public List<UUID> findFollowerIdsByFolloweeId(UUID followeeId) {
+        return followJpaRepository.findFollowerIdsByFolloweeId(followeeId);
     }
 
     @Override

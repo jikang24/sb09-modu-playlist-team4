@@ -21,6 +21,7 @@ import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
 import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
+import com.mopl.global.event.WatchingSessionStartedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -37,6 +38,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +55,9 @@ class WatchingSessionServiceTest {
 
   @Mock
   private SimpMessagingTemplate messagingTemplate;
+
+  @Mock
+  private ApplicationEventPublisher applicationEventPublisher;
 
   @InjectMocks
   private WatchingSessionService watchingSessionService;
@@ -99,6 +104,14 @@ class WatchingSessionServiceTest {
       assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.JOIN);
       assertThat(change.watchingSession()).isEqualTo(dto);
       assertThat(change.watcherCount()).isEqualTo(3L);
+
+      ArgumentCaptor<WatchingSessionStartedEvent> eventCaptor =
+          ArgumentCaptor.forClass(WatchingSessionStartedEvent.class);
+      then(applicationEventPublisher).should().publishEvent(eventCaptor.capture());
+      WatchingSessionStartedEvent publishedEvent = eventCaptor.getValue();
+      assertThat(publishedEvent.watcherId()).isEqualTo(watcherId);
+      assertThat(publishedEvent.contentId()).isEqualTo(contentId);
+      assertThat(publishedEvent.contentTitle()).isEqualTo(content.title());
     }
   }
 
