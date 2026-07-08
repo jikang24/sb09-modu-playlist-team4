@@ -97,7 +97,9 @@ public class UserServiceImpl implements UserService {
 
         Role oldRole = user.getRole();
         user.updateRole(request.role());
-        eventPublisher.publishEvent(new UserRoleChangedEvent(user.getId(), oldRole, request.role()));
+        if (oldRole != request.role()) {
+            eventPublisher.publishEvent(new UserRoleChangedEvent(user.getId(), oldRole, request.role()));
+        }
         return userMapper.toDto(user);
     }
 
