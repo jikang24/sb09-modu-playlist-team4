@@ -229,7 +229,7 @@ class ReviewControllerTest {
           "좋아요", BigDecimal.valueOf(4.5));
 
       CursorPageResponse<ReviewDto> response = new CursorPageResponse<>(
-          List.of(reviewDto), null, null, false, 1L, "createdAt", "DESCENDING");
+          List.of(reviewDto), null, null, false, 1L, "CREATED_AT", "DESCENDING");
 
       given(reviewService.getReviews(any())).willReturn(response);
 
@@ -237,7 +237,7 @@ class ReviewControllerTest {
               .param("contentId", contentId.toString())
               .param("limit", "10")
               .param("sortDirection", "DESCENDING")
-              .param("sortBy", "createdAt"))
+              .param("sortBy", "CREATED_AT"))
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.data", org.hamcrest.Matchers.hasSize(1)))
           .andExpect(jsonPath("$.data[0].text").value("좋아요"))
@@ -256,7 +256,7 @@ class ReviewControllerTest {
               .param("contentId", UUID.randomUUID().toString())
               .param("limit", "10")
               .param("sortDirection", "DESCENDING")
-              .param("sortBy", "createdAt")
+              .param("sortBy", "CREATED_AT")
               .param("cursor", "bad-cursor")
               .param("idAfter", UUID.randomUUID().toString()))
           .andExpect(status().isBadRequest());

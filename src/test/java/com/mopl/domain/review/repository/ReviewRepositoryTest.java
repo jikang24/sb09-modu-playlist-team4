@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.mopl.domain.review.domain.Review;
 import com.mopl.domain.review.dto.ReviewSearchRequest;
+import com.mopl.domain.review.dto.ReviewSortBy;
+import com.mopl.global.dto.SortDirection;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -123,7 +125,7 @@ class ReviewRepositoryTest {
     persistReview(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.valueOf(3));
 
     ReviewSearchRequest request = new ReviewSearchRequest(
-        targetContentId, null, null, 10, "createdAt", "DESCENDING");
+        targetContentId, null, null, 10, ReviewSortBy.CREATED_AT, SortDirection.DESCENDING);
 
     List<Review> result = reviewRepository.findAllByCondition(request);
 
@@ -140,7 +142,8 @@ class ReviewRepositoryTest {
     Review second = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(3));
 
     ReviewSearchRequest request = new ReviewSearchRequest(
-        contentId, second.getCreatedAt().toString(), second.getId(), 10, "createdAt", "DESCENDING");
+        contentId, second.getCreatedAt().toString(), second.getId(), 10,
+        ReviewSortBy.CREATED_AT, SortDirection.DESCENDING);
 
     List<Review> result = reviewRepository.findAllByCondition(request);
 
@@ -155,7 +158,8 @@ class ReviewRepositoryTest {
     Review high = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(4));
 
     ReviewSearchRequest request = new ReviewSearchRequest(
-        contentId, low.getRating().toString(), low.getId(), 10, "rating", "ASCENDING");
+        contentId, low.getRating().toString(), low.getId(), 10,
+        ReviewSortBy.RATING, SortDirection.ASCENDING);
 
     List<Review> result = reviewRepository.findAllByCondition(request);
 
@@ -166,7 +170,8 @@ class ReviewRepositoryTest {
   @DisplayName("findAllByCondition - createdAt 정렬인데 커서 형식이 잘못되면 예외 발생")
   void findAll_invalidCreatedAtCursor() {
     ReviewSearchRequest request = new ReviewSearchRequest(
-        UUID.randomUUID(), "not-an-instant", UUID.randomUUID(), 10, "createdAt", "DESCENDING");
+        UUID.randomUUID(), "not-an-instant", UUID.randomUUID(), 10,
+        ReviewSortBy.CREATED_AT, SortDirection.DESCENDING);
 
     assertThatThrownBy(() -> reviewRepository.findAllByCondition(request))
         .isInstanceOf(MoplException.class)
@@ -178,7 +183,8 @@ class ReviewRepositoryTest {
   @DisplayName("findAllByCondition - rating 정렬인데 커서 형식이 잘못되면 예외 발생")
   void findAll_invalidRatingCursor() {
     ReviewSearchRequest request = new ReviewSearchRequest(
-        UUID.randomUUID(), "not-a-number", UUID.randomUUID(), 10, "rating", "DESCENDING");
+        UUID.randomUUID(), "not-a-number", UUID.randomUUID(), 10,
+        ReviewSortBy.RATING, SortDirection.DESCENDING);
 
     assertThatThrownBy(() -> reviewRepository.findAllByCondition(request))
         .isInstanceOf(MoplException.class)
@@ -196,7 +202,8 @@ class ReviewRepositoryTest {
 
     // 커서가 걸려있어도(마치 두 번째 페이지를 요청하듯) totalCount는 그대로 2여야 함
     ReviewSearchRequest request = new ReviewSearchRequest(
-        contentId, first.getCreatedAt().toString(), first.getId(), 10, "createdAt", "DESCENDING");
+        contentId, first.getCreatedAt().toString(), first.getId(), 10,
+        ReviewSortBy.CREATED_AT, SortDirection.DESCENDING);
 
     assertThat(reviewRepository.countByCondition(request)).isEqualTo(2L);
   }

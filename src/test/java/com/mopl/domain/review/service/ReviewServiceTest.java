@@ -12,7 +12,9 @@ import com.mopl.domain.review.adapter.port.LoadUserPort;
 import com.mopl.domain.review.domain.Review;
 import com.mopl.domain.review.dto.ReviewDto;
 import com.mopl.domain.review.dto.ReviewSearchRequest;
+import com.mopl.domain.review.dto.ReviewSortBy;
 import com.mopl.domain.review.repository.ReviewRepository;
+import com.mopl.global.dto.SortDirection;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
@@ -238,7 +240,9 @@ class ReviewServiceTest {
   class GetReviews {
 
     private ReviewSearchRequest makeRequest(int limit, String sortBy, String sortDirection) {
-      return new ReviewSearchRequest(UUID.randomUUID(), null, null, limit, sortBy, sortDirection);
+      ReviewSortBy sortByEnum = sortBy == null ? null : ReviewSortBy.from(sortBy);
+      return new ReviewSearchRequest(
+          UUID.randomUUID(), null, null, limit, sortByEnum, SortDirection.from(sortDirection));
     }
 
 
@@ -263,7 +267,7 @@ class ReviewServiceTest {
       assertThat(response.hasNext()).isFalse();
       assertThat(response.nextCursor()).isNull();
       assertThat(response.nextIdAfter()).isNull();
-      assertThat(response.sortBy()).isEqualTo("createdAt");
+      assertThat(response.sortBy()).isEqualTo("CREATED_AT");
       assertThat(response.totalCount()).isEqualTo(1L);
     }
 
@@ -301,7 +305,7 @@ class ReviewServiceTest {
       CursorPageResponse<ReviewDto> response = reviewService.getReviews(request);
 
       assertThat(response.nextCursor()).isEqualTo(first.getRating().toString());
-      assertThat(response.sortBy()).isEqualTo("rating");
+      assertThat(response.sortBy()).isEqualTo("RATING");
     }
 
     @Test
