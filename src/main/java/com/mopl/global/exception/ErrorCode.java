@@ -22,6 +22,7 @@ public enum ErrorCode {
     REVIEW_NOT_FOUND("리뷰를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     REVIEW_ALREADY_EXISTS("이미 리뷰를 작성했습니다.", HttpStatus.CONFLICT),
     REVIEW_NOT_OWNER("본인의 리뷰만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
+    INVALID_SORT_BY("잘못된 리뷰 정렬입니다", HttpStatus.BAD_REQUEST),
 
     // Playlist 모듈
     PLAYLIST_NOT_FOUND("플레이리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -74,6 +75,7 @@ public enum ErrorCode {
     INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),
     INTERNAL_SERVER_ERROR("서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_CURSOR_FORMAT("잘못된 커서 형식입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_SORT_DIRECTION("잘못된 정렬 방식입니다", HttpStatus.BAD_REQUEST),
 
     // 외부 API
     TMDB_CLIENT_ERROR("TMDB API 요청 오류입니다.", HttpStatus.BAD_REQUEST),
