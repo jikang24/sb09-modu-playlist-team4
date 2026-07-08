@@ -19,8 +19,8 @@ public class UserRoleChangedEventListener {
         notificationEventPublisher.publish(new NotificationRequestedEvent(
                 event.userId(),
                 NotificationType.ROLE_CHANGED.name(),
-                "권한 변경 안내",
-                "회원님의 권한이 " + event.newRole() + "(으)로 변경되었습니다."
+                "내 권한이 변경되었어요.",
+                "내 권한이 [" + event.oldRole() + "]에서 [" + event.newRole() + "]로 변경되었어요."
         ));
     }
 }

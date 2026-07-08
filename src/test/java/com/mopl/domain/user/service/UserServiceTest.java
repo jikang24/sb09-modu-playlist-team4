@@ -220,6 +220,7 @@ class UserServiceTest {
 
             ArgumentCaptor<UserRoleChangedEvent> captor = ArgumentCaptor.forClass(UserRoleChangedEvent.class);
             verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().oldRole()).isEqualTo(Role.USER);
             assertThat(captor.getValue().newRole()).isEqualTo(Role.ADMIN);
         }
 

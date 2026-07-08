@@ -5,6 +5,6 @@ import com.mopl.domain.user.dto.Role;
 import java.util.UUID;
 
 public record UserRoleChangedEvent(
-        UUID userId, Role newRole
+        UUID userId, Role oldRole, Role newRole
 ) {
 }
