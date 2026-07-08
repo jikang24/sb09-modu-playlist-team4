@@ -60,7 +60,7 @@ class FollowActivityPlaylistListenerTest {
         given(loadUserPort.getUserSummary(ownerId))
                 .willReturn(new UserSummary(ownerId, "홍길동", null));
 
-        listener.onPlaylistCreated(new PlaylistCreatedEvent(playlistId, ownerId, "내 플레이리스트"));
+        listener.onPlaylistCreated(new PlaylistCreatedEvent(playlistId, ownerId, "내 플레이리스트", "설명"));
 
         ArgumentCaptor<NotificationRequestedEvent> captor =
                 ArgumentCaptor.forClass(NotificationRequestedEvent.class);
@@ -79,7 +79,7 @@ class FollowActivityPlaylistListenerTest {
     void onPlaylistCreated_no_followers_does_not_publish() {
         given(getFollowerIdsUseCase.getFollowerIds(ownerId)).willReturn(List.of());
 
-        listener.onPlaylistCreated(new PlaylistCreatedEvent(playlistId, ownerId, "내 플레이리스트"));
+        listener.onPlaylistCreated(new PlaylistCreatedEvent(playlistId, ownerId, "내 플레이리스트", "설명"));
 
         verify(notificationEventPublisher, never()).publish(any());
     }

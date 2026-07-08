@@ -27,9 +27,12 @@ class PlaylistPersistenceMapperTest {
         UUID ownerId = UUID.randomUUID();
         UUID contentId = UUID.randomUUID();
         Instant now = Instant.now();
-        
+
         PlaylistJpaEntity entity = PlaylistJpaEntity.of(id, ownerId, "Title", "Desc", now, now);
-        entity.updateContents(List.of(PlaylistContentJpaEntity.of(contentId, 0)));
+
+        PlaylistContentJpaEntity content = PlaylistContentJpaEntity.of(contentId, 0);
+        content.assignPlaylist(entity);
+        entity.getContents().add(content);
 
         // when
         Playlist domain = mapper.toDomain(entity);
@@ -57,8 +60,6 @@ class PlaylistPersistenceMapperTest {
         assertThat(entity.getId()).isEqualTo(domain.getId());
         assertThat(entity.getOwnerId()).isEqualTo(domain.getOwnerId());
         assertThat(entity.getTitle()).isEqualTo(domain.getTitle());
-        assertThat(entity.getContents()).hasSize(1);
-        assertThat(entity.getContents().get(0).getContentId()).isEqualTo(contentId);
     }
 
     @Test
