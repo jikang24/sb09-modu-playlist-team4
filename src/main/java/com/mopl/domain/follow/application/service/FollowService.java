@@ -47,8 +47,8 @@ public class FollowService implements FollowUserUseCase, UnfollowUserUseCase,
         notificationEventPublisher.publish(new NotificationRequestedEvent(
             followeeId,
             NotificationType.FOLLOW.name(),
-            "새 팔로워",
-            loadUserPort.getUserSummary(followerId).name() + "님이 나를 팔로우했습니다."
+            loadUserPort.getUserSummary(followerId).name() + "님이 나를 팔로우했어요.",
+            ""
         ));
 
         return saved;

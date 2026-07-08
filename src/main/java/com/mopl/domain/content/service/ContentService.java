@@ -53,7 +53,7 @@ public class ContentService implements ContentUseCase {
     String thumbnailUrl = null;
 
     // 관리자가 직접 등록하는 콘텐츠는 TMDB 등 외부 연동 ID가 없으므로 서버에서 고유값 생성
-    String externalId = "MANUAL-" + UUID.randomUUID();
+    String externalId = Content.MANUAL_EXTERNAL_ID_PREFIX + UUID.randomUUID();
 
     // 순수 도메인 생성 (JPA 어노테이션 없음)
     Content content = Content.create(
@@ -83,7 +83,7 @@ public class ContentService implements ContentUseCase {
     }
 
     // 순수 도메인 메서드로 상태 변경
-    content.update(request.title(), request.description(), thumbnailUrl, request.tags());
+    content.update(request.type(), request.title(), request.description(), thumbnailUrl, request.tags());
 
     Content saved = contentRepository.save(content);
     log.info("[Content] 수정 완료 - id: {}", id);

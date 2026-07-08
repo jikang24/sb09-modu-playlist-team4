@@ -9,6 +9,7 @@ import com.mopl.infra.tmdb.TmdbResponse.TmdbMovieResult;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -93,5 +94,54 @@ class ContentSyncServiceTest {
     assertThat(savedCount).isEqualTo(0);
     assertThat(existing.getThumbnailUrl()).isEqualTo("https://image.tmdb.org/t/p/w500/old-poster.jpg");
     then(contentRepository).should(never()).save(any());
+  }
+
+  @Test
+  @DisplayName("장르 ID가 있으면 장르 이름으로 변환해 태그로 저장한다")
+  void saveMovies_mapsGenreIdsToTagNames() {
+    TmdbMovieResult movie = new TmdbMovieResult(
+        1L, "새 영화", "설명", "/poster.jpg", List.of(28, 12), "2026-01-01", 8.0);
+    given(contentRepository.findAllByType(ContentType.MOVIE)).willReturn(List.of());
+    given(tmdbClient.buildImageUrl("/poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/poster.jpg");
+    given(tmdbClient.getMovieGenres()).willReturn(Map.of(28, "액션", 12, "모험"));
+
+    contentSyncService.saveMovies(List.of(movie));
+
+    ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+    then(contentRepository).should().save(captor.capture());
+    assertThat(captor.getValue().getTags()).containsExactlyInAnyOrder("액션", "모험");
+  }
+
+  @Test
+  @DisplayName("매핑에 없는 장르 id는 건너뛰고 나머지만 태그로 저장한다")
+  void saveMovies_skipsUnknownGenreIds() {
+    TmdbMovieResult movie = new TmdbMovieResult(
+        1L, "새 영화", "설명", "/poster.jpg", List.of(28, 9999), "2026-01-01", 8.0);
+    given(contentRepository.findAllByType(ContentType.MOVIE)).willReturn(List.of());
+    given(tmdbClient.buildImageUrl("/poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/poster.jpg");
+    given(tmdbClient.getMovieGenres()).willReturn(Map.of(28, "액션"));
+
+    contentSyncService.saveMovies(List.of(movie));
+
+    ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+    then(contentRepository).should().save(captor.capture());
+    assertThat(captor.getValue().getTags()).containsExactly("액션");
+  }
+
+  @Test
+  @DisplayName("장르 목록 조회가 실패해도 영화 저장 자체는 계속 진행된다")
+  void saveMovies_continuesWhenGenreLookupFails() {
+    TmdbMovieResult movie = new TmdbMovieResult(
+        1L, "새 영화", "설명", "/poster.jpg", List.of(28), "2026-01-01", 8.0);
+    given(contentRepository.findAllByType(ContentType.MOVIE)).willReturn(List.of());
+    given(tmdbClient.buildImageUrl("/poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/poster.jpg");
+    given(tmdbClient.getMovieGenres()).willThrow(new RuntimeException("TMDB 장애"));
+
+    int savedCount = contentSyncService.saveMovies(List.of(movie));
+
+    assertThat(savedCount).isEqualTo(1);
+    ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+    then(contentRepository).should().save(captor.capture());
+    assertThat(captor.getValue().getTags()).isEmpty();
   }
 }

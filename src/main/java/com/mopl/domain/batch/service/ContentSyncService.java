@@ -9,8 +9,10 @@ import com.mopl.infra.tmdb.TmdbClient;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbMovieResult;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbTvResult;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,7 @@ public class ContentSyncService {
   public int saveMovies(List<TmdbMovieResult> movies) {
     // 기존 저장된 MOVIE를 externalId 기준으로 한번에 조회 (쿼리 1번, N+1 방지)
     Map<String, Content> existingByExternalId = findExistingByExternalId(ContentType.MOVIE);
+    Map<Integer, String> genreNamesById = fetchGenresSafely(tmdbClient::getMovieGenres, "영화");
     int savedCount = 0;
 
     for (TmdbMovieResult movie : movies) {
@@ -63,7 +66,7 @@ public class ContentSyncService {
               movie.title(),
               movie.overview(),
               thumbnailUrl,
-              List.of()// TODO 태그는 장르 API 별도 호출 필요 → 추후 추가
+              toGenreTags(movie.genreIds(), genreNamesById)
           );
           contentRepository.save(content);
           savedCount++;
@@ -93,6 +96,7 @@ public class ContentSyncService {
   public int saveDramas(List<TmdbTvResult> tvSeries) {
     // 기존 저장된 TV_SERIES를 externalId 기준으로 한번에 조회 (쿼리 1번, N+1 방지)
     Map<String, Content> existingByExternalId = findExistingByExternalId(ContentType.TV_SERIES);
+    Map<Integer, String> genreNamesById = fetchGenresSafely(tmdbClient::getTvGenres, "TV시리즈");
     int savedCount = 0;
 
     for (TmdbTvResult drama : tvSeries) {
@@ -108,7 +112,7 @@ public class ContentSyncService {
               drama.name(),
               drama.overview(),
               thumbnailUrl,
-              List.of()
+              toGenreTags(drama.genreIds(), genreNamesById)
           );
           contentRepository.save(content);
           savedCount++;
@@ -168,6 +172,28 @@ public class ContentSyncService {
         .collect(Collectors.toMap(Content::getExternalId, Function.identity()));
   }
 
+  /** 장르 목록 조회 실패가 영화/TV 수집 전체를 막지 않도록 방어 (실패 시 태그 없이 진행) */
+  private Map<Integer, String> fetchGenresSafely(
+      Supplier<Map<Integer, String>> genreSupplier, String typeName) {
+    try {
+      return genreSupplier.get();
+    } catch (Exception e) {
+      log.warn("[Batch] {} 장르 목록 조회 실패 - 태그 없이 진행: {}", typeName, e.getMessage());
+      return Map.of();
+    }
+  }
+
+  /** TMDB genre_ids를 실제 장르 이름 태그로 변환 (매핑에 없는 id는 건너뜀) */
+  private List<String> toGenreTags(List<Integer> genreIds, Map<Integer, String> genreNamesById) {
+    if (genreIds == null || genreIds.isEmpty() || genreNamesById == null) {
+      return List.of();
+    }
+    return genreIds.stream()
+        .map(genreNamesById::get)
+        .filter(Objects::nonNull)
+        .toList();
+  }
+
   /**
    * 최초 수집 시점에 TMDB가 poster_path를 내려주지 않아 thumbnailUrl이 비어있던 콘텐츠를
    * 이후 배치 회차에서 값이 채워지면 갱신한다. (신규 URL이 없거나 이미 채워져 있으면 스킵)
@@ -176,7 +202,8 @@ public class ContentSyncService {
     if (existing.getThumbnailUrl() != null || thumbnailUrl == null) {
       return;
     }
-    existing.update(existing.getTitle(), existing.getDescription(), thumbnailUrl, existing.getTags());
+    existing.update(existing.getType(), existing.getTitle(), existing.getDescription(),
+        thumbnailUrl, existing.getTags());
     contentRepository.save(existing);
     log.info("[Batch] 썸네일 보정 완료 - externalId: {}, title: {}", existing.getExternalId(), existing.getTitle());
   }

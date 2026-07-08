@@ -144,8 +144,8 @@ class ContentRepositoryImplTest {
 
         Content loaded = contentRepository.findById(saved.getId()).orElseThrow();
         // "액션"은 그대로 유지, "모험"은 제거, "신규"는 추가 → 겹치는 태그가 있는 갱신
-        loaded.update(loaded.getTitle(), loaded.getDescription(), loaded.getThumbnailUrl(),
-            List.of("액션", "신규"));
+        loaded.update(loaded.getType(), loaded.getTitle(), loaded.getDescription(),
+            loaded.getThumbnailUrl(), List.of("액션", "신규"));
 
         Content updated = contentRepository.save(loaded);
         em.flush(); // 여기서 예외 없이 flush 되어야 함 (버그: content_tags 유니크 제약 위반으로 500)
@@ -165,8 +165,8 @@ class ContentRepositoryImplTest {
         em.clear();
 
         Content loaded = contentRepository.findById(saved.getId()).orElseThrow();
-        loaded.update(loaded.getTitle(), loaded.getDescription(), loaded.getThumbnailUrl(),
-            List.of("액션", "모험"));
+        loaded.update(loaded.getType(), loaded.getTitle(), loaded.getDescription(),
+            loaded.getThumbnailUrl(), List.of("액션", "모험"));
 
         Content updated = contentRepository.save(loaded);
         em.flush();

@@ -161,6 +161,49 @@ class WatchingSessionServiceTest {
   }
 
   @Nested
+  @DisplayName("조건부 시청 퇴장 - leaveIfCurrent()")
+  class LeaveIfCurrent {
+
+    @Test
+    @DisplayName("지금 활성 세션과 같으면 퇴장 처리하고 LEAVE 브로드캐스트한다")
+    void success_matchesCurrentSession() {
+      UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      WatchingSession session = WatchingSession.create(watcherId, contentId);
+      UserSummary user = makeUser(watcherId);
+      ContentSummary content = makeContent(contentId);
+
+      given(watchingSessionRepository.leaveIfCurrent(watcherId, session.id()))
+          .willReturn(Optional.of(session));
+      given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
+      given(loadContentPort.getContent(contentId)).willReturn(content);
+      given(watchingSessionRepository.countByContentId(contentId)).willReturn(1L);
+
+      watchingSessionService.leaveIfCurrent(watcherId, session.id());
+
+      ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
+      then(messagingTemplate).should().convertAndSend(
+          eq("/sub/contents/" + contentId + "/watch"), captor.capture());
+      assertThat(captor.getValue().type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
+    }
+
+    @Test
+    @DisplayName("이미 다른 세션으로 교체됐으면(탭 전환) 아무 것도 하지 않는다")
+    void noOp_whenSessionAlreadyReplaced() {
+      UUID watcherId = UUID.randomUUID();
+      UUID staleSessionId = UUID.randomUUID();
+
+      given(watchingSessionRepository.leaveIfCurrent(watcherId, staleSessionId))
+          .willReturn(Optional.empty());
+
+      watchingSessionService.leaveIfCurrent(watcherId, staleSessionId);
+
+      then(messagingTemplate).shouldHaveNoInteractions();
+      then(loadUserPort).shouldHaveNoInteractions();
+    }
+  }
+
+  @Nested
   @DisplayName("특정 사용자의 현재 세션 조회 - getByWatcherId()")
   class GetByWatcherId {
 

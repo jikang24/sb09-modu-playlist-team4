@@ -53,8 +53,8 @@ public class ContentRepositoryImpl implements ContentRepository {
     ContentJpaEntity entity;
     if (existing.isPresent()) {
       entity = existing.get();
-      entity.update(domain.getTitle(), domain.getDescription(), domain.getThumbnailUrl(),
-          domain.getAverageRating(), domain.getReviewCount());
+      entity.update(domain.getType(), domain.getTitle(), domain.getDescription(),
+          domain.getThumbnailUrl(), domain.getAverageRating(), domain.getReviewCount());
       entity.syncTags(domain.getTags());
     } else {
       // 신규 콘텐츠 → 도메인 → JPA 엔티티 변환 후 저장

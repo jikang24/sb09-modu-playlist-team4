@@ -38,8 +38,9 @@ public class FollowActivityPlaylistListener {
             notificationEventPublisher.publish(new NotificationRequestedEvent(
                 followerId,
                 NotificationType.FOLLOW_ACTIVITY.name(),
-                "팔로우 활동",
-                ownerName + "님이 '" + event.title() + "' 플레이리스트를 등록했습니다."
+                ownerName + "님이 플레이리스트를 만들었어요.",
+                "["+ event.title() + "] " + event.description()
+
             ));
         }
         log.info("팔로우 활동 알림 발행 - playlistId: {}, ownerId: {}, followerCount: {}",

@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 
 import com.mopl.domain.watchingsession.domain.WatchingSession;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
@@ -156,6 +158,61 @@ class WatchingSessionRedisRepositoryTest {
           .isInstanceOf(MoplException.class)
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
               .isEqualTo(ErrorCode.WATCHING_SESSION_NOT_FOUND));
+    }
+  }
+
+  @Nested
+  @DisplayName("조건부 시청 퇴장 - leaveIfCurrent()")
+  class LeaveIfCurrent {
+
+    @Test
+    @DisplayName("넘긴 sessionId가 지금 활성 세션과 같으면 퇴장 처리하고 세션을 반환한다")
+    void success_matchesCurrentSession() {
+      UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      UUID sessionId = UUID.randomUUID();
+      Instant createdAt = Instant.now();
+
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(sessionId.toString());
+      given(hashOperations.entries(sessionKey(sessionId)))
+          .willReturn(sessionFields(watcherId, contentId, createdAt));
+      given(hashOperations.get(sessionKey(sessionId), "contentId")).willReturn(contentId.toString());
+
+      Optional<WatchingSession> result = repository.leaveIfCurrent(watcherId, sessionId);
+
+      assertThat(result).isPresent();
+      assertThat(result.get().contentId()).isEqualTo(contentId);
+      then(zSetOperations).should().remove(contentKey(contentId), sessionId.toString());
+      then(redisTemplate).should().delete(sessionKey(sessionId));
+      then(redisTemplate).should().delete(watcherKey(watcherId));
+    }
+
+    @Test
+    @DisplayName("이미 다른 세션으로 교체됐으면(탭 전환) 아무 것도 지우지 않고 빈 값을 반환한다")
+    void empty_whenCurrentSessionDiffers() {
+      UUID watcherId = UUID.randomUUID();
+      UUID staleSessionId = UUID.randomUUID();
+      UUID newSessionId = UUID.randomUUID();
+
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(newSessionId.toString());
+
+      Optional<WatchingSession> result = repository.leaveIfCurrent(watcherId, staleSessionId);
+
+      assertThat(result).isEmpty();
+      then(redisTemplate).should(never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("이미 퇴장돼서 역인덱스 자체가 없으면 빈 값을 반환한다")
+    void empty_whenNoActiveSession() {
+      UUID watcherId = UUID.randomUUID();
+      UUID sessionId = UUID.randomUUID();
+
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(null);
+
+      Optional<WatchingSession> result = repository.leaveIfCurrent(watcherId, sessionId);
+
+      assertThat(result).isEmpty();
     }
   }
 
