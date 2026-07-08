@@ -67,17 +67,35 @@ class ContentRepositoryImplTest {
     private Content movie1;
     private Content movie2;
     private Content sport1;
+    private Instant nextCreatedAt = Instant.parse("2026-01-01T00:00:00Z");
 
     @BeforeEach
-    void setUp() throws InterruptedException {
+    void setUp() {
         contentJpaRepository.deleteAll();
-        movie1 = save(ContentType.MOVIE, "tmdb-001", "어벤져스", List.of("액션", "SF"));
-        Thread.sleep(5);
-        movie2 = save(ContentType.MOVIE, "tmdb-002", "인터스텔라", List.of("SF", "드라마"));
-        Thread.sleep(5);
-        sport1 = save(ContentType.SPORT, "sports-001", "EPL 하이라이트", List.of("스포츠"));
+        movie1 = saveWithCreatedAt(ContentType.MOVIE, "tmdb-001", "어벤져스", List.of("액션", "SF"));
+        movie2 = saveWithCreatedAt(ContentType.MOVIE, "tmdb-002", "인터스텔라", List.of("SF", "드라마"));
+        sport1 = saveWithCreatedAt(ContentType.SPORT, "sports-001", "EPL 하이라이트", List.of("스포츠"));
         em.flush();
         em.clear();
+    }
+
+    private Content saveWithCreatedAt(ContentType type, String externalId, String title, List<String> tags) {
+        Content content = Content.create(type, externalId, title, "설명", null, tags);
+        Instant createdAt = nextCreatedAt;
+        nextCreatedAt = nextCreatedAt.plusSeconds(1);
+        return saveContentWithCreatedAt(content, createdAt);
+    }
+
+    private Content saveContentWithCreatedAt(Content content, Instant createdAt) {
+        Content saved = contentRepository.save(content);
+        em.createQuery(
+                        "UPDATE ContentJpaEntity c SET c.createdAt = :createdAt WHERE c.id = :id")
+                .setParameter("createdAt", createdAt)
+                .setParameter("id", saved.getId())
+                .executeUpdate();
+        em.flush();
+        em.clear();
+        return contentRepository.findById(saved.getId()).orElseThrow();
     }
 
     private Content save(ContentType type, String externalId, String title, List<String> tags) {

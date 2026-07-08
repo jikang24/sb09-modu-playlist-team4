@@ -12,6 +12,7 @@ import com.mopl.global.exception.MoplException;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -54,9 +55,25 @@ class ReviewRepositoryTest {
   @Autowired
   private TestEntityManager testEntityManager;
 
+  private Instant nextCreatedAt = Instant.parse("2026-01-01T00:00:00Z");
+
+
   private Review persistReview(UUID contentId, UUID userId, BigDecimal rating) {
     Review review = Review.create(contentId, userId, rating, "좋아요", "작성자", "https://image.jpg");
-    return testEntityManager.persistAndFlush(review);
+    Review saved = testEntityManager.persistAndFlush(review);
+
+    Instant createdAt = nextCreatedAt;
+    nextCreatedAt = nextCreatedAt.plusSeconds(1);  // 호출할 때마다 무조건 1초씩 증가
+
+    testEntityManager.getEntityManager()
+            .createQuery("UPDATE Review r SET r.createdAt = :createdAt WHERE r.id = :id")
+            .setParameter("createdAt", createdAt)
+            .setParameter("id", saved.getId())
+            .executeUpdate();
+    testEntityManager.flush();
+    testEntityManager.clear();
+
+    return testEntityManager.find(Review.class, saved.getId());
   }
 
   @Test

@@ -9,6 +9,9 @@ import com.mopl.global.dto.SortDirection;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +35,8 @@ class NotificationRepositoryCustomImplTest {
   void setUp() {
     receiverId = UUID.randomUUID();
   }
+  @PersistenceContext
+  private EntityManager em;
 
   private Notification saveNotification(
       UUID receiverId,
@@ -47,7 +52,16 @@ class NotificationRepositoryCustomImplTest {
         .isRead(isRead)
         .createdAt(createdAt)
         .build();
-    return notificationRepository.save(notification);
+    Notification saved = notificationRepository.save(notification);
+
+    em.createQuery("UPDATE Notification n SET n.createdAt = :createdAt WHERE n.id = :id")
+            .setParameter("createdAt", createdAt)
+            .setParameter("id", saved.getId())
+            .executeUpdate();
+    em.flush();
+    em.clear();
+
+    return notificationRepository.findById(saved.getId()).orElseThrow();
   }
 
   @Test
