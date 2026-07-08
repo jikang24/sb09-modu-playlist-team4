@@ -18,6 +18,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -132,6 +133,45 @@ class ContentRepositoryImplTest {
         Content saved = save(ContentType.MOVIE, "tmdb-200", "태그 테스트", List.of("액션", "모험"));
 
         assertThat(saved.getTags()).containsExactlyInAnyOrder("액션", "모험");
+    }
+
+    @Test
+    @DisplayName("[save] 기존 태그를 일부 유지한 채 수정해도 유니크 제약 위반 없이 갱신된다")
+    void save_update_keepingOverlappingTag_doesNotViolateUniqueConstraint() {
+        Content saved = save(ContentType.MOVIE, "tmdb-201", "겹치는 태그 테스트", List.of("액션", "모험"));
+        em.flush();
+        em.clear();
+
+        Content loaded = contentRepository.findById(saved.getId()).orElseThrow();
+        // "액션"은 그대로 유지, "모험"은 제거, "신규"는 추가 → 겹치는 태그가 있는 갱신
+        loaded.update(loaded.getTitle(), loaded.getDescription(), loaded.getThumbnailUrl(),
+            List.of("액션", "신규"));
+
+        Content updated = contentRepository.save(loaded);
+        em.flush(); // 여기서 예외 없이 flush 되어야 함 (버그: content_tags 유니크 제약 위반으로 500)
+
+        assertThat(updated.getTags()).containsExactlyInAnyOrder("액션", "신규");
+
+        em.clear();
+        Content reloaded = contentRepository.findById(saved.getId()).orElseThrow();
+        assertThat(reloaded.getTags()).containsExactlyInAnyOrder("액션", "신규");
+    }
+
+    @Test
+    @DisplayName("[save] 태그 값이 완전히 동일하면 재삽입 없이 그대로 유지된다")
+    void save_update_withIdenticalTags_isNoOp() {
+        Content saved = save(ContentType.MOVIE, "tmdb-202", "동일 태그 테스트", List.of("액션", "모험"));
+        em.flush();
+        em.clear();
+
+        Content loaded = contentRepository.findById(saved.getId()).orElseThrow();
+        loaded.update(loaded.getTitle(), loaded.getDescription(), loaded.getThumbnailUrl(),
+            List.of("액션", "모험"));
+
+        Content updated = contentRepository.save(loaded);
+        em.flush();
+
+        assertThat(updated.getTags()).containsExactlyInAnyOrder("액션", "모험");
     }
 
     // ── findById ─────────────────────────────────────────────────────────────
@@ -306,6 +346,27 @@ class ContentRepositoryImplTest {
 
         assertThat(result).isNotEmpty();
         assertThat(result).noneMatch(c -> c.getId().equals(movie1.getId()));
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=rate(평점순) - averageRating 내림차순으로 정렬된다")
+    void findAll_sortByRate_ordersByAverageRating() {
+        // 프론트 "평점순" 옵션이 실제로 보내는 값은 sortBy=rate (averageRating이 아님)
+        Content lowRated = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "rate-low", "낮은 평점", "설명", null,
+            new BigDecimal("1.00"), 0, Instant.now(), Instant.now(), List.of()));
+        Content highRated = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "rate-high", "높은 평점", "설명", null,
+            new BigDecimal("4.50"), 0, Instant.now(), Instant.now(), List.of()));
+
+        ContentSearchRequest req = request(null, null, null, null, null, 10, "rate", "DESCENDING");
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        List<Content> ratedOnly = result.stream()
+            .filter(c -> c.getId().equals(lowRated.getId()) || c.getId().equals(highRated.getId()))
+            .toList();
+        assertThat(ratedOnly).extracting(Content::getId)
+            .containsExactly(highRated.getId(), lowRated.getId());
     }
 
     @Test

@@ -87,14 +87,14 @@ class StompAuthInterceptorTest {
   }
 
   @Test
-  @DisplayName("CONNECT 실패 - Authorization 헤더가 없으면 예외 발생")
+  @DisplayName("CONNECT 실패 - Authorization 헤더가 없으면 MessagingException 발생")
   void preSend_connect_fail_noToken() {
-    
+
     Message<?> message = createConnectMessage(null);
 
-    
+
     assertThatThrownBy(() -> stompAuthInterceptor.preSend(message, messageChannel))
-        .isInstanceOf(MoplException.class);
+        .isInstanceOf(MessagingException.class);
   }
 
   @Test

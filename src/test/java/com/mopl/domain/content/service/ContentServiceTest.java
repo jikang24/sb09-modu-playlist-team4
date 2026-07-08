@@ -1,5 +1,6 @@
 package com.mopl.domain.content.service;
 
+import com.mopl.domain.content.adapter.port.LoadWatcherCountPort;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentCreateRequest;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,12 +24,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -37,6 +41,9 @@ class ContentServiceTest {
 
   @Mock
   private ContentRepository contentRepository;
+
+  @Mock
+  private LoadWatcherCountPort loadWatcherCountPort;
 
   @InjectMocks
   private ContentService contentService;
@@ -51,9 +58,9 @@ class ContentServiceTest {
     );
   }
 
-  private ContentCreateRequest makeCreateRequest(ContentType type, String externalId) {
+  private ContentCreateRequest makeCreateRequest(ContentType type) {
     return new ContentCreateRequest(
-        type, externalId,
+        type,
         "테스트 제목", "테스트 설명",
         List.of("액션", "SF")
     );
@@ -72,16 +79,14 @@ class ContentServiceTest {
   class CreateContent {
 
     @Test
-    @DisplayName("정상 등록 - 새로운 콘텐츠가 저장")
+    @DisplayName("정상 등록 - 새로운 콘텐츠가 저장되고, 외부 ID는 서버에서 생성된다")
     void success() {
-      ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE, "tmdb-001");
+      ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE);
       MultipartFile thumbnail = mock(MultipartFile.class);
 
       UUID savedId = UUID.randomUUID();
       Content saved = makeContent(savedId, ContentType.MOVIE, "tmdb-001");
 
-      given(contentRepository.findByTypeAndExternalId(ContentType.MOVIE, "tmdb-001"))
-          .willReturn(Optional.empty());
       given(contentRepository.save(any(Content.class)))
           .willReturn(saved);
 
@@ -90,28 +95,10 @@ class ContentServiceTest {
       assertThat(response.id()).isEqualTo(savedId);
       assertThat(response.type()).isEqualTo(ContentType.MOVIE);
       assertThat(response.title()).isEqualTo("테스트 제목");
-      then(contentRepository).should().save(any(Content.class));
-    }
 
-    @Test
-    @DisplayName("중복 등록 - 같은 타입+외부ID면 예외 발생")
-    void fail_duplicate() {
-      ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE, "tmdb-001");
-      MultipartFile thumbnail = mock(MultipartFile.class);
-
-      Content existing = makeContent(UUID.randomUUID(), ContentType.MOVIE, "tmdb-001");
-
-      given(contentRepository.findByTypeAndExternalId(ContentType.MOVIE, "tmdb-001"))
-          .willReturn(Optional.of(existing));
-
-      assertThatThrownBy(() -> contentService.createContent(request, thumbnail))
-          .isInstanceOf(MoplException.class)
-          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
-              .isEqualTo(ErrorCode.CONTENT_ALREADY_EXISTS));
-
-
-      then(contentRepository).should().findByTypeAndExternalId(any(), any());
-      then(contentRepository).shouldHaveNoMoreInteractions();
+      ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+      then(contentRepository).should().save(captor.capture());
+      assertThat(captor.getValue().getExternalId()).isNotBlank();
     }
   }
 
@@ -196,16 +183,18 @@ class ContentServiceTest {
   class GetContent {
 
     @Test
-    @DisplayName("정상 조회 - ContentResponse 반환")
+    @DisplayName("정상 조회 - ContentResponse 반환, 시청자 수가 함께 채워진다")
     void success() {
       UUID id = UUID.randomUUID();
       Content content = makeContent(id, ContentType.TV_SERIES, "tmdb-002");
       given(contentRepository.findById(id)).willReturn(Optional.of(content));
+      given(loadWatcherCountPort.countByContentId(id)).willReturn(7L);
 
       ContentResponse response = contentService.getContent(id);
 
       assertThat(response.id()).isEqualTo(id);
       assertThat(response.type()).isEqualTo(ContentType.TV_SERIES);
+      assertThat(response.watcherCount()).isEqualTo(7L);
     }
 
     @Test
@@ -238,6 +227,7 @@ class ContentServiceTest {
 
       given(contentRepository.findAllByCondition(request)).willReturn(contents);
       given(contentRepository.countByCondition(request)).willReturn(2L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
@@ -263,6 +253,9 @@ class ContentServiceTest {
 
       given(contentRepository.findAllByCondition(request)).willReturn(contents);
       given(contentRepository.countByCondition(request)).willReturn(10L);
+      // second는 배치 조회 결과에 없는 경우(0으로 대체)까지 함께 검증
+      given(loadWatcherCountPort.countByContentIds(anyCollection()))
+          .willReturn(Map.of(first.getId(), 3L));
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
@@ -273,6 +266,8 @@ class ContentServiceTest {
       assertThat(response.nextCursor()).isEqualTo(second.getCreatedAt().toString());
       assertThat(response.nextIdAfter()).isEqualTo(second.getId());
       assertThat(response.totalCount()).isEqualTo(10L);
+      assertThat(response.data().get(0).watcherCount()).isEqualTo(3L);
+      assertThat(response.data().get(1).watcherCount()).isEqualTo(0L);
     }
 
     @Test
@@ -282,6 +277,7 @@ class ContentServiceTest {
       ContentSearchRequest request = makeSearchRequest(20);
       given(contentRepository.findAllByCondition(request)).willReturn(List.of());
       given(contentRepository.countByCondition(request)).willReturn(0L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
@@ -308,6 +304,7 @@ class ContentServiceTest {
 
       given(contentRepository.findAllByCondition(request)).willReturn(sportsContents);
       given(contentRepository.countByCondition(request)).willReturn(1L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);
@@ -329,6 +326,7 @@ class ContentServiceTest {
 
       given(contentRepository.findAllByCondition(request)).willReturn(List.of());
       given(contentRepository.countByCondition(request)).willReturn(0L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
 
       // when
       CursorPageResponse<ContentResponse> response = contentService.getContents(request);

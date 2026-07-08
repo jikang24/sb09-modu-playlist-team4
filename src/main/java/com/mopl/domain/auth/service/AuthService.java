@@ -2,6 +2,7 @@ package com.mopl.domain.auth.service;
 
 import com.mopl.domain.auth.domain.PasswordResetToken;
 import com.mopl.domain.auth.dto.JwtDto;
+import com.mopl.domain.auth.dto.RefreshResult;
 import com.mopl.domain.auth.dto.ResetPasswordRequest;
 import com.mopl.domain.auth.port.in.AuthUseCase;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
@@ -12,6 +13,7 @@ import com.mopl.global.event.TempPasswordIssuedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.AuthTokenService;
+import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,7 +64,7 @@ public class AuthService implements AuthUseCase {
     }
 
     @Override
-    public JwtDto refresh(String refreshToken) {
+    public RefreshResult refresh(String refreshToken) {
         UUID userId = authTokenService.findUserIdByRefreshToken(refreshToken)
                 .orElseThrow(() -> new MoplException(ErrorCode.REFRESH_TOKEN_NOT_FOUND));
 
@@ -81,8 +83,12 @@ public class AuthService implements AuthUseCase {
         Duration refreshTtl = jwtProvider.calculateTtl(newRefreshToken);
         authTokenService.saveRefreshToken(user.id(), newRefreshToken, refreshTtl);
 
+        JwtClaims accessClaims = jwtProvider.parse(newAccessToken);
+        authTokenService.saveAccessJti(user.id(), accessClaims.getTokenId(), jwtProvider.getExpiration(newAccessToken));
+
         log.info("토큰 재발급 완료 - userId: {}", userId);
-        return new JwtDto(toUserDto(user), newAccessToken);
+        JwtDto jwtDto = new JwtDto(toUserDto(user), newAccessToken);
+        return new RefreshResult(jwtDto, newRefreshToken, refreshTtl);
     }
 
     private String generateTempPassword() {

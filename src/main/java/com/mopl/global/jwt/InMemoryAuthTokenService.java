@@ -17,8 +17,8 @@ public class InMemoryAuthTokenService implements AuthTokenService{
     private final Map<String, Instant> blacklist = new ConcurrentHashMap<>(); //Access Token과 만료 시간 저장
     private final Map<UUID, String> userToToken = new ConcurrentHashMap<>(); //사용자 ID와 현재 유효한 Refresh Token 매핑
     private final Map<String, TokenEntry> tokenToEntry = new ConcurrentHashMap<>(); //Refresh Token과 토큰 정보(사용자 ID, 만료 시간) 저장
+    private final Map<UUID, AccessJtiEntry> userToAccessJti = new ConcurrentHashMap<>(); //사용자 ID와 현재 유효한 Access Token jti 매핑
     private record TokenEntry(UUID userId, Instant expiresAt) {} //토큰 정보 DTO
-
 
     @Override
     public void blacklistJti(String jti, Duration ttl) {
@@ -95,6 +95,7 @@ public class InMemoryAuthTokenService implements AuthTokenService{
             }
             return false;
         });
+        userToAccessJti.entrySet().removeIf(e -> e.getValue().expiresAt().isBefore(now));
 
         int deletedBlacklist = beforeBlacklist - blacklist.size();
         int deletedTokens = beforeTokens - tokenToEntry.size();
@@ -103,5 +104,19 @@ public class InMemoryAuthTokenService implements AuthTokenService{
             log.info("만료된 토큰 삭제 [블랙리스트 제거: {}, RefreshToken 제거: {}]",
                     deletedBlacklist, deletedTokens);
         }
+    }
+    @Override
+    public void saveAccessJti(UUID userId, String jti, Instant expiresAt) {
+        userToAccessJti.put(userId, new AccessJtiEntry(jti, expiresAt));
+    }
+
+    @Override
+    public Optional<AccessJtiEntry> findAccessJtiByUserId(UUID userId) {
+        return Optional.ofNullable(userToAccessJti.get(userId));
+    }
+
+    @Override
+    public void deleteAccessJtiByUserId(UUID userId) {
+        userToAccessJti.remove(userId);
     }
 }

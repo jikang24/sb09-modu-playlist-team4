@@ -8,7 +8,6 @@ import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.service.ContentUseCase;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
-import com.mopl.global.response.ApiResponse;
 import com.mopl.global.response.CursorPageResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +18,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,7 +46,7 @@ class ContentControllerTest {
         sampleResponse = new ContentResponse(
             UUID.randomUUID(), ContentType.MOVIE,
             "테스트 제목", "테스트 설명", null,
-            List.of("액션"), BigDecimal.ZERO, 0
+            List.of("액션"), BigDecimal.ZERO, 0, 0L
         );
     }
 
@@ -60,34 +58,33 @@ class ContentControllerTest {
         @DisplayName("정상 등록 - 201 반환")
         void success() {
             ContentCreateRequest request = new ContentCreateRequest(
-                ContentType.MOVIE, "tmdb-001", "제목", "설명", List.of());
+                ContentType.MOVIE, "제목", "설명", List.of());
             MultipartFile thumbnail = mock(MultipartFile.class);
 
             given(contentUseCase.createContent(request, thumbnail)).willReturn(sampleResponse);
 
-            ResponseEntity<ApiResponse<ContentResponse>> response =
+            ResponseEntity<ContentResponse> response =
                 contentController.createContent(request, thumbnail);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().data()).isEqualTo(sampleResponse);
+            assertThat(response.getBody()).isEqualTo(sampleResponse);
             then(contentUseCase).should().createContent(request, thumbnail);
         }
 
         @Test
-        @DisplayName("중복 콘텐츠 - MoplException 전파")
-        void fail_duplicate() {
+        @DisplayName("등록 실패 - MoplException 전파")
+        void fail_propagatesException() {
             ContentCreateRequest request = new ContentCreateRequest(
-                ContentType.MOVIE, "tmdb-001", "제목", "설명", List.of());
+                ContentType.MOVIE, "제목", "설명", List.of());
             MultipartFile thumbnail = mock(MultipartFile.class);
 
             given(contentUseCase.createContent(request, thumbnail))
-                .willThrow(new MoplException(ErrorCode.CONTENT_ALREADY_EXISTS));
+                .willThrow(new MoplException(ErrorCode.INVALID_INPUT));
 
             assertThatThrownBy(() -> contentController.createContent(request, thumbnail))
                 .isInstanceOf(MoplException.class)
                 .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
-                    .isEqualTo(ErrorCode.CONTENT_ALREADY_EXISTS));
+                    .isEqualTo(ErrorCode.INVALID_INPUT));
         }
     }
 
@@ -104,12 +101,11 @@ class ContentControllerTest {
 
             given(contentUseCase.updateContent(id, request, thumbnail)).willReturn(sampleResponse);
 
-            ResponseEntity<ApiResponse<ContentResponse>> response =
+            ResponseEntity<ContentResponse> response =
                 contentController.updateContent(id, request, thumbnail);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().data()).isEqualTo(sampleResponse);
+            assertThat(response.getBody()).isEqualTo(sampleResponse);
         }
 
         @Test
@@ -133,13 +129,13 @@ class ContentControllerTest {
     class DeleteContent {
 
         @Test
-        @DisplayName("정상 삭제 - 200 반환, noContent body")
+        @DisplayName("정상 삭제 - 204 No Content 반환")
         void success() {
             UUID id = UUID.randomUUID();
 
-            ResponseEntity<ApiResponse<Void>> response = contentController.deleteContent(id);
+            ResponseEntity<Void> response = contentController.deleteContent(id);
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
             then(contentUseCase).should().deleteContent(id);
         }
 
@@ -168,12 +164,12 @@ class ContentControllerTest {
             UUID id = sampleResponse.id();
             given(contentUseCase.getContent(id)).willReturn(sampleResponse);
 
-            ResponseEntity<ApiResponse<ContentResponse>> response =
+            ResponseEntity<ContentResponse> response =
                 contentController.getContent(id);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().data().id()).isEqualTo(id);
+            assertThat(response.getBody().id()).isEqualTo(id);
         }
 
         @Test

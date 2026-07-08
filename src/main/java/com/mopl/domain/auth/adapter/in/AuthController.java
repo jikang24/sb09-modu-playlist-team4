@@ -1,6 +1,7 @@
 package com.mopl.domain.auth.adapter.in;
 
 import com.mopl.domain.auth.dto.JwtDto;
+import com.mopl.domain.auth.dto.RefreshResult;
 import com.mopl.domain.auth.dto.ResetPasswordRequest;
 import com.mopl.domain.auth.dto.SignInRequest;
 import com.mopl.domain.auth.port.in.AuthUseCase;
@@ -9,8 +10,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,12 +36,23 @@ public class AuthController {
     @Operation(summary = "토큰 재발급")
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(
-            @CookieValue(value = "REFRESH_TOKEN", required = false) String refreshToken) {
+            @CookieValue(value = "REFRESH_TOKEN", required = false) String refreshToken,
+            HttpServletResponse response) {
         if (refreshToken == null) {
             return ResponseEntity.status(401).build();
         }
-        JwtDto result = authUseCase.refresh(refreshToken);
-        return ResponseEntity.ok(result);
+        RefreshResult result = authUseCase.refresh(refreshToken);
+
+        ResponseCookie refreshCookie = ResponseCookie.from("REFRESH_TOKEN", result.refreshToken())
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(result.refreshTokenTtl())
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+
+        return ResponseEntity.ok(result.jwtDto());
     }
 
     @Operation(summary = "CSRF 토큰 조회", description = "CSRF 토큰을 조회합니다. 토큰은 쿠키(XSRF-TOKEN)에 저장됩니다.")

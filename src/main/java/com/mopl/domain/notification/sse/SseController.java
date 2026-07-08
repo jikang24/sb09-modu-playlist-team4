@@ -2,6 +2,7 @@ package com.mopl.domain.notification.sse;
 
 import com.mopl.domain.notification.support.CurrentUserProvider;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -22,8 +23,10 @@ public class SseController {
   @GetMapping(value = "/api/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public SseEmitter connect(
       @RequestHeader(value = "Last-Event-ID", required = false) UUID lastEventIdHeader,
-      @RequestParam(required = false, name = "LastEventId") UUID lastEventIdQuery
+      @RequestParam(required = false, name = "LastEventId") UUID lastEventIdQuery,
+      HttpServletResponse response
   ) {
+    response.setHeader("X-Accel-Buffering", "no");
     UUID lastEventId = lastEventIdQuery != null ? lastEventIdQuery : lastEventIdHeader;
     return emitterRegistry.connect(currentUserProvider.getCurrentUserId(), lastEventId);
   }

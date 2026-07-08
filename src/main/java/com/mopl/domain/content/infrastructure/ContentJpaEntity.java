@@ -12,7 +12,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -90,5 +92,36 @@ public class ContentJpaEntity {
   public void replaceTags(List<ContentTagJpaEntity> newTags) {
     this.tags.clear();
     this.tags.addAll(newTags);
+  }
+
+  /** 이미 영속화된 엔티티의 필드만 갱신 (컬렉션은 syncTags로 별도 처리) */
+  public void update(String title, String description, String thumbnailUrl,
+      BigDecimal averageRating, int reviewCount) {
+    this.title = title;
+    this.description = description;
+    this.thumbnailUrl = thumbnailUrl;
+    this.averageRating = averageRating;
+    this.reviewCount = reviewCount;
+  }
+
+  /**
+   * 태그 값 기준으로 기존 컬렉션을 제자리에서 맞춰준다 (전체 삭제 후 재삽입 X)
+   * → 값이 그대로인 태그는 건드리지 않아 content_tags(content_id, tag) 유니크 제약과 충돌하지 않음
+   * (참고: replaceTags처럼 매번 새 엔티티로 통째로 갈아끼우면, 겹치는 태그가 있을 때
+   *  삭제보다 삽입이 먼저 실행돼 유니크 제약 위반이 났었음)
+   */
+  public void syncTags(List<String> tagValues) {
+    Set<String> desired = new HashSet<>(tagValues);
+    this.tags.removeIf(t -> !desired.contains(t.getTag()));
+
+    Set<String> current = new HashSet<>();
+    for (ContentTagJpaEntity t : this.tags) {
+      current.add(t.getTag());
+    }
+    for (String tag : tagValues) {
+      if (!current.contains(tag)) {
+        this.tags.add(ContentTagJpaEntity.of(this, tag));
+      }
+    }
   }
 }

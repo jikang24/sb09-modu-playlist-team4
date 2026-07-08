@@ -3,6 +3,7 @@ package com.mopl.global.exception;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -74,6 +75,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity
             .status(400)
             .body(new ErrorResponse("INVALID_INPUT", "잘못된 요청 파라미터입니다."));
+    }
+
+    /**
+     * @PreAuthorize 등 메서드 보안 실패
+     * ExceptionTranslationFilter보다 @RestControllerAdvice가 먼저 처리하므로
+     * 여기서 잡아주지 않으면 최후 안전망(Exception.class)이 500으로 감싸버림
+     */
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAuthorizationDenied(AuthorizationDeniedException e) {
+        log.warn("[권한 거부] {}", e.getMessage());
+
+        return ResponseEntity
+            .status(403)
+            .body(new ErrorResponse("FORBIDDEN", "권한이 없습니다."));
     }
 
     /**
