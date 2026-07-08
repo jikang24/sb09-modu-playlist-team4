@@ -127,19 +127,24 @@ public class PlaylistService implements PlaylistUseCase {
   @Transactional
   public void subscribe(UUID playlistId, UUID subscriberId) {
     Playlist playlist = findPlaylistOrThrow(playlistId);
+
+    if (playlist.isOwner(subscriberId)) {
+      throw new MoplException(ErrorCode.CANNOT_SUBSCRIBE_OWN_PLAYLIST);
+    }
+
     if (loadPlaylistPort.isSubscribed(playlistId, subscriberId)) {
       throw new MoplException(ErrorCode.PLAYLIST_ALREADY_SUBSCRIBED);
     }
+
     savePlaylistPort.subscribe(playlistId, subscriberId);
 
-    if (!playlist.isOwner(subscriberId)) {
-      notificationEventPublisher.publish(new NotificationRequestedEvent(
-          playlist.getOwnerId(),
-          NotificationType.PLAYLIST_SUBSCRIBED.name(),
-          "플레이리스트 구독",
-          loadUserPort.getUserSummary(subscriberId).name() + "님이 '" + playlist.getTitle() + "' 플레이리스트를 구독했습니다."
-      ));
-    }
+    notificationEventPublisher.publish(new NotificationRequestedEvent(
+        playlist.getOwnerId(),
+        NotificationType.PLAYLIST_SUBSCRIBED.name(),
+        "플레이리스트 구독",
+        loadUserPort.getUserSummary(subscriberId).name() + "님이 '" + playlist.getTitle() + "' 플레이리스트를 구독했습니다."
+    ));
+
     log.info("[Playlist] 구독 - playlistId: {}, subscriberId: {}", playlistId, subscriberId);
   }
 
