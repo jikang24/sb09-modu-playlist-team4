@@ -95,8 +95,9 @@ public class ContentJpaEntity {
   }
 
   /** 이미 영속화된 엔티티의 필드만 갱신 (컬렉션은 syncTags로 별도 처리) */
-  public void update(String title, String description, String thumbnailUrl,
+  public void update(ContentType type, String title, String description, String thumbnailUrl,
       BigDecimal averageRating, int reviewCount) {
+    this.type = type;
     this.title = title;
     this.description = description;
     this.thumbnailUrl = thumbnailUrl;

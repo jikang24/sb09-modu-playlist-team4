@@ -17,6 +17,7 @@ public enum ErrorCode {
 
     //Content
     CONTENT_NOT_FOUND("콘텐츠를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CONTENT_TYPE_NOT_EDITABLE("외부에서 수집된 콘텐츠는 유형을 변경할 수 없습니다.", HttpStatus.BAD_REQUEST),
 
     // Review 모듈
     REVIEW_NOT_FOUND("리뷰를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

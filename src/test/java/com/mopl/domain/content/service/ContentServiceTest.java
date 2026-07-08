@@ -114,7 +114,7 @@ class ContentServiceTest {
       Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
 
       ContentUpdateRequest request = new ContentUpdateRequest(
-          "수정된 제목", "수정된 설명", List.of("드라마")
+          ContentType.MOVIE, "수정된 제목", "수정된 설명", List.of("드라마")
       );
       MultipartFile thumbnail = mock(MultipartFile.class);
 
@@ -124,7 +124,51 @@ class ContentServiceTest {
       ContentResponse response = contentService.updateContent(id, request, thumbnail);
 
       assertThat(response).isNotNull();
-      then(contentRepository).should().save(any(Content.class));
+      ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+      then(contentRepository).should().save(captor.capture());
+      assertThat(captor.getValue().getTitle()).isEqualTo("수정된 제목");
+    }
+
+    @Test
+    @DisplayName("관리자가 직접 등록한 콘텐츠는 유형도 변경 가능")
+    void success_manuallyCreatedContent_typeChanges() {
+      UUID id = UUID.randomUUID();
+      Content existing = makeContent(id, ContentType.MOVIE, Content.MANUAL_EXTERNAL_ID_PREFIX + id);
+
+      ContentUpdateRequest request = new ContentUpdateRequest(
+          ContentType.TV_SERIES, "수정된 제목", "수정된 설명", List.of("드라마")
+      );
+      MultipartFile thumbnail = mock(MultipartFile.class);
+
+      given(contentRepository.findById(id)).willReturn(Optional.of(existing));
+      given(contentRepository.save(any(Content.class))).willReturn(existing);
+
+      contentService.updateContent(id, request, thumbnail);
+
+      ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+      then(contentRepository).should().save(captor.capture());
+      assertThat(captor.getValue().getType()).isEqualTo(ContentType.TV_SERIES);
+    }
+
+    @Test
+    @DisplayName("외부 수집 콘텐츠는 유형 변경 시도 시 예외 발생")
+    void fail_typeChangeBlockedForExternalContent() {
+      UUID id = UUID.randomUUID();
+      Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
+
+      ContentUpdateRequest request = new ContentUpdateRequest(
+          ContentType.TV_SERIES, "수정된 제목", "수정된 설명", List.of("드라마")
+      );
+
+      given(contentRepository.findById(id)).willReturn(Optional.of(existing));
+
+      assertThatThrownBy(() ->
+          contentService.updateContent(id, request, mock(MultipartFile.class)))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.CONTENT_TYPE_NOT_EDITABLE));
+
+      then(contentRepository).should(org.mockito.Mockito.never()).save(any());
     }
 
     @Test
@@ -134,7 +178,7 @@ class ContentServiceTest {
       given(contentRepository.findById(id)).willReturn(Optional.empty());
 
       ContentUpdateRequest request = new ContentUpdateRequest(
-          "수정된 제목", "수정된 설명", List.of()
+          ContentType.MOVIE, "수정된 제목", "수정된 설명", List.of()
       );
 
       assertThatThrownBy(() ->
