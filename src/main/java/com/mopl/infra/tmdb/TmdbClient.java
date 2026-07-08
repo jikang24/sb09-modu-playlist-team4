@@ -2,6 +2,7 @@ package com.mopl.infra.tmdb;
 
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import com.mopl.infra.tmdb.TmdbResponse.TmdbGenreListResponse;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbMovieResult;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbPageResponse;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbTvResult;
@@ -13,6 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * TMDB API 클라이언트
@@ -28,6 +31,10 @@ import java.util.List;
 public class TmdbClient {
 
   private final TmdbProperties tmdbProperties;
+
+  // 장르 목록은 거의 바뀌지 않는 정적 데이터라 최초 조회 후 메모리에 캐싱해서 재사용
+  private volatile Map<Integer, String> movieGenreCache;
+  private volatile Map<Integer, String> tvGenreCache;
 
   /**
    * RestClient 생성
@@ -98,6 +105,51 @@ public class TmdbClient {
         .body(new ParameterizedTypeReference<>() {});
 
     return response != null ? response.results() : List.of();
+  }
+
+  /** 영화 장르 ID→이름 맵 (id: 28 → "액션" 등). 최초 호출 시 조회 후 캐싱 */
+  public synchronized Map<Integer, String> getMovieGenres() {
+    if (movieGenreCache == null) {
+      movieGenreCache = fetchGenres("/genre/movie/list");
+    }
+    return movieGenreCache;
+  }
+
+  /** TV 장르 ID→이름 맵. 최초 호출 시 조회 후 캐싱 */
+  public synchronized Map<Integer, String> getTvGenres() {
+    if (tvGenreCache == null) {
+      tvGenreCache = fetchGenres("/genre/tv/list");
+    }
+    return tvGenreCache;
+  }
+
+  // GET /genre/movie/list 또는 /genre/tv/list ?language=ko-KR
+  private Map<Integer, String> fetchGenres(String path) {
+    log.info("[TMDB] 장르 목록 조회 - path: {}", path);
+
+    TmdbGenreListResponse response = restClient()
+        .get()
+        .uri(uriBuilder -> uriBuilder
+            .path(path)
+            .queryParam("language", "ko-KR")
+            .build()
+        )
+        .retrieve()
+        .onStatus(status -> status.is4xxClientError(), (req, res) -> {
+          log.error("[TMDB] 장르 목록 API 클라이언트 오류 - status: {}", res.getStatusCode());
+          throw new MoplException(ErrorCode.TMDB_CLIENT_ERROR);
+        })
+        .onStatus(status -> status.is5xxServerError(), (req, res) -> {
+          log.error("[TMDB] 장르 목록 API 서버 오류 - status: {}", res.getStatusCode());
+          throw new MoplException(ErrorCode.TMDB_SERVER_ERROR);
+        })
+        .body(TmdbGenreListResponse.class);
+
+    if (response == null || response.genres() == null) {
+      return Map.of();
+    }
+    return response.genres().stream()
+        .collect(Collectors.toMap(TmdbResponse.TmdbGenre::id, TmdbResponse.TmdbGenre::name));
   }
 
   /**

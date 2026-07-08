@@ -31,5 +31,8 @@ public class TmdbResponse {
       @JsonProperty("vote_average") double voteAverage
   ){}
 
+  public record TmdbGenre(Integer id, String name) {}
+
+  public record TmdbGenreListResponse(List<TmdbGenre> genres) {}
 
 }
