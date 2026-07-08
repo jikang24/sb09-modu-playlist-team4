@@ -10,6 +10,9 @@ import java.util.UUID;
 
 public class Content {
 
+  /** 관리자가 직접 등록한 콘텐츠의 externalId 접두사 (TMDB/SportsDB 원본 ID와 구분용) */
+  public static final String MANUAL_EXTERNAL_ID_PREFIX = "MANUAL-";
+
   private final UUID id;
   private ContentType type;
   private final String externalId;
@@ -84,6 +87,10 @@ public class Content {
       List<String> tags) {
     if (type == null)
       throw new MoplException(ErrorCode.INVALID_INPUT);
+    // 외부 API로 수집된 콘텐츠는 유형을 바꾸면 externalId의 의미(타입별로 스코프된 원본 ID)가
+    // 깨져서 배치 재수집 시 엉뚱한 콘텐츠와 매칭될 수 있음 → 관리자가 직접 등록한 콘텐츠만 허용
+    if (type != this.type && !isManuallyCreated())
+      throw new MoplException(ErrorCode.CONTENT_TYPE_NOT_EDITABLE);
 
     this.type = type;
     this.title = title;
@@ -98,6 +105,11 @@ public class Content {
     this.averageRating = newAverageRating;
     this.reviewCount = newReviewCount;
     this.updatedAt = Instant.now();
+  }
+
+  /** 관리자가 직접 등록한 콘텐츠인지 (외부 API로 수집된 콘텐츠가 아닌지) */
+  public boolean isManuallyCreated() {
+    return externalId.startsWith(MANUAL_EXTERNAL_ID_PREFIX);
   }
 
   public UUID getId() { return id; }

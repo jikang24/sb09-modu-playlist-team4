@@ -137,10 +137,11 @@ class ContentDomainTest {
     class Update {
 
         @Test
-        @DisplayName("유형/제목/설명/썸네일/태그가 변경된다")
+        @DisplayName("관리자 등록 콘텐츠는 유형/제목/설명/썸네일/태그가 변경된다")
         void success() {
             Content content = Content.create(
-                ContentType.MOVIE, "tmdb-001", "원래 제목", "원래 설명", null, List.of("액션"));
+                ContentType.MOVIE, Content.MANUAL_EXTERNAL_ID_PREFIX + "1",
+                "원래 제목", "원래 설명", null, List.of("액션"));
 
             content.update(ContentType.TV_SERIES, "새 제목", "새 설명", "https://new.jpg",
                 List.of("드라마", "로맨스"));
@@ -150,6 +151,33 @@ class ContentDomainTest {
             assertThat(content.getDescription()).isEqualTo("새 설명");
             assertThat(content.getThumbnailUrl()).isEqualTo("https://new.jpg");
             assertThat(content.getTags()).containsExactly("드라마", "로맨스");
+        }
+
+        @Test
+        @DisplayName("외부 수집 콘텐츠는 유형을 바꾸려 하면 예외 발생")
+        void fail_typeChangeBlockedForExternalContent() {
+            Content content = Content.create(
+                ContentType.MOVIE, "tmdb-001", "원래 제목", "원래 설명", null, List.of("액션"));
+
+            assertThatThrownBy(() -> content.update(
+                ContentType.TV_SERIES, "새 제목", "새 설명", "https://new.jpg", List.of("드라마")))
+                .isInstanceOf(MoplException.class)
+                .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.CONTENT_TYPE_NOT_EDITABLE));
+
+            assertThat(content.getType()).isEqualTo(ContentType.MOVIE);
+        }
+
+        @Test
+        @DisplayName("외부 수집 콘텐츠도 유형을 그대로 유지하면 수정 가능")
+        void success_externalContent_sameTypeUnchanged() {
+            Content content = Content.create(
+                ContentType.MOVIE, "tmdb-001", "원래 제목", "원래 설명", null, List.of("액션"));
+
+            content.update(ContentType.MOVIE, "새 제목", "새 설명", "https://new.jpg", List.of("드라마"));
+
+            assertThat(content.getType()).isEqualTo(ContentType.MOVIE);
+            assertThat(content.getTitle()).isEqualTo("새 제목");
         }
 
         @Test
