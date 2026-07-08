@@ -83,7 +83,7 @@ public class ContentService implements ContentUseCase {
     }
 
     // 순수 도메인 메서드로 상태 변경
-    content.update(request.title(), request.description(), thumbnailUrl, request.tags());
+    content.update(request.type(), request.title(), request.description(), thumbnailUrl, request.tags());
 
     Content saved = contentRepository.save(content);
     log.info("[Content] 수정 완료 - id: {}", id);

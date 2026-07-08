@@ -176,7 +176,8 @@ public class ContentSyncService {
     if (existing.getThumbnailUrl() != null || thumbnailUrl == null) {
       return;
     }
-    existing.update(existing.getTitle(), existing.getDescription(), thumbnailUrl, existing.getTags());
+    existing.update(existing.getType(), existing.getTitle(), existing.getDescription(),
+        thumbnailUrl, existing.getTags());
     contentRepository.save(existing);
     log.info("[Batch] 썸네일 보정 완료 - externalId: {}, title: {}", existing.getExternalId(), existing.getTitle());
   }

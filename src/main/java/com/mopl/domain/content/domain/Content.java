@@ -11,7 +11,7 @@ import java.util.UUID;
 public class Content {
 
   private final UUID id;
-  private final ContentType type;
+  private ContentType type;
   private final String externalId;
   private String title;
   private String description;
@@ -79,8 +79,13 @@ public class Content {
         averageRating, reviewCount, createdAt, updatedAt, tags);
   }
 
-  /** 콘텐츠 정보 수정 */
-  public void update(String title, String description, String thumbnailUrl, List<String> tags) {
+  /** 콘텐츠 정보 수정 (유형 포함) */
+  public void update(ContentType type, String title, String description, String thumbnailUrl,
+      List<String> tags) {
+    if (type == null)
+      throw new MoplException(ErrorCode.INVALID_INPUT);
+
+    this.type = type;
     this.title = title;
     this.description = description;
     this.thumbnailUrl = thumbnailUrl;
