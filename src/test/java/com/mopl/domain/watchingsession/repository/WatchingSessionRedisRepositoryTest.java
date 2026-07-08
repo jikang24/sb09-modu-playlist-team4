@@ -67,7 +67,7 @@ class WatchingSessionRedisRepositoryTest {
   }
 
   private String contentKey(UUID contentId) {
-    return "watching:description:" + contentId + ":sessions";
+    return "watching:content:" + contentId + ":sessions";
   }
 
   private Map<Object, Object> sessionFields(UUID watcherId, UUID contentId, Instant createdAt) {

@@ -17,7 +17,7 @@ import org.springframework.transaction.PlatformTransactionManager;
  * 콘텐츠 수집 Batch Job 설정
  *
  * 실행 방법:
- * 1. 수동 실행: POST /api/admin/batch/description-sync
+ * 1. 수동 실행: POST /api/admin/batch/content-sync
  * 2. 스케줄 실행: ContentSyncScheduler (앱 기동 직후 1회 + 6시간마다 자동 실행)
  */
 @Slf4j

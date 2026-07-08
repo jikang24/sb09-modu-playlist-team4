@@ -11,7 +11,7 @@ class DirectMessageTest {
   private final UUID conversationId = UUID.randomUUID();
   private final UUID senderId = UUID.randomUUID();
   private final UUID receiverId = UUID.randomUUID();
-  private final String content = "test description";
+  private final String content = "test content";
 
   @Test
   @DisplayName("DM 생성 성공")

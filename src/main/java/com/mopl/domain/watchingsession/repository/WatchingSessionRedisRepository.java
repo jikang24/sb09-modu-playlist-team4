@@ -23,7 +23,7 @@ import org.springframework.stereotype.Repository;
  * 시청 세션 Redis 저장소
  *
  *  watching:session:{sessionId}          Hash   - {watcherId, contentId, createdAt} (세션 원본 데이터)
- *  watching:description:{contentId}:sessions ZSet   - member=sessionId, score=createdAt(epochMilli) (콘텐츠별 목록 + 커서 페이지네이션용 정렬 인덱스)
+ *  watching:content:{contentId}:sessions ZSet   - member=sessionId, score=createdAt(epochMilli) (콘텐츠별 목록 + 커서 페이지네이션용 정렬 인덱스)
  *  watching:watcher:{watcherId}          String - sessionId (유저 -> 현재 세션 역인덱스, 한 사람당 최대 1개)
  */
 @Repository
@@ -163,7 +163,7 @@ public class WatchingSessionRedisRepository implements WatchingSessionRepository
   }
 
   private String contentIndexKey(UUID contentId) {
-    return "watching:description:" + contentId + ":sessions";
+    return "watching:content:" + contentId + ":sessions";
   }
 
   private String watcherIndexKey(UUID watcherId) {
