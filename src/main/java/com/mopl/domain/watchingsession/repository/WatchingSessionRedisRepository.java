@@ -68,6 +68,20 @@ public class WatchingSessionRedisRepository implements WatchingSessionRepository
   }
 
   @Override
+  public Optional<WatchingSession> leaveIfCurrent(UUID watcherId, UUID sessionId) {
+    String currentSessionId = redisTemplate.opsForValue().get(watcherIndexKey(watcherId));
+    if (currentSessionId == null || !currentSessionId.equals(sessionId.toString())) {
+      return Optional.empty(); // 이미 다른 세션으로 교체됐거나 이미 종료됨 - 늦게 도착한 이벤트이므로 무시
+    }
+    Optional<WatchingSession> session = findSession(currentSessionId);
+    if (session.isEmpty()) {
+      return Optional.empty();
+    }
+    removeSession(watcherId, currentSessionId);
+    return session;
+  }
+
+  @Override
   public Optional<WatchingSession> findByWatcherId(UUID watcherId) {
     String sessionId = redisTemplate.opsForValue().get(watcherIndexKey(watcherId));
     if (sessionId == null) {

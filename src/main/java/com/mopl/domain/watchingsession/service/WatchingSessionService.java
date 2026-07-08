@@ -47,6 +47,15 @@ public class WatchingSessionService {
     broadcast(ChangeType.LEAVE, session.contentId(), dto);
   }
 
+  /**
+   * STOMP 구독 해제/연결 종료처럼 자동으로 걸리는 퇴장 - sessionId로 지금 활성 세션이 맞는지 확인 후 처리.
+   * 탭 전환 등으로 이미 다른 세션으로 교체됐으면 조용히 무시한다 (사용자가 직접 요청한 게 아니라 에러로 취급하지 않음).
+   */
+  public void leaveIfCurrent(UUID watcherId, UUID sessionId) {
+    watchingSessionRepository.leaveIfCurrent(watcherId, sessionId)
+        .ifPresent(session -> broadcast(ChangeType.LEAVE, session.contentId(), toDto(session)));
+  }
+
   /** 시청자 입장/퇴장을 같은 콘텐츠를 보고 있는 다른 시청자들에게 실시간으로 알림 */
   private void broadcast(ChangeType type, UUID contentId, WatchingSessionDto dto) {
     long watcherCount = watchingSessionRepository.countByContentId(contentId);
