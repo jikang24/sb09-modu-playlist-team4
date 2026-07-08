@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     temporary_password  VARCHAR(255)    NOT NULL,
     expires_at          TIMESTAMP       NOT NULL,           -- 3분 만료, 앱에서 체크
     created_at          TIMESTAMP       NOT NULL DEFAULT NOW(),
+    used                BOOLEAN         NOT NULL default false,
 
     CONSTRAINT fk_password_reset_tokens_user
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
