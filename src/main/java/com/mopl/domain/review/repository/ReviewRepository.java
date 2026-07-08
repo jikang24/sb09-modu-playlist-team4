@@ -4,13 +4,12 @@ import com.mopl.domain.review.domain.Review;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ReviewRepository
-    extends JpaRepository<Review, UUID>, JpaSpecificationExecutor<Review> {
+    extends JpaRepository<Review, UUID>, ReviewRepositoryCustom {
 
   // 1인 1리뷰 검증용 (Spring Data가 메서드 이름만 보고 쿼리 자동 생성)
   boolean existsByContentIdAndUserId(UUID contentId, UUID userId);

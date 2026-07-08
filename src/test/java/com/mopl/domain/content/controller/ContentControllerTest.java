@@ -133,7 +133,8 @@ class ContentControllerTest {
         void success() {
             UUID id = UUID.randomUUID();
 
-            ResponseEntity<Void> response = contentController.deleteContent(id);
+            ResponseEntity<Void> response =
+                contentController.deleteContent(id);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
             then(contentUseCase).should().deleteContent(id);

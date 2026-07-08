@@ -1,5 +1,6 @@
 package com.mopl.domain.review.dto;
 
+import com.mopl.global.dto.SortDirection;
 import java.util.UUID;
 
 //리뷰 목록 조회 검색 파라미터
@@ -8,6 +9,6 @@ public record ReviewSearchRequest(
     String cursor,
     UUID idAfter,
     int limit,
-    String sortBy,
-    String sortDirection
+    ReviewSortBy sortBy,
+    SortDirection sortDirection
 ) {}

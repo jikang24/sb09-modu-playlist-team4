@@ -2,6 +2,7 @@ package com.mopl.domain.review.controller;
 
 import com.mopl.domain.review.dto.*;
 import com.mopl.domain.review.service.ReviewService;
+import com.mopl.global.dto.SortDirection;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.response.CursorPageResponse;
 import jakarta.validation.Valid;
@@ -50,8 +51,8 @@ public class ReviewController {
       @RequestParam(required = false) String cursor,
       @RequestParam(required = false) UUID idAfter,
       @RequestParam int limit,
-      @RequestParam String sortDirection,
-      @RequestParam String sortBy
+      @RequestParam SortDirection sortDirection,
+      @RequestParam ReviewSortBy sortBy
   ) {
     ReviewSearchRequest request = new ReviewSearchRequest(
         contentId, cursor, idAfter, limit, sortBy, sortDirection);
