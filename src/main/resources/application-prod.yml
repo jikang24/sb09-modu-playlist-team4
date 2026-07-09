@@ -15,6 +15,17 @@ spring:
         enabled: true
 
 
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     properties:

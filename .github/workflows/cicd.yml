@@ -2,7 +2,7 @@ name: MoDuPlayList Real CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "test/deploy" ]
   pull_request:
     branches: [ "develop" ]
 
@@ -114,7 +114,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test/deploy')
     runs-on: ubuntu-latest
 
     steps:
