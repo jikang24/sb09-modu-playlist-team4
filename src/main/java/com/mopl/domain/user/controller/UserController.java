@@ -65,7 +65,9 @@ public class UserController {
             throw new MoplException(ErrorCode.FORBIDDEN);
         }
 
-        String imageUrl = s3Service.upload(image);
+        String imageUrl = (image != null && !image.isEmpty())
+                ? s3Service.upload(image)
+                : null;
         UserDto userDto = userService.updateProfile(userId, request, imageUrl);
         return ResponseEntity.status(HttpStatus.OK).body(userDto);
     }
