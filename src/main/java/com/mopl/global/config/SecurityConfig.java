@@ -71,7 +71,7 @@ public class SecurityConfig {
 
     // 공통 오픈 API 경로
     private static final String[] PUBLIC_APIS = {
-            "/api/auth/**", "/ws/**"};
+            "/api/auth/**", "/ws/**","/actuator/**"};
 
     // Swagger 문서 경로
     private static final String[] SWAGGER_URLS = {
