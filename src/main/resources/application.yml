@@ -26,3 +26,9 @@ admin:
   name: admin
   email: ${ADMIN_EMAIL:system@mopl.io}
   password: ${ADMIN_PASSWORD:admin1!}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

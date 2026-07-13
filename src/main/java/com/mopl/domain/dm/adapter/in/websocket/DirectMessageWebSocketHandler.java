@@ -6,10 +6,13 @@ import com.mopl.domain.dm.adapter.in.websocket.dto.DirectMessageSendRequest;
 import com.mopl.domain.dm.adapter.in.web.mapper.DirectMessageWebMapper;
 import com.mopl.domain.dm.application.port.in.SendDirectMessageUseCase;
 import com.mopl.domain.dm.domain.DirectMessage;
+import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.DirectMessageDto;
 import com.mopl.global.event.NotificationEventPublisher;
 import com.mopl.global.event.NotificationRequestedEvent;
 import com.mopl.global.jwt.JwtClaims;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,12 +56,16 @@ public class DirectMessageWebSocketHandler {
     DirectMessageDto dto = directMessageWebMapper.toDto(directMessage);
 
     try {
-      String jsonPayload = objectMapper.writeValueAsString(dto);
-      String channel = "websocket:conversations/" + conversationId + "/direct-messages";
-      redisTemplate.convertAndSend(channel, jsonPayload);  // 핵심 변경!
+      Map<String, Object> message = new HashMap<>();
+      message.put("destination", "conversations/" + conversationId + "/direct-messages");
+      message.put("payload", dto);
+
+      String jsonPayload = objectMapper.writeValueAsString(message);
+      redisTemplate.convertAndSend(RedisConfig.DM_CHANNEL, jsonPayload);
     } catch (Exception e) {
       log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);
     }
+
 
     log.info("Redis 발행 완료 - conversationId: {}", conversationId);
 
