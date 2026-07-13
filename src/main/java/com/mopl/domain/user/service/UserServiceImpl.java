@@ -1,11 +1,13 @@
 package com.mopl.domain.user.service;
 
+import com.mopl.domain.user.domain.SocialAccount;
 import com.mopl.domain.user.dto.Role;
 import com.mopl.domain.user.domain.User;
 import com.mopl.domain.user.dto.*;
 import com.mopl.domain.user.event.UserLockedEvent;
 import com.mopl.domain.user.event.UserRoleChangedEvent;
 import com.mopl.domain.user.mapper.UserMapper;
+import com.mopl.domain.user.repository.SocialAccountRepository;
 import com.mopl.domain.user.repository.UserRepository;
 import com.mopl.global.event.PasswordChangedEvent;
 import com.mopl.global.event.UserProfileUpdatedEvent;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -31,6 +34,7 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final SocialAccountRepository socialAccountRepository;
 
     @Override
     @Transactional
@@ -162,6 +166,59 @@ public class UserServiceImpl implements UserService {
                 request.sortBy().name(),
                 request.sortDirection().name()
         );
+    }
+
+    @Override
+    public Optional<UUID> findUserIdBySocialAccount(String provider, String providerId) {
+        return socialAccountRepository.findUserIdByProviderAndProviderUserId(provider, providerId);
+    }
+
+    @Override
+    public UserDto findOrCreateSocialUser(String provider, String providerId, String email, boolean emailVerified, String name, String profileImageUrl) {
+        Optional<UUID> existingUserId = findUserIdBySocialAccount(provider, providerId);
+        if (existingUserId.isPresent()) {
+            User user = userRepository.findById(existingUserId.get())
+                    .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
+            if (user.isLocked()) {
+                throw new MoplException(ErrorCode.ACCOUNT_LOCKED);
+            }
+            return userMapper.toDto(user);
+        }
+
+        Optional<User> existingByEmail = userRepository.findByEmail(email);
+        if (existingByEmail.isPresent()) {
+            if (provider.equals("google") && emailVerified) {
+                User user = existingByEmail.get();
+
+                if (user.isLocked()) {
+                    throw new MoplException(ErrorCode.ACCOUNT_LOCKED);
+                }
+                socialAccountRepository.save(SocialAccount.of(user, provider, providerId));
+                return userMapper.toDto(user);
+            }
+            throw new MoplException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        String uniqueName = generateUniqueName(name);
+        User newUser = User.createOAuthUser(uniqueName, email, Role.USER);
+        User savedUser = userRepository.save(newUser);
+        socialAccountRepository.save(SocialAccount.of(savedUser, provider, providerId));
+        return userMapper.toDto(savedUser);
+    }
+
+    //기존 유저 닉네임과 중복 체크 후 중복 시 뒤에 숫자 붙여 자동 변경
+    private String generateUniqueName(String baseName) {
+        if (!userRepository.existsByName(baseName)) {
+            return baseName;
+        }
+
+        int suffix = 1;
+        String candidate;
+        do {
+            candidate = baseName + suffix;
+            suffix++;
+        } while (userRepository.existsByName(candidate));
+
+        return candidate;
     }
 
 }
