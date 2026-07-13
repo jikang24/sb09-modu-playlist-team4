@@ -1,5 +1,6 @@
 package com.mopl.domain.watchingsession.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.watchingsession.adapter.port.LoadContentPort;
 import com.mopl.domain.watchingsession.adapter.port.LoadUserPort;
 import com.mopl.domain.watchingsession.domain.WatchingSession;
@@ -16,10 +17,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WatchingSessionService {
@@ -27,7 +30,8 @@ public class WatchingSessionService {
   private final WatchingSessionRepository watchingSessionRepository;
   private final LoadUserPort loadUserPort;
   private final LoadContentPort loadContentPort;
-  private final SimpMessagingTemplate messagingTemplate;
+  private final StringRedisTemplate redisTemplate;
+  private final ObjectMapper objectMapper;
   private final ApplicationEventPublisher applicationEventPublisher;
 
   /** 시청 입장 - 이미 다른 콘텐츠를 보고 있었다면 그 세션은 자동 종료됨 */
@@ -60,7 +64,15 @@ public class WatchingSessionService {
   private void broadcast(ChangeType type, UUID contentId, WatchingSessionDto dto) {
     long watcherCount = watchingSessionRepository.countByContentId(contentId);
     WatchingSessionChange change = new WatchingSessionChange(type, dto, watcherCount);
-    messagingTemplate.convertAndSend("/sub/contents/" + contentId + "/watch", change);
+
+    try {
+      String jsonPayload = objectMapper.writeValueAsString(change);
+      String channel = "websocket:contents/" + contentId + "/watch";
+      redisTemplate.convertAndSend(channel, jsonPayload);
+    } catch (Exception e) {
+      log.error("Redis 발행 실패 - contentId: {}", contentId, e);
+    }
+    log.info("Redis 발행 완료 - contentId: {}", contentId);
   }
 
   /** 특정 사용자가 지금 보고 있는 세션 (없으면 null) */
