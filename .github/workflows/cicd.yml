@@ -2,7 +2,7 @@ name: MoDuPlayList Real CI/CD
 
 on:
   push:
-    branches: [ "main", "test/deploy" ]
+    branches: [ "main", "KAN-107-actuator" ]
   pull_request:
     branches: [ "develop" ]
 
@@ -114,7 +114,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test/deploy')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/KAN-107-actuator')
     runs-on: ubuntu-latest
 
     steps:
