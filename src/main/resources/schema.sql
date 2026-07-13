@@ -136,18 +136,21 @@ CREATE TABLE IF NOT EXISTS playlist_subscriptions (
 -- ================================================================
 
 CREATE TABLE IF NOT EXISTS reviews (
-    id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    id                          UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음
-    author_id       UUID            NOT NULL,
+    user_id                     UUID            NOT NULL,
     -- [모듈 간 REF] content 모듈의 contents.id 참조 — FK 없음
-    content_id      UUID            NOT NULL,
-    rating          DECIMAL(2, 1)   NOT NULL
-                                    CHECK (rating >= 0.5 AND rating <= 5.0),
-    review_text     TEXT,
-    created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
+    content_id                  UUID            NOT NULL,
+    rating                      DECIMAL(2, 1)   NOT NULL
+                                                 CHECK (rating >= 0.5 AND rating <= 5.0),
+    text                        TEXT,
+    -- 작성 시점 user 스냅샷 (목록 조회 시 user 모듈 재조회 방지)
+    author_name                 VARCHAR(50)     NOT NULL,
+    author_profile_image_url   VARCHAR(500),
+    created_at                  TIMESTAMP       NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMP       NOT NULL DEFAULT NOW(),
 
-    UNIQUE (author_id, content_id)                         -- 한 유저가 같은 콘텐츠에 리뷰 1개
+    UNIQUE (user_id, content_id)                            -- 한 유저가 같은 콘텐츠에 리뷰 1개
 );
 
 
@@ -255,8 +258,8 @@ CREATE INDEX IF NOT EXISTS idx_playlist_subscriptions_subscriber_id
 -- reviews
 CREATE INDEX IF NOT EXISTS idx_reviews_content_id
     ON reviews (content_id);                               -- 콘텐츠별 리뷰 목록
-CREATE INDEX IF NOT EXISTS idx_reviews_author_id
-    ON reviews (author_id);                                -- 내가 쓴 리뷰 목록
+CREATE INDEX IF NOT EXISTS idx_reviews_user_id
+    ON reviews (user_id);                                  -- 내가 쓴 리뷰 목록
 
 -- follows
 CREATE INDEX IF NOT EXISTS idx_follows_follower_id
