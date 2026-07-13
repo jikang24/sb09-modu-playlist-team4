@@ -70,12 +70,13 @@ public class User {
         this.locked = locked;
     }
 
-    public static User createOAuthUser(String name, String email, Role role) {
+    public static User createOAuthUser(String name, String email, Role role, String profileImageUrl) {
         return User.builder()
                 .name(name)
                 .email(email)
                 .password(null)
                 .role(role)
+                .profileImageUrl(profileImageUrl)
                 .locked(false)
                 .build();
     }

@@ -170,12 +170,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Optional<UUID> findUserIdBySocialAccount(String provider, String providerId) {
+    public Optional<UUID> findUserIdBySocialAccount(SocialProvider provider, String providerId) {
         return socialAccountRepository.findUserIdByProviderAndProviderUserId(provider, providerId);
     }
 
     @Override
-    public UserDto findOrCreateSocialUser(String provider, String providerId, String email, boolean emailVerified, String name, String profileImageUrl) {
+    @Transactional
+    public UserDto findOrCreateSocialUser(SocialProvider provider, String providerId, String email, boolean emailVerified, String name, String profileImageUrl) {
         Optional<UUID> existingUserId = findUserIdBySocialAccount(provider, providerId);
         if (existingUserId.isPresent()) {
             User user = userRepository.findById(existingUserId.get())
@@ -188,19 +189,19 @@ public class UserServiceImpl implements UserService {
 
         Optional<User> existingByEmail = userRepository.findByEmail(email);
         if (existingByEmail.isPresent()) {
-            if (provider.equals("google") && emailVerified) {
+            if (provider == SocialProvider.GOOGLE && emailVerified) {
                 User user = existingByEmail.get();
 
                 if (user.isLocked()) {
                     throw new MoplException(ErrorCode.ACCOUNT_LOCKED);
                 }
-                socialAccountRepository.save(SocialAccount.of(user, provider, providerId));
+                linkSocialAccountSafely(user, provider, providerId);
                 return userMapper.toDto(user);
             }
             throw new MoplException(ErrorCode.DUPLICATE_EMAIL);
         }
         String uniqueName = generateUniqueName(name);
-        User newUser = User.createOAuthUser(uniqueName, email, Role.USER);
+        User newUser = User.createOAuthUser(uniqueName, email, Role.USER, profileImageUrl);
         User savedUser = userRepository.save(newUser);
         linkSocialAccountSafely(savedUser, provider, providerId);
         return userMapper.toDto(savedUser);
@@ -222,7 +223,7 @@ public class UserServiceImpl implements UserService {
         return candidate;
     }
     //동시 요청 시 DataIntegrityViolationException을 catch해서 재조회하는 방식
-    private void linkSocialAccountSafely(User user, String provider, String providerId) {
+    private void linkSocialAccountSafely(User user, SocialProvider provider, String providerId) {
         try {
             socialAccountRepository.save(SocialAccount.of(user, provider, providerId));
         } catch (DataIntegrityViolationException e) {

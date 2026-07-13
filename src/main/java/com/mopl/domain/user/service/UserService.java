@@ -26,8 +26,8 @@ public interface UserService {
 
     CursorPageResponse<UserDto> findAll(UserSearchRequest request);
 
-    Optional<UUID> findUserIdBySocialAccount(String provider, String providerId);
+    Optional<UUID> findUserIdBySocialAccount(SocialProvider provider, String providerId);
 
-    UserDto findOrCreateSocialUser(String provider, String providerId, String email, boolean emailVerified, String name, String profileImageUrl);
+    UserDto findOrCreateSocialUser(SocialProvider provider, String providerId, String email, boolean emailVerified, String name, String profileImageUrl);
 
 }

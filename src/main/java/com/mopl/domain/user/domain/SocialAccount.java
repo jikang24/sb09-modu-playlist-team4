@@ -1,5 +1,6 @@
 package com.mopl.domain.user.domain;
 
+import com.mopl.domain.user.dto.SocialProvider;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -29,13 +30,14 @@ public class SocialAccount {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String provider;
+    private SocialProvider provider;
 
     @Column(name = "provider_user_id", nullable = false)
     private String providerUserId;
 
-    public static SocialAccount of(User user, String provider, String providerUserId) {
+    public static SocialAccount of(User user, SocialProvider provider, String providerUserId) {
         SocialAccount account = new SocialAccount();
         account.user = user;
         account.provider = provider;

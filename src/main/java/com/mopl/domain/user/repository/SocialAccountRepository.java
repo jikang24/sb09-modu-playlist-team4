@@ -1,6 +1,7 @@
 package com.mopl.domain.user.repository;
 
 import com.mopl.domain.user.domain.SocialAccount;
+import com.mopl.domain.user.dto.SocialProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,5 +13,5 @@ public interface SocialAccountRepository extends JpaRepository<SocialAccount, UU
     @Query("select sa.user.id from SocialAccount sa " +
             "where sa.provider = :provider and sa.providerUserId = :providerUserId")
     Optional<UUID> findUserIdByProviderAndProviderUserId(
-            @Param("provider") String provider,
+            @Param("provider") SocialProvider provider,
             @Param("providerUserId") String providerUserId);}
