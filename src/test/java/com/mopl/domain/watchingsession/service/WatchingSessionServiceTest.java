@@ -4,13 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.watchingsession.adapter.port.LoadContentPort;
 import com.mopl.domain.watchingsession.adapter.port.LoadUserPort;
@@ -39,7 +39,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class WatchingSessionServiceTest {
@@ -54,13 +54,22 @@ class WatchingSessionServiceTest {
   private LoadContentPort loadContentPort;
 
   @Mock
-  private SimpMessagingTemplate messagingTemplate;
+  private StringRedisTemplate redisTemplate;
+
+  @Mock
+  private ObjectMapper objectMapper;
 
   @Mock
   private ApplicationEventPublisher applicationEventPublisher;
 
   @InjectMocks
   private WatchingSessionService watchingSessionService;
+
+  private String stubJsonPayload() throws Exception {
+    String jsonPayload = "{\"type\":\"JOIN\"}";
+    given(objectMapper.writeValueAsString(any(WatchingSessionChange.class))).willReturn(jsonPayload);
+    return jsonPayload;
+  }
 
   private ContentSummary makeContent(UUID contentId) {
     return new ContentSummary(
@@ -78,7 +87,7 @@ class WatchingSessionServiceTest {
 
     @Test
     @DisplayName("정상 입장 - 유저/콘텐츠 정보를 조회해 DTO로 반환하고, JOIN 브로드캐스트한다")
-    void success() {
+    void success() throws Exception {
       UUID watcherId = UUID.randomUUID();
       UUID contentId = UUID.randomUUID();
       WatchingSession session = WatchingSession.create(watcherId, contentId);
@@ -89,6 +98,7 @@ class WatchingSessionServiceTest {
       given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
       given(loadContentPort.getContent(contentId)).willReturn(content);
       given(watchingSessionRepository.countByContentId(contentId)).willReturn(3L);
+      String jsonPayload = stubJsonPayload();
 
       WatchingSessionDto dto = watchingSessionService.enter(watcherId, contentId);
 
@@ -98,12 +108,14 @@ class WatchingSessionServiceTest {
       assertThat(dto.content()).isEqualTo(content);
 
       ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
-      then(messagingTemplate).should().convertAndSend(
-          eq("/sub/contents/" + contentId + "/watch"), captor.capture());
+      then(objectMapper).should().writeValueAsString(captor.capture());
       WatchingSessionChange change = captor.getValue();
       assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.JOIN);
       assertThat(change.watchingSession()).isEqualTo(dto);
       assertThat(change.watcherCount()).isEqualTo(3L);
+
+      then(redisTemplate).should().convertAndSend(
+          "websocket:contents/" + contentId + "/watch", jsonPayload);
 
       ArgumentCaptor<WatchingSessionStartedEvent> eventCaptor =
           ArgumentCaptor.forClass(WatchingSessionStartedEvent.class);
@@ -121,7 +133,7 @@ class WatchingSessionServiceTest {
 
     @Test
     @DisplayName("정상 퇴장 - repository.leave 호출 후 /sub/contents/{contentId}/watch 로 LEAVE 브로드캐스트")
-    void success() {
+    void success() throws Exception {
       UUID watcherId = UUID.randomUUID();
       UUID contentId = UUID.randomUUID();
       WatchingSession session = WatchingSession.create(watcherId, contentId);
@@ -132,18 +144,21 @@ class WatchingSessionServiceTest {
       given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
       given(loadContentPort.getContent(contentId)).willReturn(content);
       given(watchingSessionRepository.countByContentId(contentId)).willReturn(1L);
+      String jsonPayload = stubJsonPayload();
 
       watchingSessionService.leave(watcherId);
 
       then(watchingSessionRepository).should().leave(watcherId);
 
       ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
-      then(messagingTemplate).should().convertAndSend(
-          eq("/sub/contents/" + contentId + "/watch"), captor.capture());
+      then(objectMapper).should().writeValueAsString(captor.capture());
       WatchingSessionChange change = captor.getValue();
       assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
       assertThat(change.watchingSession().watcher()).isEqualTo(user);
       assertThat(change.watcherCount()).isEqualTo(1L);
+
+      then(redisTemplate).should().convertAndSend(
+          "websocket:contents/" + contentId + "/watch", jsonPayload);
     }
 
     @Test
@@ -166,7 +181,7 @@ class WatchingSessionServiceTest {
 
     @Test
     @DisplayName("지금 활성 세션과 같으면 퇴장 처리하고 LEAVE 브로드캐스트한다")
-    void success_matchesCurrentSession() {
+    void success_matchesCurrentSession() throws Exception {
       UUID watcherId = UUID.randomUUID();
       UUID contentId = UUID.randomUUID();
       WatchingSession session = WatchingSession.create(watcherId, contentId);
@@ -178,13 +193,16 @@ class WatchingSessionServiceTest {
       given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
       given(loadContentPort.getContent(contentId)).willReturn(content);
       given(watchingSessionRepository.countByContentId(contentId)).willReturn(1L);
+      String jsonPayload = stubJsonPayload();
 
       watchingSessionService.leaveIfCurrent(watcherId, session.id());
 
       ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
-      then(messagingTemplate).should().convertAndSend(
-          eq("/sub/contents/" + contentId + "/watch"), captor.capture());
+      then(objectMapper).should().writeValueAsString(captor.capture());
       assertThat(captor.getValue().type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
+
+      then(redisTemplate).should().convertAndSend(
+          "websocket:contents/" + contentId + "/watch", jsonPayload);
     }
 
     @Test
@@ -198,7 +216,7 @@ class WatchingSessionServiceTest {
 
       watchingSessionService.leaveIfCurrent(watcherId, staleSessionId);
 
-      then(messagingTemplate).shouldHaveNoInteractions();
+      then(redisTemplate).shouldHaveNoInteractions();
       then(loadUserPort).shouldHaveNoInteractions();
     }
   }

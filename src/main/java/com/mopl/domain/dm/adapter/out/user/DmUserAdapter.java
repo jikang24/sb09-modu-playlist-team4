@@ -5,6 +5,7 @@ import com.mopl.domain.user.service.UserService;
 import com.mopl.global.dto.UserSummary;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -14,6 +15,7 @@ public class DmUserAdapter implements LoadUserPort {
   private final UserService userService;
 
   @Override
+  @Cacheable(value = "userSummary", key = "#userId")
   public UserSummary getUserSummary(UUID userId) {
     var userDto = userService.find(userId);
     return new UserSummary(
