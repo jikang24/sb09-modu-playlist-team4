@@ -35,7 +35,7 @@ public class UserController {
 
     @Operation(summary = "사용자 등록(회원가입)")
     @PostMapping
-    public ResponseEntity<UserDto> register(@RequestBody UserCreateRequest request) {
+    public ResponseEntity<UserDto> register(@Valid @RequestBody UserCreateRequest request) {
         UserDto userDto = userService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(userDto);
     }
@@ -80,7 +80,7 @@ public class UserController {
 
     @Operation(summary = "비밀번호 변경", description = "본인의 비밀번호만 변경할 수 있습니다.")
     @PatchMapping("/{userId}/password")
-    public ResponseEntity<UserDto> updatePassword(@PathVariable UUID userId, @RequestBody ChangePasswordRequest request,
+    public ResponseEntity<UserDto> updatePassword(@PathVariable UUID userId, @Valid @RequestBody ChangePasswordRequest request,
                                                   @AuthenticationPrincipal JwtClaims claims) {
 
         if (!claims.getUserId().equals(userId)) {
