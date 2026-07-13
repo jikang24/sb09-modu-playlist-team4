@@ -16,6 +16,7 @@ import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
 import java.util.Collection;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -72,7 +73,7 @@ public class UserServiceImpl implements UserService {
                 .toList();
     }
 
-
+    @CacheEvict(value = "userSummary", key = "#userId")
     @Override
     @Transactional
     public UserDto updateProfile(UUID userId, UserUpdateRequest request, String imageUrl) {
@@ -86,7 +87,6 @@ public class UserServiceImpl implements UserService {
         }
 
         user.updateProfile(request.name(), imageUrl);
-        // 최신 상태로 맞추기 위해 필요 (이벤트 없이는 리뷰에 옛날 이름이 계속 박제됨)
         eventPublisher.publishEvent(
             new UserProfileUpdatedEvent(user.getId(), user.getName(), imageUrl)
         );
