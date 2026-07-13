@@ -18,6 +18,7 @@ import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -88,7 +89,7 @@ public class UserServiceImpl implements UserService {
 
         user.updateProfile(request.name(), imageUrl);
         eventPublisher.publishEvent(
-            new UserProfileUpdatedEvent(user.getId(), user.getName(), imageUrl)
+                new UserProfileUpdatedEvent(user.getId(), user.getName(), imageUrl)
         );
         return userMapper.toDto(user);
     }
@@ -201,7 +202,7 @@ public class UserServiceImpl implements UserService {
         String uniqueName = generateUniqueName(name);
         User newUser = User.createOAuthUser(uniqueName, email, Role.USER);
         User savedUser = userRepository.save(newUser);
-        socialAccountRepository.save(SocialAccount.of(savedUser, provider, providerId));
+        linkSocialAccountSafely(savedUser, provider, providerId);
         return userMapper.toDto(savedUser);
     }
 
@@ -220,5 +221,17 @@ public class UserServiceImpl implements UserService {
 
         return candidate;
     }
-
+    //동시 요청 시 DataIntegrityViolationException을 catch해서 재조회하는 방식
+    private void linkSocialAccountSafely(User user, String provider, String providerId) {
+        try {
+            socialAccountRepository.save(SocialAccount.of(user, provider, providerId));
+        } catch (DataIntegrityViolationException e) {
+            boolean alreadyLinked = findUserIdBySocialAccount(provider, providerId)
+                    .filter(id -> id.equals(user.getId()))
+                    .isPresent();
+            if (!alreadyLinked) {
+                throw new MoplException(ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED);
+            }
+        }
+    }
 }

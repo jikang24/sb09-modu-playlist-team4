@@ -8,7 +8,15 @@ import lombok.NoArgsConstructor;
 import java.util.UUID;
 
 @Entity
-@Table(name = "social_account")
+@Table(
+        name = "social_account",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_social_account_provider_provider_user_id",
+                        columnNames = {"provider", "provider_user_id"}
+                )
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SocialAccount {
@@ -24,7 +32,7 @@ public class SocialAccount {
     @Column(nullable = false)
     private String provider;
 
-    @Column(name = "provider_user_id", nullable = false, unique = true)
+    @Column(name = "provider_user_id", nullable = false)
     private String providerUserId;
 
     public static SocialAccount of(User user, String provider, String providerUserId) {
