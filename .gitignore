@@ -63,3 +63,5 @@ logs/          # logs 폴더도 혹시 모르니 같이 추가
 application-local.yaml
 
 .DS_Store
+
+*.txt
