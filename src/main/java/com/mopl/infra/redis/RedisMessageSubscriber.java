@@ -26,7 +26,7 @@ public class RedisMessageSubscriber implements MessageListener {
 
       messagingTemplate.convertAndSend("/sub/" + destination, body);
 
-      log.debug("Redis Pub/Sub 메시지 전달 - channel: {}", channel);
+      log.info("Redis Pub/Sub 메시지 전달 - channel: {}", channel);
     } catch (Exception e) {
       log.error("Redis Pub/Sub 메시지 처리 실패", e);
     }

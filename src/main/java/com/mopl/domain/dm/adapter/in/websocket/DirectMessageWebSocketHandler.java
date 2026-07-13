@@ -27,8 +27,8 @@ public class DirectMessageWebSocketHandler {
   private final SendDirectMessageUseCase sendDirectMessageUseCase;
   private final GetConversationUseCase getConversationUseCase;
   private final DirectMessageWebMapper directMessageWebMapper;
-  private final StringRedisTemplate redisTemplate;  // 변경!
-  private final ObjectMapper objectMapper;  // 추가!
+  private final StringRedisTemplate redisTemplate;
+  private final ObjectMapper objectMapper;
   private final NotificationEventPublisher notificationEventPublisher;
 
   @MessageMapping("/conversations/{conversationId}/direct-messages")
@@ -54,7 +54,7 @@ public class DirectMessageWebSocketHandler {
 
     try {
       String jsonPayload = objectMapper.writeValueAsString(dto);
-      String channel = "websocket:conversations:" + conversationId + ":direct-messages";
+      String channel = "websocket:conversations/" + conversationId + "/direct-messages";
       redisTemplate.convertAndSend(channel, jsonPayload);  // 핵심 변경!
     } catch (Exception e) {
       log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);

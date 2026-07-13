@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 
 @Configuration
 public class RedisConfig {
@@ -16,16 +15,11 @@ public class RedisConfig {
   @Bean
   public RedisMessageListenerContainer redisMessageListenerContainer(
       RedisConnectionFactory connectionFactory,
-      MessageListenerAdapter listenerAdapter) {
+      RedisMessageSubscriber subscriber) {
 
     RedisMessageListenerContainer container = new RedisMessageListenerContainer();
     container.setConnectionFactory(connectionFactory);
-    container.addMessageListener(listenerAdapter, new PatternTopic(WEBSOCKET_CHANNEL_PATTERN));
+    container.addMessageListener(subscriber, new PatternTopic(WEBSOCKET_CHANNEL_PATTERN));
     return container;
-  }
-
-  @Bean
-  public MessageListenerAdapter listenerAdapter(RedisMessageSubscriber subscriber) {
-    return new MessageListenerAdapter(subscriber, "onMessage");
   }
 }
