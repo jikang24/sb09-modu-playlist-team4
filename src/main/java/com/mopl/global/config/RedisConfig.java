@@ -4,13 +4,15 @@ import com.mopl.infra.redis.RedisMessageSubscriber;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.listener.PatternTopic;
+import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 
 @Configuration
 public class RedisConfig {
 
-  public static final String WEBSOCKET_CHANNEL_PATTERN = "websocket:*";
+  public static final String DM_CHANNEL = "websocket:direct-messages";
+  public static final String CONTENT_CHAT_CHANNEL = "websocket:content-chat";
+  public static final String WATCHING_SESSION_CHANNEL = "websocket:watching-session";
 
   @Bean
   public RedisMessageListenerContainer redisMessageListenerContainer(
@@ -19,7 +21,9 @@ public class RedisConfig {
 
     RedisMessageListenerContainer container = new RedisMessageListenerContainer();
     container.setConnectionFactory(connectionFactory);
-    container.addMessageListener(subscriber, new PatternTopic(WEBSOCKET_CHANNEL_PATTERN));
+    container.addMessageListener(subscriber, new ChannelTopic(DM_CHANNEL));
+    container.addMessageListener(subscriber, new ChannelTopic(CONTENT_CHAT_CHANNEL));
+    container.addMessageListener(subscriber, new ChannelTopic(WATCHING_SESSION_CHANNEL));
     return container;
   }
 }

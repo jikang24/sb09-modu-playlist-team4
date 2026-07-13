@@ -14,6 +14,7 @@ import com.mopl.domain.dm.adapter.in.web.mapper.DirectMessageWebMapper;
 import com.mopl.domain.dm.adapter.in.websocket.dto.DirectMessageSendRequest;
 import com.mopl.domain.dm.application.port.in.SendDirectMessageUseCase;
 import com.mopl.domain.dm.domain.DirectMessage;
+import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.DirectMessageDto;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.NotificationEventPublisher;
@@ -98,8 +99,8 @@ class DirectMessageWebSocketHandlerTest {
     );
     given(directMessageWebMapper.toDto(directMessage)).willReturn(dto);
 
-    String jsonPayload = "{\"content\":\"안녕하세요\"}";
-    given(objectMapper.writeValueAsString(dto)).willReturn(jsonPayload);
+    String jsonPayload = "{\"destination\":\"conversations/" + conversationId + "/direct-messages\",\"payload\":{}}";
+    given(objectMapper.writeValueAsString(any())).willReturn(jsonPayload);
 
     SimpMessageHeaderAccessor accessor = createAccessorWithClaims(claims);
 
@@ -107,7 +108,7 @@ class DirectMessageWebSocketHandlerTest {
 
     then(sendDirectMessageUseCase).should().send(conversationId, "안녕하세요", senderId, receiverId);
     then(redisTemplate).should().convertAndSend(
-        "websocket:conversations/" + conversationId + "/direct-messages",
+        RedisConfig.DM_CHANNEL,
         jsonPayload
     );
     then(notificationEventPublisher).should().publish(any());
