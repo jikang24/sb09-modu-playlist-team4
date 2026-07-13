@@ -17,6 +17,7 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
@@ -96,10 +97,19 @@ public class ContentSyncJobConfig {
             for (int page = 1; page <= pageCount; page++) {
               int currentPage = page;
               futures.add(executor.submit(() -> {
-                int saved = syncTask.sync(currentPage);
-                log.info("[Batch] {} {}페이지 완료 - 저장: {}건",
-                    typeName, currentPage, saved);
-                return saved;
+                try {
+                  int saved = syncTask.sync(currentPage);
+                  log.info("[Batch] {} {}페이지 완료 - 저장: {}건",
+                      typeName, currentPage, saved);
+                  return saved;
+                } catch (DataAccessException e) {
+                  // 동시에 처리된 다른 페이지와 externalId가 겹쳐 유니크 제약 충돌이 나는 경우
+                  // (TMDB 인기 순위가 수집 도중 바뀌며 같은 항목이 여러 페이지에 걸칠 때 발생 가능).
+                  // 이 페이지만 건너뛰고 다음 배치 회차에서 자연히 재수집하면서 전체 Step은 살린다.
+                  log.warn("[Batch] {} {}페이지 저장 중 DB 충돌 - 스킵: {}",
+                      typeName, currentPage, e.getMessage());
+                  return 0;
+                }
               }));
             }
 
@@ -114,7 +124,9 @@ public class ContentSyncJobConfig {
             throw new IllegalStateException(
                 "[Batch] " + typeName + " 페이지 수집 실패", e.getCause());
           } finally {
-            executor.shutdown();
+            // 실패로 빠져나온 경우 이미 제출된 나머지 페이지 작업이 백그라운드에서
+            // 계속 돌지 않도록 즉시 취소한다 (shutdown()은 이미 큐/실행 중인 작업을 끝까지 진행시킴)
+            executor.shutdownNow();
           }
         }, transactionManager)
         .build();
