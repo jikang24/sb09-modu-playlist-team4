@@ -39,6 +39,8 @@ public class AwsS3Service implements S3Service {
 
     @Override
     public String upload(MultipartFile file) {
+        if (file == null || file.isEmpty()) return null;
+
         String key = generateFileName(file.getOriginalFilename());
         validateImageContent(file);
 
