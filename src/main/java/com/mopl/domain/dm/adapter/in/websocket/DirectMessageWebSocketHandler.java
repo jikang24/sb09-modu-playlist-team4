@@ -1,5 +1,6 @@
 package com.mopl.domain.dm.adapter.in.websocket;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.conversation.application.port.in.GetConversationUseCase;
 import com.mopl.domain.dm.adapter.in.websocket.dto.DirectMessageSendRequest;
 import com.mopl.domain.dm.adapter.in.web.mapper.DirectMessageWebMapper;
@@ -12,11 +13,10 @@ import com.mopl.global.jwt.JwtClaims;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
 @Controller
@@ -27,7 +27,8 @@ public class DirectMessageWebSocketHandler {
   private final SendDirectMessageUseCase sendDirectMessageUseCase;
   private final GetConversationUseCase getConversationUseCase;
   private final DirectMessageWebMapper directMessageWebMapper;
-  private final SimpMessagingTemplate messagingTemplate;
+  private final StringRedisTemplate redisTemplate;  // 변경!
+  private final ObjectMapper objectMapper;  // 추가!
   private final NotificationEventPublisher notificationEventPublisher;
 
   @MessageMapping("/conversations/{conversationId}/direct-messages")
@@ -41,7 +42,6 @@ public class DirectMessageWebSocketHandler {
     log.info("WebSocket DM 전송 요청 - senderId: {}, conversationId: {}", senderId, conversationId);
 
     var conversation = getConversationUseCase.getById(conversationId, senderId);
-
     UUID receiverId = conversation.getOtherParticipant(senderId);
 
     DirectMessage directMessage = sendDirectMessageUseCase.send(
@@ -52,12 +52,15 @@ public class DirectMessageWebSocketHandler {
 
     DirectMessageDto dto = directMessageWebMapper.toDto(directMessage);
 
-    messagingTemplate.convertAndSend(
-        "/sub/conversations/" + conversationId + "/direct-messages",
-        dto
-    );
+    try {
+      String jsonPayload = objectMapper.writeValueAsString(dto);
+      String channel = "websocket:conversations:" + conversationId + ":direct-messages";
+      redisTemplate.convertAndSend(channel, jsonPayload);  // 핵심 변경!
+    } catch (Exception e) {
+      log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);
+    }
 
-    log.info("WebSocket DM 전달 완료 - conversationId: {}", conversationId);
+    log.info("Redis 발행 완료 - conversationId: {}", conversationId);
 
     notificationEventPublisher.publish(new NotificationRequestedEvent(
         receiverId,
@@ -66,5 +69,4 @@ public class DirectMessageWebSocketHandler {
         request.content()
     ));
   }
-
 }
