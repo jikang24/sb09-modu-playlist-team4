@@ -88,7 +88,7 @@ public enum ErrorCode {
 
     //oauth
     EMAIL_ALREADY_EXISTS("이미 존재하는 이메일입니다.", HttpStatus.CONFLICT),
-    SOCIAL_ACCOUNT_ALREADY_LINKED("이미 연동되어 있는 계정입니다.", HttpStatus.CONFLICT)
+    SOCIAL_ACCOUNT_ALREADY_LINKED("이미 연동되어 있는 계정입니다.", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus status;
