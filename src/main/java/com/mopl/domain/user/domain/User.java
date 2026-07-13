@@ -37,10 +37,12 @@ public class User {
     private String profileImageUrl;
 
     @Column(nullable = false)
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean locked = false;
 
     @CreatedDate
