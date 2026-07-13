@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.never;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.conversation.application.port.in.GetConversationUseCase;
 import com.mopl.domain.conversation.domain.Conversation;
 import com.mopl.domain.dm.adapter.in.web.mapper.DirectMessageWebMapper;
@@ -28,8 +29,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class DirectMessageWebSocketHandlerTest {
@@ -47,7 +48,10 @@ class DirectMessageWebSocketHandlerTest {
   private DirectMessageWebMapper directMessageWebMapper;
 
   @Mock
-  private SimpMessagingTemplate messagingTemplate;
+  private StringRedisTemplate redisTemplate;
+
+  @Mock
+  private ObjectMapper objectMapper;
 
   @Mock
   private NotificationEventPublisher notificationEventPublisher;
@@ -74,8 +78,8 @@ class DirectMessageWebSocketHandlerTest {
 
   @Test
   @DisplayName("DM 전송 성공 - 저장, 전달, 알림발행까지 정상 수행")
-  void sendMessage_success() {
-    
+  void sendMessage_success() throws Exception {
+
     JwtClaims claims = createClaims(senderId);
     DirectMessageSendRequest request = new DirectMessageSendRequest("안녕하세요");
 
@@ -94,15 +98,17 @@ class DirectMessageWebSocketHandlerTest {
     );
     given(directMessageWebMapper.toDto(directMessage)).willReturn(dto);
 
+    String jsonPayload = "{\"content\":\"안녕하세요\"}";
+    given(objectMapper.writeValueAsString(dto)).willReturn(jsonPayload);
+
     SimpMessageHeaderAccessor accessor = createAccessorWithClaims(claims);
 
-    
     handler.sendMessage(conversationId, request, accessor);
 
-    
     then(sendDirectMessageUseCase).should().send(conversationId, "안녕하세요", senderId, receiverId);
-    then(messagingTemplate).should().convertAndSend(
-        "/sub/conversations/" + conversationId + "/direct-messages", dto
+    then(redisTemplate).should().convertAndSend(
+        "websocket:conversations/" + conversationId + "/direct-messages",
+        jsonPayload
     );
     then(notificationEventPublisher).should().publish(any());
   }
@@ -110,7 +116,7 @@ class DirectMessageWebSocketHandlerTest {
   @Test
   @DisplayName("DM 전송 실패 - 참여자가 아닌 대화방이면 예외 발생하고 저장/전달 안 됨")
   void sendMessage_fail_notParticipant() {
-    
+
     JwtClaims claims = createClaims(senderId);
     DirectMessageSendRequest request = new DirectMessageSendRequest("안녕하세요");
 
@@ -119,19 +125,18 @@ class DirectMessageWebSocketHandlerTest {
 
     SimpMessageHeaderAccessor accessor = createAccessorWithClaims(claims);
 
-    
     assertThatThrownBy(() -> handler.sendMessage(conversationId, request, accessor))
         .isInstanceOf(MoplException.class);
 
     then(sendDirectMessageUseCase).should(never()).send(any(), any(), any(), any());
-    then(messagingTemplate).should(never()).convertAndSend(anyString(), any(Object.class));
+    then(redisTemplate).should(never()).convertAndSend(anyString(), anyString());
     then(notificationEventPublisher).should(never()).publish(any());
   }
 
   @Test
   @DisplayName("DM 전송 실패 - 존재하지 않는 대화방이면 예외 발생")
   void sendMessage_fail_conversationNotFound() {
-    
+
     JwtClaims claims = createClaims(senderId);
     DirectMessageSendRequest request = new DirectMessageSendRequest("안녕하세요");
 
@@ -140,7 +145,6 @@ class DirectMessageWebSocketHandlerTest {
 
     SimpMessageHeaderAccessor accessor = createAccessorWithClaims(claims);
 
-    
     assertThatThrownBy(() -> handler.sendMessage(conversationId, request, accessor))
         .isInstanceOf(MoplException.class);
 
