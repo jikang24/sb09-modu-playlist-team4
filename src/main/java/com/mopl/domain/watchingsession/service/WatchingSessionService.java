@@ -9,10 +9,12 @@ import com.mopl.domain.watchingsession.dto.WatchingSessionChange.ChangeType;
 import com.mopl.domain.watchingsession.dto.WatchingSessionDto;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
+import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.WatchingSessionStartedEvent;
 import com.mopl.global.response.CursorPageResponse;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -60,15 +62,21 @@ public class WatchingSessionService {
         .ifPresent(session -> broadcast(ChangeType.LEAVE, session.contentId(), toDto(session)));
   }
 
-  /** 시청자 입장/퇴장을 같은 콘텐츠를 보고 있는 다른 시청자들에게 실시간으로 알림 */
+  /**
+   * 시청자 입장/퇴장을 같은 콘텐츠를 보고 있는 다른 시청자들에게 실시간으로 알림
+   * 고정 채널(WATCHING_SESSION_CHANNEL) 하나에 destination/payload를 담은 봉투를 발행하는 방식
+   */
   private void broadcast(ChangeType type, UUID contentId, WatchingSessionDto dto) {
     long watcherCount = watchingSessionRepository.countByContentId(contentId);
     WatchingSessionChange change = new WatchingSessionChange(type, dto, watcherCount);
 
     try {
-      String jsonPayload = objectMapper.writeValueAsString(change);
-      String channel = "websocket:contents/" + contentId + "/watch";
-      redisTemplate.convertAndSend(channel, jsonPayload);
+      Map<String, Object> message = new HashMap<>();
+      message.put("destination", "contents/" + contentId + "/watch");
+      message.put("payload", change);
+
+      String jsonPayload = objectMapper.writeValueAsString(message);
+      redisTemplate.convertAndSend(RedisConfig.WATCHING_SESSION_CHANNEL, jsonPayload);
     } catch (Exception e) {
       log.error("Redis 발행 실패 - contentId: {}", contentId, e);
     }

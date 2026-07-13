@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.contentchat.adapter.in.websocket.dto.ContentChatSendRequest;
 import com.mopl.domain.contentchat.adapter.port.LoadUserPort;
 import com.mopl.domain.contentchat.dto.ContentChatDto;
+import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.jwt.JwtClaims;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Controller;
 /**
  * 콘텐츠(같이보기) 채팅 - DB 저장 없이 구독자에게 그대로 릴레이만 함 (요구사항)
  * 서버가 여러 대일 때도 모든 구독자에게 전달되도록 Redis pub/sub을 거쳐 릴레이한다
+ * 고정 채널(CONTENT_CHAT_CHANNEL) 하나에 destination/payload를 담아 발행
  */
 @Controller
 @RequiredArgsConstructor
@@ -41,9 +45,12 @@ public class ContentChatWebSocketHandler {
     ContentChatDto dto = new ContentChatDto(sender, request.content());
 
     try {
-      String jsonPayload = objectMapper.writeValueAsString(dto);
-      String channel = "websocket:contents/" + contentId + "/chat";
-      redisTemplate.convertAndSend(channel, jsonPayload);
+      Map<String, Object> message = new HashMap<>();
+      message.put("destination", "contents/" + contentId + "/chat");
+      message.put("payload", dto);
+
+      String jsonPayload = objectMapper.writeValueAsString(message);
+      redisTemplate.convertAndSend(RedisConfig.CONTENT_CHAT_CHANNEL, jsonPayload);
     } catch (Exception e) {
       log.error("Redis 발행 실패 - contentId: {}", contentId, e);
     }
