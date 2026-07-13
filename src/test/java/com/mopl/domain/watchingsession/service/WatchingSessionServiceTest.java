@@ -19,6 +19,7 @@ import com.mopl.domain.watchingsession.dto.WatchingSessionChange;
 import com.mopl.domain.watchingsession.dto.WatchingSessionDto;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
+import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.WatchingSessionStartedEvent;
@@ -66,9 +67,19 @@ class WatchingSessionServiceTest {
   private WatchingSessionService watchingSessionService;
 
   private String stubJsonPayload() throws Exception {
-    String jsonPayload = "{\"type\":\"JOIN\"}";
-    given(objectMapper.writeValueAsString(any(WatchingSessionChange.class))).willReturn(jsonPayload);
+    String jsonPayload = "{\"destination\":\"...\",\"payload\":{}}";
+    given(objectMapper.writeValueAsString(any())).willReturn(jsonPayload);
     return jsonPayload;
+  }
+
+  @SuppressWarnings("unchecked")
+  private WatchingSessionChange capturePublishedChange(UUID contentId, String jsonPayload) throws Exception {
+    ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+    then(objectMapper).should().writeValueAsString(captor.capture());
+    Map<String, Object> message = captor.getValue();
+    assertThat(message.get("destination")).isEqualTo("contents/" + contentId + "/watch");
+    then(redisTemplate).should().convertAndSend(RedisConfig.WATCHING_SESSION_CHANNEL, jsonPayload);
+    return (WatchingSessionChange) message.get("payload");
   }
 
   private ContentSummary makeContent(UUID contentId) {
@@ -107,15 +118,10 @@ class WatchingSessionServiceTest {
       assertThat(dto.watcher()).isEqualTo(user);
       assertThat(dto.content()).isEqualTo(content);
 
-      ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
-      then(objectMapper).should().writeValueAsString(captor.capture());
-      WatchingSessionChange change = captor.getValue();
+      WatchingSessionChange change = capturePublishedChange(contentId, jsonPayload);
       assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.JOIN);
       assertThat(change.watchingSession()).isEqualTo(dto);
       assertThat(change.watcherCount()).isEqualTo(3L);
-
-      then(redisTemplate).should().convertAndSend(
-          "websocket:contents/" + contentId + "/watch", jsonPayload);
 
       ArgumentCaptor<WatchingSessionStartedEvent> eventCaptor =
           ArgumentCaptor.forClass(WatchingSessionStartedEvent.class);
@@ -150,15 +156,10 @@ class WatchingSessionServiceTest {
 
       then(watchingSessionRepository).should().leave(watcherId);
 
-      ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
-      then(objectMapper).should().writeValueAsString(captor.capture());
-      WatchingSessionChange change = captor.getValue();
+      WatchingSessionChange change = capturePublishedChange(contentId, jsonPayload);
       assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
       assertThat(change.watchingSession().watcher()).isEqualTo(user);
       assertThat(change.watcherCount()).isEqualTo(1L);
-
-      then(redisTemplate).should().convertAndSend(
-          "websocket:contents/" + contentId + "/watch", jsonPayload);
     }
 
     @Test
@@ -197,12 +198,8 @@ class WatchingSessionServiceTest {
 
       watchingSessionService.leaveIfCurrent(watcherId, session.id());
 
-      ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
-      then(objectMapper).should().writeValueAsString(captor.capture());
-      assertThat(captor.getValue().type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
-
-      then(redisTemplate).should().convertAndSend(
-          "websocket:contents/" + contentId + "/watch", jsonPayload);
+      WatchingSessionChange change = capturePublishedChange(contentId, jsonPayload);
+      assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
     }
 
     @Test
