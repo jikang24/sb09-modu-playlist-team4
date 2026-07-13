@@ -1,6 +1,12 @@
 package com.mopl.domain.batch.job;
 
 import com.mopl.domain.batch.service.ContentSyncService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -29,7 +35,13 @@ public class ContentSyncJobConfig {
   private final PlatformTransactionManager transactionManager;
   private final ContentSyncService contentSyncService;
 
-  private static final int SYNC_PAGE_COUNT = 5;
+  // TMDB popular 엔드포인트는 페이지당 20건, 최대 500페이지(=10,000건)까지 제공
+  // 영화 250페이지(5,000건) + TV 250페이지(5,000건) = 총 10,000건 목표
+  private static final int MOVIE_SYNC_PAGE_COUNT = 250;
+  private static final int TV_SYNC_PAGE_COUNT = 250;
+
+  // 페이지 조회를 동시에 몇 개까지 보낼지 (TMDB rate limit 여유를 두기 위해 과도하게 높이지 않음)
+  private static final int PAGE_FETCH_CONCURRENCY = 8;
 
   @Bean
   public Job contentSyncJob() {
@@ -42,13 +54,13 @@ public class ContentSyncJobConfig {
 
   @Bean
   public Step movieSyncStep() {
-    return createPagedSyncStep("movieSyncStep", "영화", page ->
+    return createPagedSyncStep("movieSyncStep", "영화", MOVIE_SYNC_PAGE_COUNT, page ->
         contentSyncService.syncMovies(page));
   }
 
   @Bean
   public Step tvSeriesSyncStep() {
-    return createPagedSyncStep("tvSeriesSyncStep", "TV시리즈", page ->
+    return createPagedSyncStep("tvSeriesSyncStep", "TV시리즈", TV_SYNC_PAGE_COUNT, page ->
         contentSyncService.syncTvSeries(page));
   }
 
@@ -66,26 +78,44 @@ public class ContentSyncJobConfig {
   }
 
   /**
-   * @param stepName  Step 이름 (Batch 메타 테이블에 저장됨)
-   * @param typeName  로그용 콘텐츠 타입 이름
-   * @param syncTask  페이지 번호를 받아 수집 후 저장 건수를 반환하는 함수
+   * @param stepName   Step 이름 (Batch 메타 테이블에 저장됨)
+   * @param typeName   로그용 콘텐츠 타입 이름
+   * @param pageCount  수집할 페이지 수
+   * @param syncTask   페이지 번호를 받아 수집 후 저장 건수를 반환하는 함수
    */
-  private Step createPagedSyncStep(String stepName, String typeName,
+  private Step createPagedSyncStep(String stepName, String typeName, int pageCount,
       PageSyncTask syncTask) {
     return new StepBuilder(stepName, jobRepository)
         .tasklet((contribution, chunkContext) -> {
-          log.info("[Batch] {} 수집 시작 - {}페이지", typeName, SYNC_PAGE_COUNT);
-          int totalSaved = 0;
+          log.info("[Batch] {} 수집 시작 - {}페이지 (동시 {}개)",
+              typeName, pageCount, PAGE_FETCH_CONCURRENCY);
 
-          for (int page = 1; page <= SYNC_PAGE_COUNT; page++) {
-            int saved = syncTask.sync(page);
-            totalSaved += saved;
-            log.info("[Batch] {} {}페이지 완료 - 저장: {}건",
-                typeName, page, saved);
+          ExecutorService executor = Executors.newFixedThreadPool(PAGE_FETCH_CONCURRENCY);
+          try {
+            List<Future<Integer>> futures = new ArrayList<>(pageCount);
+            for (int page = 1; page <= pageCount; page++) {
+              int currentPage = page;
+              futures.add(executor.submit(() -> {
+                int saved = syncTask.sync(currentPage);
+                log.info("[Batch] {} {}페이지 완료 - 저장: {}건",
+                    typeName, currentPage, saved);
+                return saved;
+              }));
+            }
+
+            int totalSaved = 0;
+            for (Future<Integer> future : futures) {
+              totalSaved += future.get();
+            }
+
+            log.info("[Batch] {} 수집 완료 - 총 저장: {}건", typeName, totalSaved);
+            return RepeatStatus.FINISHED;
+          } catch (ExecutionException e) {
+            throw new IllegalStateException(
+                "[Batch] " + typeName + " 페이지 수집 실패", e.getCause());
+          } finally {
+            executor.shutdown();
           }
-
-          log.info("[Batch] {} 수집 완료 - 총 저장: {}건", typeName, totalSaved);
-          return RepeatStatus.FINISHED;
         }, transactionManager)
         .build();
   }
