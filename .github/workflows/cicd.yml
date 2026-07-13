@@ -2,7 +2,7 @@ name: MoDuPlayList Real CI/CD
 
 on:
   push:
-    branches: [ "main", "test/deploy" ]
+    branches: [ "main", "KAN-107-actuator" ]
   pull_request:
     branches: [ "develop" ]
 
