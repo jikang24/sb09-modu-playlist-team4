@@ -235,6 +235,14 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_users_email
     ON users (email);
 
+-- social_accounts
+CREATE INDEX IF NOT EXISTS idx_social_accounts_user_id
+    ON social_accounts (user_id);
+
+-- password_reset_tokens
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id
+    ON password_reset_tokens (user_id);
+
 -- contents
 CREATE INDEX IF NOT EXISTS idx_contents_type
     ON contents (type);
