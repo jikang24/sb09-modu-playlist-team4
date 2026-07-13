@@ -87,7 +87,8 @@ public enum ErrorCode {
     BATCH_EXECUTION_FAILED("배치 작업 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     //oauth
-    EMAIL_ALREADY_EXISTS("이미 존재하는 이메일입니다.", HttpStatus.CONFLICT);
+    EMAIL_ALREADY_EXISTS("이미 존재하는 이메일입니다.", HttpStatus.CONFLICT),
+    SOCIAL_ACCOUNT_ALREADY_LINKED("이미 연동되어 있는 계정입니다.", HttpStatus.CONFLICT)
 
     private final String message;
     private final HttpStatus status;
