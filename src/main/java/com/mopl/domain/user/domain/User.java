@@ -67,4 +67,15 @@ public class User {
     public void updateLocked(boolean locked) {
         this.locked = locked;
     }
+
+    public static User createOAuthUser(String name, String email, Role role) {
+        return User.builder()
+                .name(name)
+                .email(email)
+                .password(null)
+                .role(role)
+                .locked(false)
+                .build();
+    }
+
 }
