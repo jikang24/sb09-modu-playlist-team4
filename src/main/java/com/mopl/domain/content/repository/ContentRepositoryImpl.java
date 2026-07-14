@@ -20,6 +20,8 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -43,7 +45,13 @@ public class ContentRepositoryImpl implements ContentRepository {
   private final ContentMapper contentMapper;  // MapStruct 생성 구현체 주입
   private final JPAQueryFactory queryFactory;
 
+  /**
+   * watcherCount 등 실시간 데이터는 캐시 제외
+   * Content 도메인 자체(제목/설명/평점 등)만 캐싱
+   * 실시간 값은 ContentService에서 캐시된 결과에 매번 라이브로 합성.
+   */
   @Override
+  @CacheEvict(value = "content", key = "#domain.id")
   public Content save(Content domain) {
     // 기존에 저장된 콘텐츠면 관리 중인 엔티티를 그대로 갱신 (신규 엔티티로 통째로
     // 갈아끼우면 태그 컬렉션이 매번 새 객체가 되어 merge 시 삭제보다 삽입이 먼저 실행되고,
@@ -67,6 +75,7 @@ public class ContentRepositoryImpl implements ContentRepository {
   }
 
   @Override
+  @Cacheable(value = "content", key = "#id")
   public Optional<Content> findById(UUID id) {
     return jpaRepository.findById(id)
         .map(contentMapper::toDomain);
@@ -123,6 +132,7 @@ public class ContentRepositoryImpl implements ContentRepository {
   }
 
   @Override
+  @CacheEvict(value = "content", key = "#id")
   public void deleteById(UUID id) {
     jpaRepository.deleteById(id);
   }
