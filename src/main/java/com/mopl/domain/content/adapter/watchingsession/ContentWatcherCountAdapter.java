@@ -1,11 +1,10 @@
 package com.mopl.domain.content.adapter.watchingsession;
 
 import com.mopl.domain.content.adapter.port.LoadWatcherCountPort;
-import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
+import com.mopl.domain.watchingsession.service.WatchingSessionService;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -13,18 +12,17 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ContentWatcherCountAdapter implements LoadWatcherCountPort {
 
-  private final WatchingSessionRepository watchingSessionRepository;
+  // 다른 도메인(watchingsession)의 리포지토리를 직접 참조하지 않고 Service를 통해서만 접근
+  private final WatchingSessionService watchingSessionService;
 
   @Override
   public long countByContentId(UUID contentId) {
-    return watchingSessionRepository.countByContentId(contentId);
+    return watchingSessionService.countByContentId(contentId);
   }
 
   @Override
   public Map<UUID, Long> countByContentIds(Collection<UUID> contentIds) {
     // Redis ZCARD는 건당 비용이 매우 작아 배치 전용 명령 없이 단순 반복 조회로 처리
-    return contentIds.stream()
-        .distinct()
-        .collect(Collectors.toMap(id -> id, watchingSessionRepository::countByContentId));
+    return watchingSessionService.countByContentIds(contentIds);
   }
 }
