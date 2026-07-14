@@ -422,6 +422,60 @@ class ContentServiceTest {
     }
 
     @Test
+    @DisplayName("다음 페이지 있음 + sortBy=reviewCount - nextCursor가 reviewCount 기준으로 채워진다")
+    void hasNextPage_sortByReviewCount_nextCursorUsesReviewCount() {
+      ContentSearchRequest request = new ContentSearchRequest(
+          null, null, null, null, null, 2, "reviewCount", "DESCENDING");
+
+      Content first = Content.restore(
+          UUID.randomUUID(), ContentType.MOVIE, "tmdb-001", "제목1", "설명", null,
+          BigDecimal.ZERO, 30, java.time.Instant.now(), java.time.Instant.now(), List.of());
+      Content second = Content.restore(
+          UUID.randomUUID(), ContentType.MOVIE, "tmdb-002", "제목2", "설명", null,
+          BigDecimal.ZERO, 20, java.time.Instant.now(), java.time.Instant.now(), List.of());
+      Content third = Content.restore(
+          UUID.randomUUID(), ContentType.MOVIE, "tmdb-003", "제목3", "설명", null,
+          BigDecimal.ZERO, 10, java.time.Instant.now(), java.time.Instant.now(), List.of());
+
+      given(contentRepository.findAllByCondition(request)).willReturn(List.of(first, second, third));
+      given(contentRepository.countByCondition(request)).willReturn(10L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
+
+      CursorPageResponse<ContentResponse> response = contentService.getContents(request);
+
+      assertThat(response.hasNext()).isTrue();
+      assertThat(response.nextCursor()).isEqualTo(String.valueOf(second.getReviewCount()));
+      assertThat(response.nextIdAfter()).isEqualTo(second.getId());
+    }
+
+    @Test
+    @DisplayName("다음 페이지 있음 + sortBy=rate - nextCursor가 averageRating 기준으로 채워진다")
+    void hasNextPage_sortByRate_nextCursorUsesAverageRating() {
+      ContentSearchRequest request = new ContentSearchRequest(
+          null, null, null, null, null, 2, "rate", "DESCENDING");
+
+      Content first = Content.restore(
+          UUID.randomUUID(), ContentType.MOVIE, "tmdb-001", "제목1", "설명", null,
+          new BigDecimal("4.50"), 0, java.time.Instant.now(), java.time.Instant.now(), List.of());
+      Content second = Content.restore(
+          UUID.randomUUID(), ContentType.MOVIE, "tmdb-002", "제목2", "설명", null,
+          new BigDecimal("3.00"), 0, java.time.Instant.now(), java.time.Instant.now(), List.of());
+      Content third = Content.restore(
+          UUID.randomUUID(), ContentType.MOVIE, "tmdb-003", "제목3", "설명", null,
+          new BigDecimal("1.00"), 0, java.time.Instant.now(), java.time.Instant.now(), List.of());
+
+      given(contentRepository.findAllByCondition(request)).willReturn(List.of(first, second, third));
+      given(contentRepository.countByCondition(request)).willReturn(10L);
+      given(loadWatcherCountPort.countByContentIds(anyCollection())).willReturn(Map.of());
+
+      CursorPageResponse<ContentResponse> response = contentService.getContents(request);
+
+      assertThat(response.hasNext()).isTrue();
+      assertThat(response.nextCursor()).isEqualTo(second.getAverageRating().toString());
+      assertThat(response.nextIdAfter()).isEqualTo(second.getId());
+    }
+
+    @Test
     @DisplayName("sortBy, sortDirection이 응답에 그대로 반영된다")
     void sortInfoReflected() {
       // given
