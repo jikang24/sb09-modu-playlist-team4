@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +25,13 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
   private final PlaylistSubscriptionJpaRepository subscriptionJpaRepository;
   private final PlaylistPersistenceMapper mapper;
 
+  /**
+   * isSubscribed 등 요청자별로 달라지는 값은 캐시적용 제외
+   * Playlist 도메인 자체(제목/설명/updatedAt 등)만 캐싱되고,
+   * 구독 여부는 PlaylistService에서 매번 라이브로 합성.
+   */
   @Override
+  @CacheEvict(value = "playlist", key = "#playlist.id")
   public Playlist save(Playlist playlist) {
     PlaylistJpaEntity existing = playlistJpaRepository.findById(playlist.getId()).orElse(null);
 
@@ -38,12 +46,14 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
   }
 
   @Override
+  @CacheEvict(value = "playlist", key = "#playlistId")
   public void delete(UUID playlistId) {
     subscriptionJpaRepository.deleteByPlaylistId(playlistId);
     playlistJpaRepository.deleteById(playlistId);
   }
 
   @Override
+  @CacheEvict(value = "playlistSubscriberCount", key = "#playlistId")
   public void subscribe(UUID playlistId, UUID subscriberId) {
     PlaylistJpaEntity playlist = playlistJpaRepository.findById(playlistId)
         .orElseThrow(() -> new MoplException(ErrorCode.PLAYLIST_NOT_FOUND));
@@ -56,11 +66,13 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
 
   @Override
   @Transactional
+  @CacheEvict(value = "playlistSubscriberCount", key = "#playlistId")
   public void unsubscribe(UUID playlistId, UUID subscriberId) {
     subscriptionJpaRepository.deleteByPlaylistIdAndSubscriberId(playlistId, subscriberId);
   }
 
   @Override
+  @Cacheable(value = "playlist", key = "#id")
   public Optional<Playlist> findById(UUID id) {
     return playlistJpaRepository.findById(id).map(mapper::toDomain);
   }
@@ -80,6 +92,7 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
   }
 
   @Override
+  @Cacheable(value = "playlistSubscriberCount", key = "#playlistId")
   public long countSubscribers(UUID playlistId) {
     return subscriptionJpaRepository.countByPlaylistId(playlistId);
   }
