@@ -3,6 +3,7 @@ package com.mopl.global.jwt;
 import com.mopl.global.auth.UserAuthInfo;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,9 @@ public class AuthTokenIssuer {
 
     private final JwtProvider jwtProvider;
     private final AuthTokenService authTokenService;
+
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
 
     public String issue(UserAuthInfo user, HttpServletResponse response) {
         // 기존 로그인 세션 강제 로그아웃: 살아있는 액세스 토큰을 블랙리스트에 등록
@@ -37,7 +41,7 @@ public class AuthTokenIssuer {
 
         ResponseCookie refreshCookie = ResponseCookie.from("REFRESH_TOKEN", refreshToken)
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(refreshTtl)
                 .sameSite("Lax")

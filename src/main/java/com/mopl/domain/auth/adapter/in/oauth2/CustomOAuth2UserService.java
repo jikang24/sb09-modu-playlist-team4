@@ -17,6 +17,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
+    private static final String NAME_ATTRIBUTE_KEY = "id";
+
     private final RegisterSocialUserPort registerSocialUserPort;
 
     @Override
@@ -27,11 +29,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         UUID userId = resolveUserId(registrationId, userInfo);
 
+        return createPrincipal(userId, oAuth2User);
+    }
+
+    private PrincipalOAuth2User createPrincipal(UUID userId, OAuth2User oAuth2User) {
         return new PrincipalOAuth2User(
                 userId,
                 oAuth2User.getAuthorities(),
                 oAuth2User.getAttributes(),
-                "id"
+                NAME_ATTRIBUTE_KEY
         );
     }
 
