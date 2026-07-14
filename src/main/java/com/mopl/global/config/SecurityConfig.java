@@ -1,5 +1,7 @@
 package com.mopl.global.config;
 
+import com.mopl.domain.auth.adapter.in.oauth2.CustomOAuth2UserService;
+import com.mopl.domain.auth.adapter.in.oauth2.CustomOidcUserService;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
 import com.mopl.global.auth.UserAuthPort;
 import com.mopl.global.jwt.JwtAuthenticationFilter;
@@ -13,6 +15,9 @@ import com.mopl.global.security.handler.MoplLogoutHandler;
 import com.mopl.global.security.handler.MoplLogoutSuccessHandler;
 import com.mopl.global.security.handler.MoplAccessDeniedHandler;
 import com.mopl.global.security.handler.MoplAuthenticationEntryPoint;
+import com.mopl.global.security.handler.MoplOAuth2LoginFailureHandler;
+import com.mopl.global.security.handler.MoplOAuth2LoginSuccessHandler;
+import com.mopl.global.security.oauth2.CookieOAuth2AuthorizationRequestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -26,7 +31,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -57,12 +61,20 @@ public class SecurityConfig {
     private final MoplLogoutHandler logoutHandler;
     private final MoplLogoutSuccessHandler logoutSuccessHandler;
     private final UserAuthPort userAuthPort;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final CustomOidcUserService customOidcUserService;
+    private final MoplOAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final MoplOAuth2LoginFailureHandler oAuth2LoginFailureHandler;
+    private final CookieOAuth2AuthorizationRequestRepository authorizationRequestRepository;
 
     @Value("${security.csrf.disabled:false}")
     private boolean csrfDisabled;
 
     @Value("${app.cookie.secure:true}")
     private boolean cookieSecure;
+
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins;
 
     // 공통 정적 리소스 경로
     private static final String[] PUBLIC_RESOURCES = {
@@ -71,7 +83,7 @@ public class SecurityConfig {
 
     // 공통 오픈 API 경로
     private static final String[] PUBLIC_APIS = {
-            "/api/auth/**", "/ws/**","/actuator/**"};
+            "/api/auth/**", "/ws/**", "/oauth2/authorization/**", "/login/oauth2/code/**","/actuator/**"};
 
     // Swagger 문서 경로
     private static final String[] SWAGGER_URLS = {
@@ -84,7 +96,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           AuthenticationManager authenticationManager) throws Exception {
+                                           AuthenticationManager authenticationManager,
+                                           MoplAuthenticationProvider authenticationProvider) throws Exception {
         PathPatternRequestMatcher.Builder path = PathPatternRequestMatcher.withDefaults();
 
         JsonLoginFilter jsonAuthenticationFilter = new JsonLoginFilter(authenticationManager);
@@ -92,7 +105,7 @@ public class SecurityConfig {
         jsonAuthenticationFilter.setAuthenticationFailureHandler(loginFailureHandler);
 
         http.formLogin(AbstractHttpConfigurer::disable)
-                .authenticationProvider(authenticationProvider())
+                .authenticationProvider(authenticationProvider)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
@@ -125,6 +138,15 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated());
 
+        http.oauth2Login(oauth2 -> oauth2
+                .authorizationEndpoint(endpoint -> endpoint
+                        .authorizationRequestRepository(authorizationRequestRepository))
+                .userInfoEndpoint(userInfo -> userInfo
+                        .userService(customOAuth2UserService)
+                        .oidcUserService(customOidcUserService))
+                .successHandler(oAuth2LoginSuccessHandler)
+                .failureHandler(oAuth2LoginFailureHandler));
+
         http.exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler));
@@ -149,19 +171,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    public MoplAuthenticationProvider authenticationProvider() {
-        return new MoplAuthenticationProvider(userAuthPort, passwordResetTokenPort, passwordEncoder());
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    public MoplAuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
+        return new MoplAuthenticationProvider(userAuthPort, passwordResetTokenPort, passwordEncoder);
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:8080"));
+        config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
