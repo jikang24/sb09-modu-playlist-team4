@@ -258,7 +258,7 @@ class AuthServiceTest {
             authService.refresh(refreshToken);
         });
 
-        assertEquals(ErrorCode.USER_LOCKED, exception.getErrorCode());
+        assertEquals(ErrorCode.ACCOUNT_LOCKED, exception.getErrorCode());
         verify(authTokenService, never()).deleteRefreshToken(anyString());
     }
 

@@ -5,6 +5,7 @@ import com.mopl.domain.user.dto.*;
 import com.mopl.domain.user.event.UserLockedEvent;
 import com.mopl.domain.user.event.UserRoleChangedEvent;
 import com.mopl.domain.user.mapper.UserMapper;
+import com.mopl.domain.user.repository.SocialAccountRepository;
 import com.mopl.domain.user.repository.UserRepository;
 import com.mopl.global.dto.SortDirection;
 import com.mopl.global.exception.MoplException;
@@ -48,6 +49,8 @@ class UserServiceTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private SocialAccountRepository socialAccountRepository;
 
     private UserServiceImpl userService;
 
@@ -57,7 +60,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl(userRepository, userMapper, passwordEncoder, eventPublisher);
+        userService = new UserServiceImpl(userRepository, userMapper, passwordEncoder, eventPublisher, socialAccountRepository);
 
         userId = UUID.randomUUID();
         user = User.builder()

@@ -12,7 +12,7 @@ public enum ErrorCode {
     DUPLICATE_NAME("이미 사용 중인 이름입니다.", HttpStatus.CONFLICT),
     INVALID_PASSWORD("비밀번호가 일치하지 않습니다.", HttpStatus.BAD_REQUEST),
     FORBIDDEN("접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
-    USER_LOCKED("계정이 잠금 처리되었습니다.", HttpStatus.FORBIDDEN),
+    ACCOUNT_LOCKED("계정이 잠금 처리되었습니다.", HttpStatus.FORBIDDEN),
     INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED),
 
     //Content
@@ -88,7 +88,11 @@ public enum ErrorCode {
     SPORTSDB_RATE_LIMITED("SportsDB API 요청 한도를 초과했습니다.", HttpStatus.TOO_MANY_REQUESTS),
 
     // Batch
-    BATCH_EXECUTION_FAILED("배치 작업 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
+    BATCH_EXECUTION_FAILED("배치 작업 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    //oauth
+    EMAIL_ALREADY_EXISTS("이미 존재하는 이메일입니다.", HttpStatus.CONFLICT),
+    SOCIAL_ACCOUNT_ALREADY_LINKED("이미 연동되어 있는 계정입니다.", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus status;

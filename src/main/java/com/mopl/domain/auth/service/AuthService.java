@@ -72,7 +72,7 @@ public class AuthService implements AuthUseCase {
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
         if (user.locked()) {
-            throw new MoplException(ErrorCode.USER_LOCKED);
+            throw new MoplException(ErrorCode.ACCOUNT_LOCKED);
         }
 
         authTokenService.deleteRefreshToken(refreshToken);

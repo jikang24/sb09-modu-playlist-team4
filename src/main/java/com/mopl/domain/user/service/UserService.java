@@ -5,6 +5,7 @@ import com.mopl.global.response.CursorPageResponse;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface UserService {
@@ -24,5 +25,9 @@ public interface UserService {
     UserDto updateLocked(UUID userId, UserLockUpdateRequest request);
 
     CursorPageResponse<UserDto> findAll(UserSearchRequest request);
+
+    Optional<UUID> findUserIdBySocialAccount(SocialProvider provider, String providerId);
+
+    UserDto findOrCreateSocialUser(SocialProvider provider, String providerId, String email, boolean emailVerified, String name, String profileImageUrl);
 
 }

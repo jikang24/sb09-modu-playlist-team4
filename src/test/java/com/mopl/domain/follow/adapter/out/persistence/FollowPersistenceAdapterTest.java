@@ -377,34 +377,45 @@ class FollowPersistenceAdapterTest {
     }
 
     @Nested
-    @DisplayName("deleteById: ID로 Follow 삭제")
-    class DeleteById {
+    @DisplayName("delete: Follow 삭제")
+    class Delete {
 
         @Test
-        @DisplayName("성공: ID로 Follow를 삭제한다")
-        void deleteById_success() {
-            adapter.deleteById(followId);
+        @DisplayName("성공: Follow를 삭제한다")
+        void delete_success() {
+            adapter.delete(follow);
 
             verify(followJpaRepository).deleteById(followId);
         }
 
         @Test
         @DisplayName("성공: 올바른 ID로 삭제가 호출된다")
-        void deleteById_calls_repository_with_correct_id() {
+        void delete_calls_repository_with_correct_id() {
             UUID differentId = UUID.randomUUID();
-            adapter.deleteById(differentId);
+            Follow differentFollow = Follow.builder()
+                    .id(differentId)
+                    .followerId(followerId)
+                    .followeeId(followeeId)
+                    .createdAt(Instant.now())
+                    .build();
+
+            adapter.delete(differentFollow);
 
             verify(followJpaRepository).deleteById(differentId);
         }
 
         @Test
         @DisplayName("성공: 여러 번의 삭제 호출이 가능하다")
-        void deleteById_multiple_calls() {
+        void delete_multiple_calls() {
             UUID id1 = UUID.randomUUID();
             UUID id2 = UUID.randomUUID();
+            Follow follow1 = Follow.builder()
+                    .id(id1).followerId(followerId).followeeId(followeeId).createdAt(Instant.now()).build();
+            Follow follow2 = Follow.builder()
+                    .id(id2).followerId(followerId).followeeId(followeeId).createdAt(Instant.now()).build();
 
-            adapter.deleteById(id1);
-            adapter.deleteById(id2);
+            adapter.delete(follow1);
+            adapter.delete(follow2);
 
             verify(followJpaRepository).deleteById(id1);
             verify(followJpaRepository).deleteById(id2);
@@ -449,7 +460,7 @@ class FollowPersistenceAdapterTest {
             boolean exists = adapter.existsByFolloweeIdAndFollowerId(followeeId, followerId);
             assertThat(exists).isTrue();
 
-            adapter.deleteById(followId);
+            adapter.delete(follow);
             verify(followJpaRepository).deleteById(followId);
         }
     }
