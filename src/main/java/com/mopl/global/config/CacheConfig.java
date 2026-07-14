@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.mopl.domain.content.domain.Content;
+import com.mopl.domain.conversation.domain.Conversation;
 import com.mopl.domain.playlist.domain.Playlist;
 import com.mopl.global.config.cachemixin.ContentCacheMixin;
+import com.mopl.global.config.cachemixin.ConversationCacheMixin;
 import com.mopl.global.config.cachemixin.PlaylistCacheMixin;
 import java.time.Duration;
 import java.util.HashMap;
@@ -64,6 +66,7 @@ public class CacheConfig implements CachingConfigurer {
     // restore(...) 팩토리 메서드를 생성자처럼 쓰도록 믹스인으로 알려준다 (도메인 클래스 자체는 안 건드림)
     redisObjectMapper.addMixIn(Content.class, ContentCacheMixin.class);
     redisObjectMapper.addMixIn(Playlist.class, PlaylistCacheMixin.class);
+    redisObjectMapper.addMixIn(Conversation.class, ConversationCacheMixin.class);
 
     RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
         .entryTtl(Duration.ofMinutes(30))
@@ -75,6 +78,8 @@ public class CacheConfig implements CachingConfigurer {
 
     Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
     cacheConfigs.put("userSummary", defaultConfig.entryTtl(Duration.ofHours(1)));
+    // Conversation은 생성 후 참여자/생성일이 절대 안 바뀌는 사실상 불변 데이터라 TTL을 길게 둠
+    cacheConfigs.put("conversation", defaultConfig.entryTtl(Duration.ofHours(1)));
     cacheConfigs.put("content", defaultConfig.entryTtl(Duration.ofMinutes(30)));
     cacheConfigs.put("playlist", defaultConfig.entryTtl(Duration.ofMinutes(10)));
     // 구독/팔로우 수는 콘텐츠/플레이리스트 메타데이터보다 더 자주 바뀌므로 TTL을 짧게 둠
