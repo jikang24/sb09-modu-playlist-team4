@@ -3,7 +3,6 @@ package com.mopl.domain.batch.service;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.repository.ContentRepository;
-import com.mopl.infra.sportsdb.SportsDbClient;
 import com.mopl.infra.tmdb.TmdbClient;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbMovieResult;
 import java.math.BigDecimal;
@@ -25,19 +24,16 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
-class ContentSyncServiceTest {
+class ContentPersistenceServiceTest {
 
   @Mock
   private TmdbClient tmdbClient;
 
   @Mock
-  private SportsDbClient sportsDbClient;
-
-  @Mock
   private ContentRepository contentRepository;
 
   @InjectMocks
-  private ContentSyncService contentSyncService;
+  private ContentPersistenceService contentPersistenceService;
 
   private Content makeExisting(String externalId, String thumbnailUrl) {
     return Content.restore(
@@ -56,7 +52,7 @@ class ContentSyncServiceTest {
     given(contentRepository.findAllByType(ContentType.MOVIE)).willReturn(List.of());
     given(tmdbClient.buildImageUrl("/poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/poster.jpg");
 
-    int savedCount = contentSyncService.saveMovies(List.of(movie));
+    int savedCount = contentPersistenceService.saveMovies(List.of(movie));
 
     assertThat(savedCount).isEqualTo(1);
     ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
@@ -73,7 +69,7 @@ class ContentSyncServiceTest {
     given(contentRepository.findAllByType(ContentType.MOVIE)).willReturn(List.of(existing));
     given(tmdbClient.buildImageUrl("/poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/poster.jpg");
 
-    int savedCount = contentSyncService.saveMovies(List.of(movie));
+    int savedCount = contentPersistenceService.saveMovies(List.of(movie));
 
     assertThat(savedCount).isEqualTo(0); // 신규 저장 건수는 늘지 않음 (갱신이므로)
     then(contentRepository).should().save(existing);
@@ -89,7 +85,7 @@ class ContentSyncServiceTest {
     given(contentRepository.findAllByType(ContentType.MOVIE)).willReturn(List.of(existing));
     given(tmdbClient.buildImageUrl("/new-poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/new-poster.jpg");
 
-    int savedCount = contentSyncService.saveMovies(List.of(movie));
+    int savedCount = contentPersistenceService.saveMovies(List.of(movie));
 
     assertThat(savedCount).isEqualTo(0);
     assertThat(existing.getThumbnailUrl()).isEqualTo("https://image.tmdb.org/t/p/w500/old-poster.jpg");
@@ -105,7 +101,7 @@ class ContentSyncServiceTest {
     given(tmdbClient.buildImageUrl("/poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/poster.jpg");
     given(tmdbClient.getMovieGenres()).willReturn(Map.of(28, "액션", 12, "모험"));
 
-    contentSyncService.saveMovies(List.of(movie));
+    contentPersistenceService.saveMovies(List.of(movie));
 
     ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
     then(contentRepository).should().save(captor.capture());
@@ -121,7 +117,7 @@ class ContentSyncServiceTest {
     given(tmdbClient.buildImageUrl("/poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/poster.jpg");
     given(tmdbClient.getMovieGenres()).willReturn(Map.of(28, "액션"));
 
-    contentSyncService.saveMovies(List.of(movie));
+    contentPersistenceService.saveMovies(List.of(movie));
 
     ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
     then(contentRepository).should().save(captor.capture());
@@ -137,7 +133,7 @@ class ContentSyncServiceTest {
     given(tmdbClient.buildImageUrl("/poster.jpg")).willReturn("https://image.tmdb.org/t/p/w500/poster.jpg");
     given(tmdbClient.getMovieGenres()).willThrow(new RuntimeException("TMDB 장애"));
 
-    int savedCount = contentSyncService.saveMovies(List.of(movie));
+    int savedCount = contentPersistenceService.saveMovies(List.of(movie));
 
     assertThat(savedCount).isEqualTo(1);
     ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);

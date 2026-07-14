@@ -1,6 +1,7 @@
 package com.mopl.infra.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
@@ -19,14 +20,15 @@ public class RedisMessageSubscriber implements MessageListener {
   @Override
   public void onMessage(Message message, byte[] pattern) {
     try {
-      String channel = new String(message.getChannel());
       String body = new String(message.getBody());
 
-      String destination = channel.substring("websocket:".length());
+      Map<String, Object> parsed = objectMapper.readValue(body, Map.class);
+      String destination = (String) parsed.get("destination");
+      Object payload = parsed.get("payload");
 
-      messagingTemplate.convertAndSend("/sub/" + destination, body);
+      messagingTemplate.convertAndSend("/sub/" + destination, payload);
 
-      log.info("Redis Pub/Sub 메시지 전달 - channel: {}", channel);
+      log.info("Redis Pub/Sub 메시지 전달 - destination: {}", destination);
     } catch (Exception e) {
       log.error("Redis Pub/Sub 메시지 처리 실패", e);
     }

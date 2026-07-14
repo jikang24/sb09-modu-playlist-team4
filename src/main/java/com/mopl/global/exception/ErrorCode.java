@@ -82,6 +82,10 @@ public enum ErrorCode {
     // 외부 API
     TMDB_CLIENT_ERROR("TMDB API 요청 오류입니다.", HttpStatus.BAD_REQUEST),
     TMDB_SERVER_ERROR("TMDB API 서버 오류입니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    TMDB_RATE_LIMITED("TMDB API 요청 한도를 초과했습니다.", HttpStatus.TOO_MANY_REQUESTS),
+    SPORTSDB_CLIENT_ERROR("SportsDB API 요청 오류입니다.", HttpStatus.BAD_REQUEST),
+    SPORTSDB_SERVER_ERROR("SportsDB API 서버 오류입니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    SPORTSDB_RATE_LIMITED("SportsDB API 요청 한도를 초과했습니다.", HttpStatus.TOO_MANY_REQUESTS),
 
     // Batch
     BATCH_EXECUTION_FAILED("배치 작업 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
