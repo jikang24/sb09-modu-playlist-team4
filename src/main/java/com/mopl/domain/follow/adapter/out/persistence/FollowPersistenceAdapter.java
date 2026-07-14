@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,6 +20,7 @@ public class FollowPersistenceAdapter implements SaveFollowPort, LoadFollowPort,
     private final FollowPersistenceMapper mapper;
 
     @Override
+    @CacheEvict(value = "followerCount", key = "#follow.followeeId")
     public Follow save(Follow follow) {
         return mapper.toDomain(followJpaRepository.save(mapper.toJpaEntity(follow)));
     }
@@ -39,6 +42,7 @@ public class FollowPersistenceAdapter implements SaveFollowPort, LoadFollowPort,
     }
 
     @Override
+    @Cacheable(value = "followerCount", key = "#followeeId")
     public long countByFolloweeId(UUID followeeId) {
         return followJpaRepository.countByFolloweeId(followeeId);
     }
@@ -49,7 +53,8 @@ public class FollowPersistenceAdapter implements SaveFollowPort, LoadFollowPort,
     }
 
     @Override
-    public void deleteById(UUID followId) {
-        followJpaRepository.deleteById(followId);
+    @CacheEvict(value = "followerCount", key = "#follow.followeeId")
+    public void delete(Follow follow) {
+        followJpaRepository.deleteById(follow.getId());
     }
 }
