@@ -65,3 +65,4 @@ application-local.yaml
 .DS_Store
 
 *.txt
+*.json
