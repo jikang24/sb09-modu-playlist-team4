@@ -2,7 +2,7 @@ name: MoDuPlayList Real CI/CD
 
 on:
   push:
-    branches: [ "main", "KAN-107-actuator", "feature-KAN-100-Redis-cache" ]
+    branches: [ "main", "KAN-107-actuator" ]
   pull_request:
     branches: [ "develop" ]
 
@@ -114,7 +114,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/KAN-107-actuator' || github.ref == 'refs/heads/feature-KAN-100-Redis-cache')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/KAN-107-actuator')
     runs-on: ubuntu-latest
 
     steps:
