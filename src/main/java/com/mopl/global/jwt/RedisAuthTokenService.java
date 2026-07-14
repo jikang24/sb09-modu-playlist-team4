@@ -16,8 +16,6 @@ import org.springframework.stereotype.Component;
  *  auth:refresh:user:{userId}    String refreshToken  - 유저별 현재 유효한 리프레시 토큰 (TTL=ttl)
  *  auth:refresh:token:{token}    String userId         - 리프레시 토큰 -> 유저 역인덱스 (TTL=ttl)
  *  auth:access-jti:user:{userId} String jti            - 유저별 현재 유효한 액세스 토큰 jti (TTL=만료까지 남은 시간, 기존 로그인 강제 로그아웃용)
- *
- * 만료 처리는 Redis TTL이 그대로 대신하므로 별도 스케줄러가 필요 없다.
  */
 @Slf4j
 @Component
