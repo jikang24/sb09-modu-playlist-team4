@@ -215,7 +215,7 @@ class AuthControllerTest {
     @DisplayName("실패: 잠긴 사용자의 토큰으로 재발급을 시도하면 예외가 발생한다")
     void refresh_UserLocked() {
         String refreshToken = "refresh_token_123";
-        doThrow(new MoplException(ErrorCode.USER_LOCKED))
+        doThrow(new MoplException(ErrorCode.ACCOUNT_LOCKED))
                 .when(authUseCase).refresh(refreshToken);
 
         assertThrows(MoplException.class, () -> authController.refresh(refreshToken, httpServletResponse));
