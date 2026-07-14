@@ -150,7 +150,7 @@ class FollowServiceTest {
 
             followService.unfollow(followId, followerId);
 
-            verify(deleteFollowPort).deleteById(followId);
+            verify(deleteFollowPort).delete(follow);
         }
 
         @Test
@@ -163,7 +163,7 @@ class FollowServiceTest {
                     .isInstanceOf(MoplException.class)
                     .hasMessageContaining(ErrorCode.FOLLOW_NOT_FOUND.getMessage());
 
-            verify(deleteFollowPort, never()).deleteById(any());
+            verify(deleteFollowPort, never()).delete(any());
         }
 
         @Test
@@ -177,18 +177,18 @@ class FollowServiceTest {
                     .isInstanceOf(MoplException.class)
                     .hasMessageContaining(ErrorCode.FORBIDDEN.getMessage());
 
-            verify(deleteFollowPort, never()).deleteById(any());
+            verify(deleteFollowPort, never()).delete(any());
         }
 
         @Test
-        @DisplayName("성공: 팔로우 취소 시 DeleteFollowPort의 deleteById가 정확한 ID로 호출된다")
+        @DisplayName("성공: 팔로우 취소 시 DeleteFollowPort의 delete가 정확한 Follow 객체로 호출된다")
         void unfollow_calls_delete_with_correct_id() {
             given(loadFollowPort.findById(followId))
                     .willReturn(Optional.of(follow));
 
             followService.unfollow(followId, followerId);
 
-            verify(deleteFollowPort).deleteById(followId);
+            verify(deleteFollowPort).delete(follow);
         }
 
         @Test
@@ -209,7 +209,7 @@ class FollowServiceTest {
                     .isInstanceOf(MoplException.class)
                     .hasMessageContaining(ErrorCode.FORBIDDEN.getMessage());
 
-            verify(deleteFollowPort, never()).deleteById(any());
+            verify(deleteFollowPort, never()).delete(any());
         }
     }
 
@@ -385,7 +385,7 @@ class FollowServiceTest {
                     .willReturn(Optional.of(follow));
 
             followService.unfollow(followId, userA);
-            verify(deleteFollowPort).deleteById(followId);
+            verify(deleteFollowPort).delete(follow);
         }
     }
 }

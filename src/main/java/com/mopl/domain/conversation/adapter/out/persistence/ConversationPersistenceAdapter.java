@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Repository;
 
 @Component
 @RequiredArgsConstructor
@@ -29,7 +29,12 @@ public class ConversationPersistenceAdapter implements SaveConversationPort, Loa
   private final GetConversationIdsByContentUseCase getConversationIdsByContentUseCase;
   private final LoadUserPort loadUserPort;
 
+  /**
+   * Conversation은 생성 후 수정/삭제 메서드가 없는 불변 데이터라 evict 대상이 없다 -
+   * TTL 만료로만 자연스럽게 갱신된다.
+   */
   @Override
+  @Cacheable(value = "conversation", key = "#id")
   public Optional<Conversation> findById(UUID id) {
     return conversationRepository.findById(id).map(mapper::toDomain);
   }

@@ -62,7 +62,7 @@ public class FollowService implements FollowUserUseCase, UnfollowUserUseCase,
             throw new MoplException(ErrorCode.FORBIDDEN);
         }
         log.info("팔로우 삭제 - followId: {}, requesterId: {}", followId, followerId);
-        deleteFollowPort.deleteById(followId);
+        deleteFollowPort.delete(follow);
     }
 
     @Override
