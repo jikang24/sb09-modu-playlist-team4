@@ -168,6 +168,23 @@ class ReviewRepositoryTest {
   }
 
   @Test
+  @DisplayName("findAllByCondition - createdAt 커서보다 이후 데이터만 조회한다 (오름차순)")
+  void findAll_cursorByCreatedAt_ascending() throws InterruptedException {
+    UUID contentId = UUID.randomUUID();
+    Review first = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(4));
+    Thread.sleep(5);
+    Review second = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(3));
+
+    ReviewSearchRequest request = new ReviewSearchRequest(
+        contentId, first.getCreatedAt().toString(), first.getId(), 10,
+        ReviewSortBy.CREATED_AT, SortDirection.ASCENDING);
+
+    List<Review> result = reviewRepository.findAllByCondition(request);
+
+    assertThat(result).extracting(Review::getId).containsExactly(second.getId());
+  }
+
+  @Test
   @DisplayName("findAllByCondition - rating 커서 기준으로 필터링한다 (오름차순)")
   void findAll_cursorByRating_ascending() {
     UUID contentId = UUID.randomUUID();
@@ -181,6 +198,22 @@ class ReviewRepositoryTest {
     List<Review> result = reviewRepository.findAllByCondition(request);
 
     assertThat(result).extracting(Review::getId).containsExactly(high.getId());
+  }
+
+  @Test
+  @DisplayName("findAllByCondition - rating 커서보다 낮은 데이터만 조회한다 (내림차순)")
+  void findAll_cursorByRating_descending() {
+    UUID contentId = UUID.randomUUID();
+    Review low = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(2));
+    Review high = persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(4));
+
+    ReviewSearchRequest request = new ReviewSearchRequest(
+        contentId, high.getRating().toString(), high.getId(), 10,
+        ReviewSortBy.RATING, SortDirection.DESCENDING);
+
+    List<Review> result = reviewRepository.findAllByCondition(request);
+
+    assertThat(result).extracting(Review::getId).containsExactly(low.getId());
   }
 
   @Test
