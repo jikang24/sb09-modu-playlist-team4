@@ -224,6 +224,50 @@ class ContentRepositoryImplTest {
         assertThat(result).isEmpty();
     }
 
+    // ── findAllByType ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("[findAllByType] 해당 타입의 콘텐츠만 도메인으로 반환된다")
+    void findAllByType_returnsOnlyMatchingType() {
+        List<Content> result = contentRepository.findAllByType(ContentType.MOVIE);
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(Content::getTitle)
+            .containsExactlyInAnyOrder("어벤져스", "인터스텔라");
+    }
+
+    @Test
+    @DisplayName("[findAllByType] 해당 타입이 없으면 빈 리스트 반환")
+    void findAllByType_emptyWhenNoMatch() {
+        List<Content> result = contentRepository.findAllByType(ContentType.TV_SERIES);
+
+        assertThat(result).isEmpty();
+    }
+
+    // ── findAllByIds ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("[findAllByIds] 주어진 ID들에 해당하는 콘텐츠만 반환된다")
+    void findAllByIds_returnsMatchingContents() {
+        List<Content> result = contentRepository.findAllByIds(List.of(movie1.getId(), sport1.getId()));
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(Content::getId)
+            .containsExactlyInAnyOrder(movie1.getId(), sport1.getId());
+    }
+
+    @Test
+    @DisplayName("[findAllByIds] 빈 리스트면 조회 없이 빈 리스트 반환")
+    void findAllByIds_emptyList_returnsEmpty() {
+        assertThat(contentRepository.findAllByIds(List.of())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("[findAllByIds] null이면 조회 없이 빈 리스트 반환")
+    void findAllByIds_null_returnsEmpty() {
+        assertThat(contentRepository.findAllByIds(null)).isEmpty();
+    }
+
     // ── findExternalIdsByType ─────────────────────────────────────────────────
 
     @Test
@@ -373,6 +417,110 @@ class ContentRepositoryImplTest {
     @DisplayName("[findAllByCondition] 잘못된 커서 형식 - INVALID_CURSOR_FORMAT 예외")
     void findAll_invalidCursorFormat_throwsException() {
         ContentSearchRequest req = request(null, null, null, "잘못된커서", UUID.randomUUID(), 10, "createdAt", "DESCENDING");
+
+        assertThatThrownBy(() -> contentRepository.findAllByCondition(req))
+            .isInstanceOf(MoplException.class)
+            .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_CURSOR_FORMAT));
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=reviewCount(인기순) - 커서 이후(reviewCount 작은) 항목만 반환")
+    void findAll_cursorPagination_reviewCount_descending() {
+        Content lowCount = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "review-low", "적은 리뷰", "설명", null,
+            BigDecimal.ZERO, 1, Instant.now(), Instant.now(), List.of()));
+        Content highCount = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "review-high", "많은 리뷰", "설명", null,
+            BigDecimal.ZERO, 100, Instant.now(), Instant.now(), List.of()));
+
+        ContentSearchRequest req = request(null, null, null,
+            String.valueOf(highCount.getReviewCount()), highCount.getId(), 10, "reviewCount", "DESCENDING");
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        assertThat(result).extracting(Content::getId).contains(lowCount.getId());
+        assertThat(result).extracting(Content::getId).doesNotContain(highCount.getId());
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=reviewCount, ASCENDING - 커서 이후(reviewCount 큰) 항목만 반환")
+    void findAll_cursorPagination_reviewCount_ascending() {
+        Content lowCount = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "review-low-asc", "적은 리뷰", "설명", null,
+            BigDecimal.ZERO, 1, Instant.now(), Instant.now(), List.of()));
+        Content highCount = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "review-high-asc", "많은 리뷰", "설명", null,
+            BigDecimal.ZERO, 100, Instant.now(), Instant.now(), List.of()));
+
+        ContentSearchRequest req = request(null, null, null,
+            String.valueOf(lowCount.getReviewCount()), lowCount.getId(), 10, "reviewCount", "ASCENDING");
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        assertThat(result).extracting(Content::getId).contains(highCount.getId());
+        assertThat(result).extracting(Content::getId).doesNotContain(lowCount.getId());
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=watcherCount(인기순 별칭) - reviewCount 기준으로 취급된다")
+    void findAll_sortByWatcherCount_treatedAsReviewCount() {
+        ContentSearchRequest req = request(null, null, null, null, null, 10, "watcherCount", "DESCENDING");
+
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        assertThat(result).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=reviewCount, 잘못된 커서 형식 - INVALID_CURSOR_FORMAT 예외")
+    void findAll_reviewCountCursor_invalidFormat_throwsException() {
+        ContentSearchRequest req = request(null, null, null, "숫자아님", UUID.randomUUID(), 10, "reviewCount", "DESCENDING");
+
+        assertThatThrownBy(() -> contentRepository.findAllByCondition(req))
+            .isInstanceOf(MoplException.class)
+            .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_CURSOR_FORMAT));
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=rate(평점순) - 커서 이후(평점 낮은) 항목만 반환")
+    void findAll_cursorPagination_rate_descending() {
+        Content lowRated = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "rate-low2", "낮은 평점", "설명", null,
+            new BigDecimal("1.00"), 0, Instant.now(), Instant.now(), List.of()));
+        Content highRated = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "rate-high2", "높은 평점", "설명", null,
+            new BigDecimal("4.50"), 0, Instant.now(), Instant.now(), List.of()));
+
+        ContentSearchRequest req = request(null, null, null,
+            highRated.getAverageRating().toString(), highRated.getId(), 10, "rate", "DESCENDING");
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        assertThat(result).extracting(Content::getId).contains(lowRated.getId());
+        assertThat(result).extracting(Content::getId).doesNotContain(highRated.getId());
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=rate, ASCENDING - 커서 이후(평점 높은) 항목만 반환")
+    void findAll_cursorPagination_rate_ascending() {
+        Content lowRated = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "rate-low-asc", "낮은 평점", "설명", null,
+            new BigDecimal("1.00"), 0, Instant.now(), Instant.now(), List.of()));
+        Content highRated = contentRepository.save(Content.restore(
+            UUID.randomUUID(), ContentType.MOVIE, "rate-high-asc", "높은 평점", "설명", null,
+            new BigDecimal("4.50"), 0, Instant.now(), Instant.now(), List.of()));
+
+        ContentSearchRequest req = request(null, null, null,
+            lowRated.getAverageRating().toString(), lowRated.getId(), 10, "rate", "ASCENDING");
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        assertThat(result).extracting(Content::getId).contains(highRated.getId());
+        assertThat(result).extracting(Content::getId).doesNotContain(lowRated.getId());
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] sortBy=rate, 잘못된 커서 형식 - INVALID_CURSOR_FORMAT 예외")
+    void findAll_rateCursor_invalidFormat_throwsException() {
+        ContentSearchRequest req = request(null, null, null, "숫자아님", UUID.randomUUID(), 10, "rate", "DESCENDING");
 
         assertThatThrownBy(() -> contentRepository.findAllByCondition(req))
             .isInstanceOf(MoplException.class)

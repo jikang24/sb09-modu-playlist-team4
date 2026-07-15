@@ -78,6 +78,8 @@ jacoco {
 	toolVersion = "0.8.11"
 }
 
+// QueryDSL(Q*)/MapStruct(*MapperImpl) 생성 코드는 손으로 짠 로직이 없어 테스트 대상이 아님 -
+// 커버리지 계산 제외 대상 (프로젝트 전체 도메인에 공통 적용)
 def excludePatterns = [
 		"**/Q*.class",
 		"**/*MapperImpl*.class",
