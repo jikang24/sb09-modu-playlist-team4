@@ -74,8 +74,7 @@ public class DirectMessageWebSocketHandler {
       redisTemplate.convertAndSend(RedisConfig.DM_CHANNEL, jsonPayload);
       log.info("Redis 발행 완료 - conversationId: {}", conversationId);
     } catch (Exception e) {
-      // 실시간 팬아웃 실패는 메시지 유실이 아니다(DM은 이미 DB에 저장됨).
-      // 수신자는 재조회 시 메시지를 볼 수 있으므로 로그만 남기고 계속 진행한다.
+
       log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);
     }
 

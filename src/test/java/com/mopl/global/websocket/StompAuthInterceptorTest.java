@@ -8,6 +8,7 @@ import com.mopl.domain.conversation.application.port.in.GetConversationUseCase;
 import com.mopl.domain.conversation.domain.Conversation;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import com.mopl.global.jwt.AuthTokenService;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
 import java.time.Instant;
@@ -37,6 +38,9 @@ class StompAuthInterceptorTest {
 
   @Mock
   private GetConversationUseCase getConversationUseCase;
+
+  @Mock
+  private AuthTokenService authTokenService;
 
   @Mock
   private MessageChannel messageChannel;
@@ -107,6 +111,69 @@ class StompAuthInterceptorTest {
     Message<?> message = createConnectMessage(token);
 
     
+    assertThatThrownBy(() -> stompAuthInterceptor.preSend(message, messageChannel))
+        .isInstanceOf(MessagingException.class);
+  }
+
+  @Test
+  @DisplayName("CONNECT 실패 - 블랙리스트 처리된 토큰(로그아웃 등)이면 연결이 거부된다")
+  void preSend_connect_fail_blacklistedToken() {
+
+    String token = "blacklisted-token";
+    String jti = UUID.randomUUID().toString();
+    JwtClaims claims = JwtClaims.builder()
+        .userId(myId)
+        .email("test@email.com")
+        .role("USER")
+        .tokenId(jti)
+        .build();
+
+    given(jwtProvider.parse(token)).willReturn(claims);
+    given(authTokenService.isBlacklistedJti(jti)).willReturn(true);
+
+    Message<?> message = createConnectMessage(token);
+
+    assertThatThrownBy(() -> stompAuthInterceptor.preSend(message, messageChannel))
+        .isInstanceOf(MessagingException.class);
+  }
+
+  @Test
+  @DisplayName("CONNECT - 블랙리스트 조회(Redis) 장애 시 fail-open으로 연결을 허용한다")
+  void preSend_connect_blacklistLookupFails_failOpen() {
+
+    String token = "valid-token";
+    String jti = UUID.randomUUID().toString();
+    JwtClaims claims = JwtClaims.builder()
+        .userId(myId)
+        .email("test@email.com")
+        .role("USER")
+        .tokenId(jti)
+        .build();
+
+    given(jwtProvider.parse(token)).willReturn(claims);
+    // Redis 장애 상황: 조회 자체가 예외
+    given(authTokenService.isBlacklistedJti(jti))
+        .willThrow(new RuntimeException("Redis connection refused"));
+
+    Message<?> message = createConnectMessage(token);
+
+    // 장애가 WebSocket 전면 장애로 번지지 않도록 통과(fail-open)되어야 한다
+    Message<?> result = stompAuthInterceptor.preSend(message, messageChannel);
+
+    assertThat(result).isNotNull();
+    StompHeaderAccessor resultAccessor = StompHeaderAccessor.wrap(result);
+    assertThat(resultAccessor.getSessionAttributes().get("claims")).isEqualTo(claims);
+  }
+
+  @Test
+  @DisplayName("SUBSCRIBE 실패 - 세션에 인증 정보(claims)가 없으면 구독이 거부된다")
+  void preSend_subscribe_fail_noClaims() {
+
+    UUID conversationId = UUID.randomUUID();
+    Message<?> message = createSubscribeMessage(
+        "/sub/conversations/" + conversationId + "/direct-messages", null
+    );
+
     assertThatThrownBy(() -> stompAuthInterceptor.preSend(message, messageChannel))
         .isInstanceOf(MessagingException.class);
   }
