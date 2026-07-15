@@ -67,6 +67,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
 
+
 tasks.named('test') {
 	useJUnitPlatform()
 	finalizedBy jacocoTestReport
@@ -74,8 +75,19 @@ tasks.named('test') {
 }
 
 jacoco {
-	toolVersion = "0.8.10"
+	toolVersion = "0.8.11"
 }
+
+def excludePatterns = [
+		"**/Q*.class",
+		"**/*MapperImpl*.class",
+		"**/*Application*.class",
+		"**/*Config*.class",
+		"**/*Dto*.class",
+		"**/*Request*.class",
+		"**/*Response*.class",
+		"**/**Builder*.class"
+]
 
 jacocoTestReport {
 	dependsOn test
@@ -83,5 +95,17 @@ jacocoTestReport {
 		xml.required = true
 		html.required = true
 		csv.required = true
+	}
+
+	afterEvaluate {
+		classDirectories.setFrom(files(classDirectories.files.collect {
+			fileTree(dir: it, exclude: excludePatterns)
+		}))
+	}
+	doLast {
+		println "--------------------------------------------------------"
+		println "★ JaCoCo Test Coverage Report Link:"
+		println "file://${buildDir}/reports/jacoco/test/html/index.html"
+		println "--------------------------------------------------------"
 	}
 }
