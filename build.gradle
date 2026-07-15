@@ -67,6 +67,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
 
+
 tasks.named('test') {
 	useJUnitPlatform()
 	finalizedBy jacocoTestReport
@@ -74,14 +75,20 @@ tasks.named('test') {
 }
 
 jacoco {
-	toolVersion = "0.8.10"
+	toolVersion = "0.8.11"
 }
 
 // QueryDSL(Q*)/MapStruct(*MapperImpl) 생성 코드는 손으로 짠 로직이 없어 테스트 대상이 아님 -
 // 커버리지 계산 제외 대상 (프로젝트 전체 도메인에 공통 적용)
-def generatedClassExcludes = [
-	'**/Q*.class',
-	'**/*MapperImpl.class'
+def excludePatterns = [
+		"**/Q*.class",
+		"**/*MapperImpl*.class",
+		"**/*Application*.class",
+		"**/*Config*.class",
+		"**/*Dto*.class",
+		"**/*Request*.class",
+		"**/*Response*.class",
+		"**/**Builder*.class"
 ]
 
 jacocoTestReport {
@@ -91,9 +98,16 @@ jacocoTestReport {
 		html.required = true
 		csv.required = true
 	}
+
 	afterEvaluate {
 		classDirectories.setFrom(files(classDirectories.files.collect {
-			fileTree(dir: it, exclude: generatedClassExcludes)
+			fileTree(dir: it, exclude: excludePatterns)
 		}))
+	}
+	doLast {
+		println "--------------------------------------------------------"
+		println "★ JaCoCo Test Coverage Report Link:"
+		println "file://${buildDir}/reports/jacoco/test/html/index.html"
+		println "--------------------------------------------------------"
 	}
 }
