@@ -10,7 +10,10 @@ import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.DirectMessageDto;
 import com.mopl.global.event.NotificationEventPublisher;
 import com.mopl.global.event.NotificationRequestedEvent;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.JwtClaims;
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -18,8 +21,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 @Controller
@@ -33,6 +38,7 @@ public class DirectMessageWebSocketHandler {
   private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
   private final NotificationEventPublisher notificationEventPublisher;
+  private final SimpMessagingTemplate messagingTemplate;
 
   @MessageMapping("/conversations/{conversationId}/direct-messages")
   public void sendMessage(
@@ -41,6 +47,10 @@ public class DirectMessageWebSocketHandler {
       SimpMessageHeaderAccessor headerAccessor
   ) {
     JwtClaims jwtClaims = (JwtClaims) headerAccessor.getSessionAttributes().get("claims");
+    if (jwtClaims == null) {
+      log.warn("WebSocket DM 전송 거부 - 인증 정보 없음, conversationId: {}", conversationId);
+      throw new MoplException(ErrorCode.TOKEN_NOT_FOUND);
+    }
     UUID senderId = jwtClaims.getUserId();
     log.info("WebSocket DM 전송 요청 - senderId: {}, conversationId: {}", senderId, conversationId);
 
@@ -62,12 +72,12 @@ public class DirectMessageWebSocketHandler {
 
       String jsonPayload = objectMapper.writeValueAsString(message);
       redisTemplate.convertAndSend(RedisConfig.DM_CHANNEL, jsonPayload);
+      log.info("Redis 발행 완료 - conversationId: {}", conversationId);
     } catch (Exception e) {
+      // 실시간 팬아웃 실패는 메시지 유실이 아니다(DM은 이미 DB에 저장됨).
+      // 수신자는 재조회 시 메시지를 볼 수 있으므로 로그만 남기고 계속 진행한다.
       log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);
     }
-
-
-    log.info("Redis 발행 완료 - conversationId: {}", conversationId);
 
     notificationEventPublisher.publish(new NotificationRequestedEvent(
         receiverId,
@@ -75,5 +85,32 @@ public class DirectMessageWebSocketHandler {
         "[DM]" + " " + dto.sender().name(),
         request.content()
     ));
+  }
+
+
+  @MessageExceptionHandler(MoplException.class)
+  public void handleMoplException(MoplException e, Principal principal) {
+    log.warn("WebSocket DM 처리 실패 - user: {}, error: {}",
+        principal != null ? principal.getName() : "unknown", e.getMessage());
+    sendErrorToUser(principal, e.getMessage());
+  }
+
+  @MessageExceptionHandler(Exception.class)
+  public void handleException(Exception e, Principal principal) {
+    log.error("WebSocket DM 처리 중 예상하지 못한 오류 - user: {}",
+        principal != null ? principal.getName() : "unknown", e);
+    sendErrorToUser(principal, "메시지 처리 중 오류가 발생했습니다.");
+  }
+
+  private void sendErrorToUser(Principal principal, String errorMessage) {
+    if (principal == null) {
+      return;
+    }
+    try {
+      messagingTemplate.convertAndSendToUser(
+          principal.getName(), "/queue/errors", Map.of("error", errorMessage));
+    } catch (Exception e) {
+      log.error("WebSocket 에러 응답 전송 실패", e);
+    }
   }
 }
