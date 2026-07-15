@@ -14,10 +14,12 @@ import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.WatchingSessionStartedEvent;
 import com.mopl.global.response.CursorPageResponse;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -88,6 +90,18 @@ public class WatchingSessionService {
     return watchingSessionRepository.findByWatcherId(watcherId)
         .map(this::toDto)
         .orElse(null);
+  }
+
+  /** 콘텐츠 실시간 시청자 수 - 다른 도메인(content 등)이 리포지토리를 직접 참조하지 않도록 여기서 공개 */
+  public long countByContentId(UUID contentId) {
+    return watchingSessionRepository.countByContentId(contentId);
+  }
+
+  /** 콘텐츠별 실시간 시청자 수 배치 조회 (N+1 방지) */
+  public Map<UUID, Long> countByContentIds(Collection<UUID> contentIds) {
+    return contentIds.stream()
+        .distinct()
+        .collect(Collectors.toMap(id -> id, watchingSessionRepository::countByContentId));
   }
 
   public CursorPageResponse<WatchingSessionDto> getByContentId(WatchingSessionSearchRequest request) {
