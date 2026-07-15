@@ -4,22 +4,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.content.domain.ContentType;
-import com.mopl.domain.watchingsession.adapter.port.LoadContentPort;
-import com.mopl.domain.watchingsession.adapter.port.LoadUserPort;
+import com.mopl.domain.watchingsession.application.port.out.LoadContentPort;
+import com.mopl.domain.watchingsession.application.port.out.LoadUserPort;
+import com.mopl.domain.watchingsession.application.port.out.PublishWatchingSessionEventPort;
 import com.mopl.domain.watchingsession.domain.WatchingSession;
 import com.mopl.domain.watchingsession.dto.WatchingSessionChange;
 import com.mopl.domain.watchingsession.dto.WatchingSessionDto;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
-import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.WatchingSessionStartedEvent;
@@ -40,7 +40,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class WatchingSessionServiceTest {
@@ -55,10 +54,7 @@ class WatchingSessionServiceTest {
   private LoadContentPort loadContentPort;
 
   @Mock
-  private StringRedisTemplate redisTemplate;
-
-  @Mock
-  private ObjectMapper objectMapper;
+  private PublishWatchingSessionEventPort publishWatchingSessionEventPort;
 
   @Mock
   private ApplicationEventPublisher applicationEventPublisher;
@@ -66,20 +62,10 @@ class WatchingSessionServiceTest {
   @InjectMocks
   private WatchingSessionService watchingSessionService;
 
-  private String stubJsonPayload() throws Exception {
-    String jsonPayload = "{\"destination\":\"...\",\"payload\":{}}";
-    given(objectMapper.writeValueAsString(any())).willReturn(jsonPayload);
-    return jsonPayload;
-  }
-
-  @SuppressWarnings("unchecked")
-  private WatchingSessionChange capturePublishedChange(UUID contentId, String jsonPayload) throws Exception {
-    ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-    then(objectMapper).should().writeValueAsString(captor.capture());
-    Map<String, Object> message = captor.getValue();
-    assertThat(message.get("destination")).isEqualTo("contents/" + contentId + "/watch");
-    then(redisTemplate).should().convertAndSend(RedisConfig.WATCHING_SESSION_CHANNEL, jsonPayload);
-    return (WatchingSessionChange) message.get("payload");
+  private WatchingSessionChange capturePublishedChange(UUID contentId) {
+    ArgumentCaptor<WatchingSessionChange> captor = ArgumentCaptor.forClass(WatchingSessionChange.class);
+    then(publishWatchingSessionEventPort).should().publish(eq(contentId), captor.capture());
+    return captor.getValue();
   }
 
   private ContentSummary makeContent(UUID contentId) {
@@ -109,7 +95,6 @@ class WatchingSessionServiceTest {
       given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
       given(loadContentPort.getContent(contentId)).willReturn(content);
       given(watchingSessionRepository.countByContentId(contentId)).willReturn(3L);
-      String jsonPayload = stubJsonPayload();
 
       WatchingSessionDto dto = watchingSessionService.enter(watcherId, contentId);
 
@@ -118,7 +103,7 @@ class WatchingSessionServiceTest {
       assertThat(dto.watcher()).isEqualTo(user);
       assertThat(dto.content()).isEqualTo(content);
 
-      WatchingSessionChange change = capturePublishedChange(contentId, jsonPayload);
+      WatchingSessionChange change = capturePublishedChange(contentId);
       assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.JOIN);
       assertThat(change.watchingSession()).isEqualTo(dto);
       assertThat(change.watcherCount()).isEqualTo(3L);
@@ -150,13 +135,12 @@ class WatchingSessionServiceTest {
       given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
       given(loadContentPort.getContent(contentId)).willReturn(content);
       given(watchingSessionRepository.countByContentId(contentId)).willReturn(1L);
-      String jsonPayload = stubJsonPayload();
 
       watchingSessionService.leave(watcherId);
 
       then(watchingSessionRepository).should().leave(watcherId);
 
-      WatchingSessionChange change = capturePublishedChange(contentId, jsonPayload);
+      WatchingSessionChange change = capturePublishedChange(contentId);
       assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
       assertThat(change.watchingSession().watcher()).isEqualTo(user);
       assertThat(change.watcherCount()).isEqualTo(1L);
@@ -194,11 +178,10 @@ class WatchingSessionServiceTest {
       given(loadUserPort.getUserSummary(watcherId)).willReturn(user);
       given(loadContentPort.getContent(contentId)).willReturn(content);
       given(watchingSessionRepository.countByContentId(contentId)).willReturn(1L);
-      String jsonPayload = stubJsonPayload();
 
       watchingSessionService.leaveIfCurrent(watcherId, session.id());
 
-      WatchingSessionChange change = capturePublishedChange(contentId, jsonPayload);
+      WatchingSessionChange change = capturePublishedChange(contentId);
       assertThat(change.type()).isEqualTo(WatchingSessionChange.ChangeType.LEAVE);
     }
 
@@ -213,7 +196,7 @@ class WatchingSessionServiceTest {
 
       watchingSessionService.leaveIfCurrent(watcherId, staleSessionId);
 
-      then(redisTemplate).shouldHaveNoInteractions();
+      then(publishWatchingSessionEventPort).shouldHaveNoInteractions();
       then(loadUserPort).shouldHaveNoInteractions();
     }
   }
