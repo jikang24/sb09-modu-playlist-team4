@@ -50,4 +50,16 @@ public class LocalS3Service implements S3Service {
             log.error("[로컬] 파일 삭제 실패", e);
         }
     }
+
+    // 로컬 저장 경로는 별도 key 개념이 없어 그대로 반환
+    @Override
+    public String extractKey(String fileUrl) {
+        return fileUrl;
+    }
+
+    // 정적 리소스로 직접 서빙되므로 서명 없이 그대로 반환
+    @Override
+    public String getPresignedUrl(String key) {
+        return key;
+    }
 }
