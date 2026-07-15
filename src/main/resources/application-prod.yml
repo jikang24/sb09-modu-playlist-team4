@@ -48,4 +48,10 @@ spring:
 
   elasticsearch:
     uris: ${OPENSEARCH_URI}
-
+app:
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://13.125.155.102:8080}
+  cookie:
+    secure: true
+  cors:
+    allowed-origins: https://mopl-codeit.link

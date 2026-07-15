@@ -43,6 +43,12 @@ spring:
   elasticsearch:
     uris: ${OPENSEARCH_URI:http://localhost:9200}
 
+app:
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:8080}
+  cookie:
+    secure: false
+
 mopl:
   jwt:
     secret: ${JWT_SECRET:mopl-local-dev-jwt-secret-key-at-least-32-bytes}
