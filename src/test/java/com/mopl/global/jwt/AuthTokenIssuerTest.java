@@ -112,3 +112,4 @@ class AuthTokenIssuerTest {
         assertThat(setCookieHeader).contains("Path=/");
     }
 }
+
