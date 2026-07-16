@@ -11,13 +11,17 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 
@@ -27,6 +31,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AwsS3Service implements S3Service {
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
@@ -35,6 +40,7 @@ public class AwsS3Service implements S3Service {
     private String region;
 
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png");
+    private static final Duration PRESIGN_DURATION = Duration.ofHours(2);
 
 
     @Override
@@ -65,7 +71,7 @@ public class AwsS3Service implements S3Service {
     public void delete(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) return;
         try {
-            String key = extractKeyFromUrl(fileUrl);
+            String key = extractKey(fileUrl);
             s3Client.deleteObject(DeleteObjectRequest.builder()
                     .bucket(bucket).key(key).build());
             log.info("S3 삭제 완료: {}", key);
@@ -73,6 +79,28 @@ public class AwsS3Service implements S3Service {
             log.error("S3 삭제 실패", e);
             throw new MoplException(ErrorCode.S3_DELETE_FAILED);
         }
+    }
+
+    @Override
+    public String extractKey(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) return fileUrl;
+        String prefix = "amazonaws.com/";
+        int idx = fileUrl.indexOf(prefix);
+        if (idx == -1) throw new IllegalArgumentException("Invalid S3 URL: " + fileUrl);
+        return fileUrl.substring(idx + prefix.length());
+    }
+
+    @Override
+    public String getPresignedUrl(String key) {
+        if (key == null || key.isBlank()) return key;
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(PRESIGN_DURATION)
+                .getObjectRequest(GetObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(key)
+                        .build())
+                .build();
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
     }
 
     // 허용 확장자 검증 후 충돌 방지용 UUID 파일명 반환
@@ -95,14 +123,6 @@ public class AwsS3Service implements S3Service {
     //파일의 공개 URL 생성
     private String buildUrl(String key) {
         return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
-    }
-
-    //공개 URL에서 S3 key만 추출
-    private String extractKeyFromUrl(String url) {
-        String prefix = "amazonaws.com/";
-        int idx = url.indexOf(prefix);
-        if (idx == -1) throw new IllegalArgumentException("올바르지 않은 S3 URL: " + url);
-        return url.substring(idx + prefix.length());
     }
 
     // ImageIO로 실제 바이트 디코딩 시도 — null이면 이미지가 아닌 파일
