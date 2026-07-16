@@ -6,6 +6,7 @@ import com.mopl.domain.dm.adapter.in.websocket.dto.DirectMessageSendRequest;
 import com.mopl.domain.dm.adapter.in.web.mapper.DirectMessageWebMapper;
 import com.mopl.domain.dm.application.port.in.SendDirectMessageUseCase;
 import com.mopl.domain.dm.domain.DirectMessage;
+import com.mopl.domain.notification.sse.SseNotificationSender;
 import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.DirectMessageDto;
 import com.mopl.global.event.NotificationEventPublisher;
@@ -39,6 +40,8 @@ public class DirectMessageWebSocketHandler {
   private final ObjectMapper objectMapper;
   private final NotificationEventPublisher notificationEventPublisher;
   private final SimpMessagingTemplate messagingTemplate;
+  private final DirectMessageConversationPresenceListener presenceListener;
+  private final SseNotificationSender sseNotificationSender;
 
   @MessageMapping("/conversations/{conversationId}/direct-messages")
   public void sendMessage(
@@ -65,17 +68,28 @@ public class DirectMessageWebSocketHandler {
 
     DirectMessageDto dto = directMessageWebMapper.toDto(directMessage);
 
-    try {
-      Map<String, Object> message = new HashMap<>();
-      message.put("destination", "conversations/" + conversationId + "/direct-messages");
-      message.put("payload", dto);
 
-      String jsonPayload = objectMapper.writeValueAsString(message);
-      redisTemplate.convertAndSend(RedisConfig.DM_CHANNEL, jsonPayload);
-      log.info("Redis 발행 완료 - conversationId: {}", conversationId);
-    } catch (Exception e) {
+    if (presenceListener.isActive(receiverId, conversationId)) {
+      try {
+        Map<String, Object> message = new HashMap<>();
+        message.put("destination", "conversations/" + conversationId + "/direct-messages");
+        message.put("payload", dto);
 
-      log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);
+        String jsonPayload = objectMapper.writeValueAsString(message);
+        redisTemplate.convertAndSend(RedisConfig.DM_CHANNEL, jsonPayload);
+        log.info("Redis 발행 완료 - conversationId: {}", conversationId);
+      } catch (Exception e) {
+        log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);
+      }
+    } else {
+      try {
+        sseNotificationSender.sendDirectMessage(receiverId, dto);
+        log.info("SSE direct-messages 발행 완료 - conversationId: {}, receiverId: {}",
+            conversationId, receiverId);
+      } catch (Exception e) {
+        log.error("SSE direct-messages 발행 실패 - conversationId: {}, receiverId: {}",
+            conversationId, receiverId, e);
+      }
     }
 
     notificationEventPublisher.publish(new NotificationRequestedEvent(
