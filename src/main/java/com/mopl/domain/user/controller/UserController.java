@@ -65,10 +65,10 @@ public class UserController {
             throw new MoplException(ErrorCode.FORBIDDEN);
         }
 
-        String imageUrl = (image != null && !image.isEmpty())
-                ? s3Service.upload(image)
+        String imageKey = (image != null && !image.isEmpty())
+                ? s3Service.extractKey(s3Service.upload(image))
                 : null;
-        UserDto userDto = userService.updateProfile(userId, request, imageUrl);
+        UserDto userDto = userService.updateProfile(userId, request, imageKey);
         return ResponseEntity.status(HttpStatus.OK).body(userDto);
     }
 

@@ -10,6 +10,7 @@ import com.mopl.domain.user.repository.UserRepository;
 import com.mopl.global.dto.SortDirection;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,6 +52,8 @@ class UserServiceTest {
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private SocialAccountRepository socialAccountRepository;
+    @Mock
+    private S3Service s3Service;
 
     private UserServiceImpl userService;
 
@@ -60,7 +63,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl(userRepository, userMapper, passwordEncoder, eventPublisher, socialAccountRepository);
+        userService = new UserServiceImpl(userRepository, userMapper, passwordEncoder, eventPublisher, socialAccountRepository, s3Service);
 
         userId = UUID.randomUUID();
         user = User.builder()

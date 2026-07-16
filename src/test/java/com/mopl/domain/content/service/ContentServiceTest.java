@@ -112,6 +112,8 @@ class ContentServiceTest {
       MultipartFile thumbnail = mock(MultipartFile.class);
 
       given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/thumb.jpg");
+      given(s3Service.extractKey("https://s3.example.com/thumb.jpg")).willReturn("thumb.jpg");
+      given(s3Service.getPresignedUrl("thumb.jpg")).willReturn("https://s3.example.com/thumb.jpg");
       given(contentRepository.save(any(Content.class)))
           .willAnswer(invocation -> invocation.getArgument(0));
 
@@ -161,6 +163,8 @@ class ContentServiceTest {
       MultipartFile thumbnail = mock(MultipartFile.class);
       given(thumbnail.isEmpty()).willReturn(false);
       given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/new-thumb.jpg");
+      given(s3Service.extractKey("https://s3.example.com/new-thumb.jpg")).willReturn("new-thumb.jpg");
+      given(s3Service.getPresignedUrl("new-thumb.jpg")).willReturn("https://s3.example.com/new-thumb.jpg");
 
       given(contentRepository.findById(id)).willReturn(Optional.of(existing));
       given(contentRepository.save(any(Content.class)))

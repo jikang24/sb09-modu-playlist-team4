@@ -48,7 +48,7 @@ public class ContentService implements ContentUseCase {
   @Transactional
   public ContentResponse createContent(ContentCreateRequest request, MultipartFile thumbnail) {
 
-    String thumbnailUrl = s3Service.upload(thumbnail);
+    String thumbnailKey = s3Service.extractKey(s3Service.upload(thumbnail));
 
     // 관리자가 직접 등록하는 콘텐츠는 TMDB 등 외부 연동 ID가 없으므로 서버에서 고유값 생성
     String externalId = Content.MANUAL_EXTERNAL_ID_PREFIX + UUID.randomUUID();
@@ -59,13 +59,14 @@ public class ContentService implements ContentUseCase {
         externalId,
         request.title(),
         request.description(),
-        thumbnailUrl,
+        thumbnailKey,
         request.tags()
     );
 
     Content saved = contentRepository.save(content);
     log.info("[Content] 등록 완료 - id: {}, type: {}", saved.getId(), saved.getType());
-    return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()));
+    return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()),
+        resolveThumbnailUrl(saved.getThumbnailUrl()));
   }
 
   @Override
@@ -74,17 +75,18 @@ public class ContentService implements ContentUseCase {
       MultipartFile thumbnail) {
     Content content = findContentOrThrow(id);
 
-    String thumbnailUrl = content.getThumbnailUrl();
+    String thumbnailKey = content.getThumbnailUrl();
     if (thumbnail != null && !thumbnail.isEmpty()) {
-      thumbnailUrl = s3Service.upload(thumbnail);
+      thumbnailKey = s3Service.extractKey(s3Service.upload(thumbnail));
     }
 
     // 순수 도메인 메서드로 상태 변경
-    content.update(request.type(), request.title(), request.description(), thumbnailUrl, request.tags());
+    content.update(request.type(), request.title(), request.description(), thumbnailKey, request.tags());
 
     Content saved = contentRepository.save(content);
     log.info("[Content] 수정 완료 - id: {}", id);
-    return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()));
+    return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()),
+        resolveThumbnailUrl(saved.getThumbnailUrl()));
   }
 
   @Override
@@ -100,7 +102,8 @@ public class ContentService implements ContentUseCase {
   @Override
   public ContentResponse getContent(UUID id) {
     Content content = findContentOrThrow(id);
-    return ContentResponse.from(content, loadWatcherCountPort.countByContentId(id));
+    return ContentResponse.from(content, loadWatcherCountPort.countByContentId(id),
+        resolveThumbnailUrl(content.getThumbnailUrl()));
   }
 
   @Override
@@ -135,7 +138,8 @@ public class ContentService implements ContentUseCase {
     Map<UUID, Long> watcherCounts = loadWatcherCountPort.countByContentIds(contentIds);
 
     List<ContentResponse> data = pageData.stream()
-        .map(c -> ContentResponse.from(c, watcherCounts.getOrDefault(c.getId(), 0L)))
+        .map(c -> ContentResponse.from(c, watcherCounts.getOrDefault(c.getId(), 0L),
+            resolveThumbnailUrl(c.getThumbnailUrl())))
         .toList();
 
     return new CursorPageResponse<>(
@@ -157,5 +161,14 @@ public class ContentService implements ContentUseCase {
   private Content findContentOrThrow(UUID id) {
     return contentRepository.findById(id)
         .orElseThrow(() -> new MoplException(ErrorCode.CONTENT_NOT_FOUND));
+  }
+
+  // 저장된 값에 스킴("://")이 없으면 우리가 업로드한 S3 key이므로 presigned URL로 치환하고,
+  // 스킴이 있으면(TMDB 등 외부 썸네일 URL) 그대로 반환한다.
+  private String resolveThumbnailUrl(String stored) {
+    if (stored == null || stored.isBlank() || stored.contains("://")) {
+      return stored;
+    }
+    return s3Service.getPresignedUrl(stored);
   }
 }
