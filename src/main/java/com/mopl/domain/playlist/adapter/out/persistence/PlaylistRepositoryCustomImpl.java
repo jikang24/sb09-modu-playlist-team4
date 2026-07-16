@@ -13,6 +13,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -50,6 +51,20 @@ public class PlaylistRepositoryCustomImpl implements PlaylistRepositoryCustom {
         .having(subscribeCountCursor)
         .orderBy(primaryOrder, idOrder)
         .limit(condition.limit() + 1L)
+        .fetch();
+  }
+
+  @Override
+  public List<PlaylistContentJpaEntity> findContentsByPlaylistIds(List<UUID> playlistIds) {
+    if (playlistIds == null || playlistIds.isEmpty()) {
+      return List.of();
+    }
+    QPlaylistContentJpaEntity pc = QPlaylistContentJpaEntity.playlistContentJpaEntity;
+
+    return queryFactory
+        .selectFrom(pc)
+        .where(pc.playlist.id.in(playlistIds))
+        .orderBy(pc.position.asc())
         .fetch();
   }
 
