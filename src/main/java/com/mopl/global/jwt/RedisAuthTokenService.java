@@ -41,7 +41,12 @@ public class RedisAuthTokenService implements AuthTokenService {
 
   @Override
   public boolean isBlacklistedJti(String jti) {
-    return Boolean.TRUE.equals(redisTemplate.hasKey(blacklistKey(jti)));
+    try {
+      return Boolean.TRUE.equals(redisTemplate.hasKey(blacklistKey(jti)));
+    } catch (Exception e) {
+      log.error("Redis 블랙리스트 조회 실패", e);
+      return false;  // 에러 나면 "블랙리스트 아님"으로 처리하고 로그인 계속 진행
+    }
   }
 
   @Override
