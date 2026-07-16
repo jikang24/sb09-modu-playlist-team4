@@ -37,12 +37,16 @@ public class ContentSyncJobConfig {
   private final ContentSyncService contentSyncService;
 
   // TMDB popular 엔드포인트는 페이지당 20건, 최대 500페이지(=10,000건)까지 제공
-  // 영화 250페이지(5,000건) + TV 250페이지(5,000건) = 총 10,000건 목표
-  private static final int MOVIE_SYNC_PAGE_COUNT = 250;
-  private static final int TV_SYNC_PAGE_COUNT = 250;
+  // 원래 목표는 영화 250페이지(5,000건) + TV 250페이지(5,000건) = 총 10,000건이었으나,
+  // ECS 배포 직후 헬스체크 실패 이슈로 일시적으로 절반(125+125=5,000건)까지 낮춰둠.
+  // upsert라 기존 데이터가 지워지진 않으니, 안정화되면 다시 250/250으로 복원하면 됨.
+  private static final int MOVIE_SYNC_PAGE_COUNT = 125;
+  private static final int TV_SYNC_PAGE_COUNT = 125;
 
-  // 페이지 조회를 동시에 몇 개까지 보낼지 (TMDB rate limit 여유를 두기 위해 과도하게 높이지 않음)
-  private static final int PAGE_FETCH_CONCURRENCY = 8;
+  // 페이지 조회를 동시에 몇 개까지 보낼지 (TMDB rate limit 여유 + ECS 배포 직후 헬스체크 실패를
+  // 유발하던 DB 커넥션 풀 경합 완화를 위해 8에서 낮춤. ShedLock의 lockAtMostFor(30분) 안에는
+  // 최악의 재시도 케이스로도 충분히 여유 있게 끝남)
+  private static final int PAGE_FETCH_CONCURRENCY = 4;
 
   @Bean
   public Job contentSyncJob() {
