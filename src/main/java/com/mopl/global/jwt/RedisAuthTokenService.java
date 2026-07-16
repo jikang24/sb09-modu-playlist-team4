@@ -111,6 +111,19 @@ public class RedisAuthTokenService implements AuthTokenService {
     redisTemplate.delete(accessJtiKey(userId));
   }
 
+  @Override
+  public void forceLogoutByUserId(UUID userId) {
+    findAccessJtiByUserId(userId).ifPresent(entry -> {
+      Duration remaining = Duration.between(Instant.now(), entry.expiresAt());
+      if (!remaining.isNegative()) {
+        blacklistJti(entry.jti(), remaining);
+      }
+    });
+    deleteAccessJtiByUserId(userId);
+    deleteRefreshTokenByUserId(userId);
+    log.info("강제 로그아웃 처리 - userId: {}", userId);
+  }
+
   private String blacklistKey(String jti) {
     return BLACKLIST_PREFIX + jti;
   }
