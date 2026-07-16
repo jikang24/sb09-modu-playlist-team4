@@ -86,7 +86,7 @@ public class AwsS3Service implements S3Service {
         if (fileUrl == null || fileUrl.isBlank()) return fileUrl;
         String prefix = "amazonaws.com/";
         int idx = fileUrl.indexOf(prefix);
-        if (idx == -1) return fileUrl;
+        if (idx == -1) throw new IllegalArgumentException("Invalid S3 URL: " + fileUrl);
         return fileUrl.substring(idx + prefix.length());
     }
 
