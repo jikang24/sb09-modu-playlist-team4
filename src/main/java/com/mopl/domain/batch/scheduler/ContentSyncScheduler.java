@@ -1,13 +1,18 @@
 package com.mopl.domain.batch.scheduler;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobInstance;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
@@ -36,6 +41,18 @@ public class ContentSyncScheduler {
   private final JobLauncher jobLauncher;
   private final JobExplorer jobExplorer;
   private final Job contentSyncJob;
+  private final MeterRegistry meterRegistry;
+
+  /** 한 번도 성공한 적 없을 때의 게이지 값 - Prometheus 등에서 "값 없음"으로 다뤄지는 관례를 따름 */
+  private static final double NEVER_SUCCEEDED = Double.NaN;
+
+  @PostConstruct
+  void registerLastSuccessAgeGauge() {
+    Gauge.builder("content.sync.last_success.age_seconds", this,
+            ContentSyncScheduler::secondsSinceLastSuccess)
+        .description("contentSyncJob이 마지막으로 성공한 뒤 경과한 시간(초)")
+        .register(meterRegistry);
+  }
 
   //최초 헬스케어 시간을 위해 1분 지연, 30분마다 스케줄 체크
   @Scheduled(initialDelayString = "PT1M", fixedRateString = "PT30M")
@@ -63,13 +80,27 @@ public class ContentSyncScheduler {
   /** 최근 실행이 하나도 없는 경우(최초 기동 등)도 "성공 기록 없음" → 실행 대상으로 자연스럽게 처리됨 */
   private boolean hasRecentSuccessfulRun() {
     LocalDateTime threshold = LocalDateTime.now().minus(SUCCESS_FRESHNESS);
+    return findLastSuccessfulEndTime()
+        .map(endTime -> endTime.isAfter(threshold))
+        .orElse(false);
+  }
+
+  /** 모니터링용 게이지 값 - 마지막 성공 이후 경과 초 (한 번도 성공한 적 없으면 NaN) */
+  private double secondsSinceLastSuccess() {
+    return findLastSuccessfulEndTime()
+        .map(endTime -> (double) Duration.between(endTime, LocalDateTime.now()).getSeconds())
+        .orElse(NEVER_SUCCEEDED);
+  }
+
+  private Optional<LocalDateTime> findLastSuccessfulEndTime() {
     List<JobInstance> recentInstances =
         jobExplorer.getJobInstances(contentSyncJob.getName(), 0, LOOKBACK_INSTANCE_COUNT);
 
     return recentInstances.stream()
         .flatMap(instance -> jobExplorer.getJobExecutions(instance).stream())
-        .anyMatch(execution -> execution.getStatus() == BatchStatus.COMPLETED
-            && execution.getEndTime() != null
-            && execution.getEndTime().isAfter(threshold));
+        .filter(execution -> execution.getStatus() == BatchStatus.COMPLETED
+            && execution.getEndTime() != null)
+        .map(JobExecution::getEndTime)
+        .max(LocalDateTime::compareTo);
   }
 }

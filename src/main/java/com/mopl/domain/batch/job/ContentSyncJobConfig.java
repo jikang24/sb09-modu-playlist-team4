@@ -1,6 +1,7 @@
 package com.mopl.domain.batch.job;
 
 import com.mopl.domain.batch.service.ContentSyncService;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -35,6 +36,7 @@ public class ContentSyncJobConfig {
   private final JobRepository jobRepository;
   private final PlatformTransactionManager transactionManager;
   private final ContentSyncService contentSyncService;
+  private final MeterRegistry meterRegistry;
 
   // TMDB popular 엔드포인트는 페이지당 20건, 최대 500페이지(=10,000건)까지 제공
   // 원래 목표는 영화 250페이지(5,000건) + TV 250페이지(5,000건) = 총 10,000건이었으나,
@@ -112,6 +114,7 @@ public class ContentSyncJobConfig {
                   // 이 페이지만 건너뛰고 다음 배치 회차에서 자연히 재수집하면서 전체 Step은 살린다.
                   log.warn("[Batch] {} {}페이지 저장 중 DB 충돌 - 스킵: {}",
                       typeName, currentPage, e.getMessage());
+                  meterRegistry.counter("content.sync.page.skipped", "step", stepName).increment();
                   return 0;
                 }
               }));
