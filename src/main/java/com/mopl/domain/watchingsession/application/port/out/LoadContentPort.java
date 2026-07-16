@@ -1,4 +1,4 @@
-package com.mopl.domain.watchingsession.adapter.port;
+package com.mopl.domain.watchingsession.application.port.out;
 
 import com.mopl.global.dto.ContentSummary;
 import java.util.UUID;

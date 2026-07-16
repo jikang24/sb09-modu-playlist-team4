@@ -1,8 +1,8 @@
 package com.mopl.domain.watchingsession.controller;
 
+import com.mopl.domain.watchingsession.application.port.in.WatchingSessionUseCase;
 import com.mopl.domain.watchingsession.dto.WatchingSessionDto;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
-import com.mopl.domain.watchingsession.service.WatchingSessionService;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.JwtClaims;
@@ -32,13 +32,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class WatchingSessionController {
 
-  private final WatchingSessionService watchingSessionService;
+  private final WatchingSessionUseCase watchingSessionUseCase;
 
   /** 특정 사용자가 지금 보고 있는 세션 조회 (안 보고 있으면 null) */
   @GetMapping("/api/users/{watcherId}/watching-sessions")
   public ResponseEntity<WatchingSessionDto> getByWatcher(@PathVariable UUID watcherId) {
     log.info("시청세션 사용자 조회 - watcherId: {}", watcherId);
-    return ResponseEntity.ok(watchingSessionService.getByWatcherId(watcherId));
+    return ResponseEntity.ok(watchingSessionUseCase.getByWatcherId(watcherId));
   }
 
   /** 시청 퇴장 - 본인 세션만 종료 가능 */
@@ -47,7 +47,7 @@ public class WatchingSessionController {
       @PathVariable UUID watcherId,
       @AuthenticationPrincipal JwtClaims claims) {
     validateSelf(watcherId, claims);
-    watchingSessionService.leave(watcherId);
+    watchingSessionUseCase.leave(watcherId);
     log.info("시청세션 퇴장 - watcherId :{}", watcherId);
     return ResponseEntity.noContent().build();
   }
@@ -62,7 +62,7 @@ public class WatchingSessionController {
         contentId, queryParams.cursor(), queryParams.idAfter(),
         queryParams.limit(), queryParams.sortBy(), queryParams.sortDirection());
     log.info("특정 콘텐츠 시청 세션 목록 - contentId : {}", contentId);
-    return ResponseEntity.ok(watchingSessionService.getByContentId(request));
+    return ResponseEntity.ok(watchingSessionUseCase.getByContentId(request));
   }
 
   /** 시청 입장 - 요청자 본인이 watcher가 됨 */
@@ -70,7 +70,7 @@ public class WatchingSessionController {
   public ResponseEntity<WatchingSessionDto> enter(
       @PathVariable UUID contentId,
       @AuthenticationPrincipal JwtClaims claims) {
-    WatchingSessionDto dto = watchingSessionService.enter(claims.getUserId(), contentId);
+    WatchingSessionDto dto = watchingSessionUseCase.enter(claims.getUserId(), contentId);
     log.info("시청세션 입장 콘텐츠 - contentId : {}", contentId);
     return ResponseEntity.status(HttpStatus.CREATED).body(dto);
   }
