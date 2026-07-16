@@ -323,6 +323,24 @@ class ContentRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("[findAllByCondition] tags를 벌크 조회해 N+1 없이 쿼리 2번(content 1 + tags 1)만 발생한다")
+    void findAll_doesNotCauseNPlusOneForTags() {
+        org.hibernate.stat.Statistics statistics = em.getEntityManagerFactory()
+                .unwrap(org.hibernate.SessionFactory.class)
+                .getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        ContentSearchRequest req = request(null, null, null, null, null, 10, "createdAt", "DESCENDING");
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        // content 목록 조회 1번 + tags 벌크 조회 1번 = 총 2번 (content 건수만큼 늘어나면 N+1)
+        assertThat(statistics.getQueryExecutionCount()).isEqualTo(2);
+        assertThat(result).hasSize(3);
+        assertThat(result).allSatisfy(c -> assertThat(c.getTags()).isNotEmpty());
+    }
+
+    @Test
     @DisplayName("[findAllByCondition] typeEqual=MOVIE - MOVIE 타입만 반환")
     void findAll_filterByType() {
         ContentSearchRequest req = request(ContentType.MOVIE, null, null, null, null, 10, "createdAt", "DESCENDING");
