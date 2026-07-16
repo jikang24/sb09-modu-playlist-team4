@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-interface ContentJpaRepository extends JpaRepository<ContentJpaEntity, UUID> {
+public interface ContentJpaRepository extends JpaRepository<ContentJpaEntity, UUID> {
 
   Optional<ContentJpaEntity> findByTypeAndExternalId(ContentType type, String externalId);
 

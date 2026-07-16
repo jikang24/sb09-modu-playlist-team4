@@ -1,6 +1,12 @@
 spring:
   application:
     name: mopl
+
+  datasource:
+    hikari:
+      maximum-pool-size: 100
+      connection-timeout: 30000
+
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   mail:
@@ -37,8 +43,8 @@ spring:
 mopl:
   jwt:
     secret: ${JWT_SECRET}
-    access-token-expiry-ms: 1800000
-    refresh-token-expiry-ms: 604800000
+    access-token-expiry-ms: 10000
+    refresh-token-expiry-ms: 30000
   tmdb:
     access-token: ${TMDB_ACCESS_TOKEN}
     base-url: https://api.themoviedb.org/3
