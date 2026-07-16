@@ -65,8 +65,7 @@ public class AuthService implements AuthUseCase {
 
     @Override
     public RefreshResult refresh(String refreshToken) {
-        UUID userId = authTokenService.findUserIdByRefreshToken(refreshToken)
-                .orElseThrow(() -> new MoplException(ErrorCode.REFRESH_TOKEN_NOT_FOUND));
+        UUID userId = findUserIdByRefreshToken(refreshToken);
 
         UserAuthInfo user = userAuthPort.findById(userId)
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
@@ -75,20 +74,35 @@ public class AuthService implements AuthUseCase {
             throw new MoplException(ErrorCode.ACCOUNT_LOCKED);
         }
 
-        authTokenService.deleteRefreshToken(refreshToken);
-
         String newAccessToken = jwtProvider.generateAccessToken(user.id(), user.email(), user.role().name());
         String newRefreshToken = jwtProvider.generateRefreshToken(user.id(), user.email(), user.role().name());
-
         Duration refreshTtl = jwtProvider.calculateTtl(newRefreshToken);
-        authTokenService.saveRefreshToken(user.id(), newRefreshToken, refreshTtl);
-
         JwtClaims accessClaims = jwtProvider.parse(newAccessToken);
-        authTokenService.saveAccessJti(user.id(), accessClaims.getTokenId(), jwtProvider.getExpiration(newAccessToken));
+
+        try {
+            authTokenService.deleteRefreshToken(refreshToken);
+            authTokenService.saveRefreshToken(user.id(), newRefreshToken, refreshTtl);
+            authTokenService.saveAccessJti(user.id(), accessClaims.getTokenId(), jwtProvider.getExpiration(newAccessToken));
+        } catch (Exception e) {
+            log.error("토큰 재발급 중 인증 저장소 오류 - userId: {}", userId, e);
+            throw new MoplException(ErrorCode.AUTH_STORAGE_UNAVAILABLE);
+        }
 
         log.info("토큰 재발급 완료 - userId: {}", userId);
         JwtDto jwtDto = new JwtDto(toUserDto(user), newAccessToken);
         return new RefreshResult(jwtDto, newRefreshToken, refreshTtl);
+    }
+
+    private UUID findUserIdByRefreshToken(String refreshToken) {
+        try {
+            return authTokenService.findUserIdByRefreshToken(refreshToken)
+                    .orElseThrow(() -> new MoplException(ErrorCode.REFRESH_TOKEN_NOT_FOUND));
+        } catch (MoplException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("리프레시 토큰 조회 중 인증 저장소 오류", e);
+            throw new MoplException(ErrorCode.AUTH_STORAGE_UNAVAILABLE);
+        }
     }
 
     private String generateTempPassword() {
