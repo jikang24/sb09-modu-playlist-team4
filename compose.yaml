@@ -10,6 +10,7 @@ services:
 
     depends_on:
       - app
+
   app:
     build: .
     container_name: mopl-api
@@ -19,8 +20,7 @@ services:
 
     expose:
       - "8080"
-    ports:
-      - "8080:8080"
+
     restart: unless-stopped
 
     healthcheck:
