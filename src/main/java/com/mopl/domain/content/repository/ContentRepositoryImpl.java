@@ -6,6 +6,7 @@ import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.infrastructure.ContentJpaEntity;
 import com.mopl.domain.content.infrastructure.ContentMapper;
+import com.mopl.domain.content.infrastructure.ContentTagJpaEntity;
 import com.mopl.domain.content.infrastructure.QContentJpaEntity;
 import com.mopl.domain.content.infrastructure.QContentTagJpaEntity;
 import com.mopl.global.exception.ErrorCode;
@@ -19,12 +20,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -115,7 +118,31 @@ public class ContentRepositoryImpl implements ContentRepository {
         .limit(request.limit() + 1L) // limit+1개 조회 → hasNext 판단용
         .fetch();
 
-    return entities.stream().map(contentMapper::toDomain).toList();
+    // content마다 tags를 개별 조회하지 않도록, 페이지 안 content 전체의 tags를
+    // 한 번에 조회해 contentId 기준으로 묶어둔다 (N+1 방지)
+    List<UUID> contentIds = entities.stream().map(ContentJpaEntity::getId).toList();
+    Map<UUID, List<String>> tagsByContentId = findTagsByContentIds(contentIds);
+
+    return entities.stream()
+        .map(e -> contentMapper.toDomain(e, tagsByContentId.getOrDefault(e.getId(), List.of())))
+        .toList();
+  }
+
+  /** contentIds에 속한 태그를 한 번에 조회해 contentId 기준으로 묶는다 (N+1 방지) */
+  private Map<UUID, List<String>> findTagsByContentIds(List<UUID> contentIds) {
+    if (contentIds.isEmpty()) {
+      return Map.of();
+    }
+    QContentTagJpaEntity tag = QContentTagJpaEntity.contentTagJpaEntity;
+
+    return queryFactory.selectFrom(tag)
+        .where(tag.content.id.in(contentIds))
+        .fetch()
+        .stream()
+        .collect(Collectors.groupingBy(
+            t -> t.getContent().getId(),
+            Collectors.mapping(ContentTagJpaEntity::getTag, Collectors.toList())
+        ));
   }
 
   @Override
