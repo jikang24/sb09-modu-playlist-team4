@@ -2,7 +2,7 @@ package com.mopl.domain.watchingsession.adapter.user;
 
 import com.mopl.domain.user.dto.UserDto;
 import com.mopl.domain.user.service.UserService;
-import com.mopl.domain.watchingsession.adapter.port.LoadUserPort;
+import com.mopl.domain.watchingsession.application.port.out.LoadUserPort;
 import com.mopl.global.dto.UserSummary;
 import java.util.Collection;
 import java.util.Map;

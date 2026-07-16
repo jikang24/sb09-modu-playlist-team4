@@ -6,8 +6,8 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
+import com.mopl.domain.watchingsession.application.port.in.WatchingSessionUseCase;
 import com.mopl.domain.watchingsession.dto.WatchingSessionDto;
-import com.mopl.domain.watchingsession.service.WatchingSessionService;
 import com.mopl.global.jwt.JwtClaims;
 import java.time.Instant;
 import java.util.HashMap;
@@ -35,7 +35,7 @@ class WatchingSessionPresenceListenerTest {
   private WatchingSessionPresenceListener listener;
 
   @Mock
-  private WatchingSessionService watchingSessionService;
+  private WatchingSessionUseCase watchingSessionUseCase;
 
   private final UUID watcherId = UUID.randomUUID();
   private final UUID contentId = UUID.randomUUID();
@@ -76,11 +76,11 @@ class WatchingSessionPresenceListenerTest {
   void handleSubscribe_watchTopic_enters() {
     StompHeaderAccessor accessor = createAccessor(
         StompCommand.SUBSCRIBE, "/sub/contents/" + contentId + "/watch", "session-1", "sub-1", claims);
-    given(watchingSessionService.enter(watcherId, contentId)).willReturn(dto(UUID.randomUUID()));
+    given(watchingSessionUseCase.enter(watcherId, contentId)).willReturn(dto(UUID.randomUUID()));
 
     listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(accessor)));
 
-    then(watchingSessionService).should().enter(watcherId, contentId);
+    then(watchingSessionUseCase).should().enter(watcherId, contentId);
   }
 
   @Test
@@ -91,7 +91,7 @@ class WatchingSessionPresenceListenerTest {
 
     listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(accessor)));
 
-    then(watchingSessionService).should(never()).enter(any(), any());
+    then(watchingSessionUseCase).should(never()).enter(any(), any());
   }
 
   @Test
@@ -102,7 +102,7 @@ class WatchingSessionPresenceListenerTest {
 
     listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(accessor)));
 
-    then(watchingSessionService).should(never()).enter(any(), any());
+    then(watchingSessionUseCase).should(never()).enter(any(), any());
   }
 
   @Test
@@ -111,7 +111,7 @@ class WatchingSessionPresenceListenerTest {
     UUID watchingSessionId = UUID.randomUUID();
     StompHeaderAccessor subscribe = createAccessor(
         StompCommand.SUBSCRIBE, "/sub/contents/" + contentId + "/watch", "session-1", "sub-1", claims);
-    given(watchingSessionService.enter(watcherId, contentId)).willReturn(dto(watchingSessionId));
+    given(watchingSessionUseCase.enter(watcherId, contentId)).willReturn(dto(watchingSessionId));
     listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(subscribe)));
 
     StompHeaderAccessor unsubscribe = createAccessor(
@@ -119,7 +119,7 @@ class WatchingSessionPresenceListenerTest {
 
     listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, toMessage(unsubscribe)));
 
-    then(watchingSessionService).should().leaveIfCurrent(watcherId, watchingSessionId);
+    then(watchingSessionUseCase).should().leaveIfCurrent(watcherId, watchingSessionId);
   }
 
   @Test
@@ -130,7 +130,7 @@ class WatchingSessionPresenceListenerTest {
 
     listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, toMessage(unsubscribe)));
 
-    then(watchingSessionService).should(never()).leaveIfCurrent(any(), any());
+    then(watchingSessionUseCase).should(never()).leaveIfCurrent(any(), any());
   }
 
   @Test
@@ -139,7 +139,7 @@ class WatchingSessionPresenceListenerTest {
     UUID watchingSessionId = UUID.randomUUID();
     StompHeaderAccessor subscribe = createAccessor(
         StompCommand.SUBSCRIBE, "/sub/contents/" + contentId + "/watch", "session-1", "sub-1", claims);
-    given(watchingSessionService.enter(watcherId, contentId)).willReturn(dto(watchingSessionId));
+    given(watchingSessionUseCase.enter(watcherId, contentId)).willReturn(dto(watchingSessionId));
     listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(subscribe)));
 
     StompHeaderAccessor disconnect = createAccessor(StompCommand.DISCONNECT, null, "session-1", null, claims);
@@ -147,7 +147,7 @@ class WatchingSessionPresenceListenerTest {
     listener.handleDisconnect(
         new SessionDisconnectEvent(this, toMessage(disconnect), "session-1", CloseStatus.NORMAL));
 
-    then(watchingSessionService).should().leaveIfCurrent(watcherId, watchingSessionId);
+    then(watchingSessionUseCase).should().leaveIfCurrent(watcherId, watchingSessionId);
   }
 
   @Test
@@ -158,7 +158,7 @@ class WatchingSessionPresenceListenerTest {
     listener.handleDisconnect(
         new SessionDisconnectEvent(this, toMessage(disconnect), "session-2", CloseStatus.NORMAL));
 
-    then(watchingSessionService).should(never()).leaveIfCurrent(any(), any());
+    then(watchingSessionUseCase).should(never()).leaveIfCurrent(any(), any());
   }
 
   @Test
@@ -167,18 +167,18 @@ class WatchingSessionPresenceListenerTest {
     UUID watchingSessionId = UUID.randomUUID();
     StompHeaderAccessor subscribe = createAccessor(
         StompCommand.SUBSCRIBE, "/sub/contents/" + contentId + "/watch", "session-1", "sub-1", claims);
-    given(watchingSessionService.enter(watcherId, contentId)).willReturn(dto(watchingSessionId));
+    given(watchingSessionUseCase.enter(watcherId, contentId)).willReturn(dto(watchingSessionId));
     listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(subscribe)));
 
     willThrow(new RuntimeException("redis down"))
-        .given(watchingSessionService).leaveIfCurrent(watcherId, watchingSessionId);
+        .given(watchingSessionUseCase).leaveIfCurrent(watcherId, watchingSessionId);
 
     StompHeaderAccessor unsubscribe = createAccessor(
         StompCommand.UNSUBSCRIBE, null, "session-1", "sub-1", claims);
 
     listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, toMessage(unsubscribe)));
 
-    then(watchingSessionService).should().leaveIfCurrent(watcherId, watchingSessionId);
+    then(watchingSessionUseCase).should().leaveIfCurrent(watcherId, watchingSessionId);
   }
 
   @Test
@@ -192,14 +192,14 @@ class WatchingSessionPresenceListenerTest {
     // 탭A: 콘텐츠X 구독 (웹소켓 세션 "tabA")
     StompHeaderAccessor subscribeA = createAccessor(
         StompCommand.SUBSCRIBE, "/sub/contents/" + contentX + "/watch", "tabA", "sub-1", claims);
-    given(watchingSessionService.enter(watcherId, contentX)).willReturn(dto(watchingSessionIdX));
+    given(watchingSessionUseCase.enter(watcherId, contentX)).willReturn(dto(watchingSessionIdX));
     listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(subscribeA)));
 
     // 탭B(같은 유저, 다른 웹소켓 연결): 콘텐츠Y 구독
     // 실제 서버에서는 enter()가 내부적으로 탭A의 Redis 세션을 정리하고 Y로 교체함
     StompHeaderAccessor subscribeB = createAccessor(
         StompCommand.SUBSCRIBE, "/sub/contents/" + contentY + "/watch", "tabB", "sub-1", claims);
-    given(watchingSessionService.enter(watcherId, contentY)).willReturn(dto(watchingSessionIdY));
+    given(watchingSessionUseCase.enter(watcherId, contentY)).willReturn(dto(watchingSessionIdY));
     listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(subscribeB)));
 
     // 탭A가 뒤늦게 구독 해제됨 (네트워크 지연 등으로)
@@ -208,7 +208,7 @@ class WatchingSessionPresenceListenerTest {
     listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, toMessage(unsubscribeA)));
 
     // 탭A는 자기 자신의 세션(X)에 대해서만 조건부 퇴장을 요청해야 하고, 탭B의 세션(Y)은 절대 건드리면 안 된다
-    then(watchingSessionService).should().leaveIfCurrent(watcherId, watchingSessionIdX);
-    then(watchingSessionService).should(never()).leaveIfCurrent(watcherId, watchingSessionIdY);
+    then(watchingSessionUseCase).should().leaveIfCurrent(watcherId, watchingSessionIdX);
+    then(watchingSessionUseCase).should(never()).leaveIfCurrent(watcherId, watchingSessionIdY);
   }
 }

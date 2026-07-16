@@ -14,6 +14,7 @@ import com.mopl.global.event.UserProfileUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -37,6 +38,23 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
     private final SocialAccountRepository socialAccountRepository;
+    private final S3Service s3Service;
+
+    // profileImageUrl에 저장된 값을 응답용 URL로 변환
+    // 값에 스킴("://")이 없으면 우리가 업로드해 저장한 S3 key이므로 presigned URL로 치환하고,
+    // 스킴이 있으면(소셜 로그인 프로필 이미지 등 외부 URL) 그대로 반환한다.
+    private UserDto toDto(User user) {
+        return resolveImageUrl(userMapper.toDto(user));
+    }
+
+    private UserDto resolveImageUrl(UserDto dto) {
+        String stored = dto.profileImageUrl();
+        if (stored == null || stored.isBlank() || stored.contains("://")) {
+            return dto;
+        }
+        String presignedUrl = s3Service.getPresignedUrl(stored);
+        return new UserDto(dto.id(), dto.createdAt(), dto.email(), dto.name(), presignedUrl, dto.role(), dto.locked());
+    }
 
     @Override
     @Transactional
@@ -57,20 +75,20 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        return userMapper.toDto(savedUser);
+        return toDto(savedUser);
     }
 
     @Override
     public UserDto find(UUID userId) {
         return userRepository.findById(userId)
-                .map(userMapper::toDto)
+                .map(this::toDto)
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
     }
 
     @Override
     public List<UserDto> findAllByIds(Collection<UUID> userIds) {
         return userRepository.findAllById(userIds).stream()
-                .map(userMapper::toDto)
+                .map(this::toDto)
                 .toList();
     }
 
@@ -91,7 +109,7 @@ public class UserServiceImpl implements UserService {
         eventPublisher.publishEvent(
                 new UserProfileUpdatedEvent(user.getId(), user.getName(), imageUrl)
         );
-        return userMapper.toDto(user);
+        return toDto(user);
     }
 
     @Override
@@ -105,7 +123,7 @@ public class UserServiceImpl implements UserService {
         if (oldRole != request.role()) {
             eventPublisher.publishEvent(new UserRoleChangedEvent(user.getId(), oldRole, request.role()));
         }
-        return userMapper.toDto(user);
+        return toDto(user);
     }
 
 
@@ -117,7 +135,7 @@ public class UserServiceImpl implements UserService {
 
         user.updatePassword(passwordEncoder.encode(request.password()));
         eventPublisher.publishEvent(new PasswordChangedEvent(userId));
-        return userMapper.toDto(user);
+        return toDto(user);
     }
 
 
@@ -131,7 +149,7 @@ public class UserServiceImpl implements UserService {
         if (request.locked()) {
             eventPublisher.publishEvent(new UserLockedEvent(user.getId()));
         }
-        return userMapper.toDto(user);
+        return toDto(user);
     }
 
     @Override
@@ -159,7 +177,7 @@ public class UserServiceImpl implements UserService {
         }
         long totalCount = userRepository.countAll(request);
         return new CursorPageResponse<>(
-                users.stream().map(userMapper::toDto).toList(),
+                users.stream().map(this::toDto).toList(),
                 nextCursor,
                 nextIdAfter,
                 hasNext,
@@ -184,7 +202,7 @@ public class UserServiceImpl implements UserService {
             if (user.isLocked()) {
                 throw new MoplException(ErrorCode.ACCOUNT_LOCKED);
             }
-            return userMapper.toDto(user);
+            return toDto(user);
         }
 
         Optional<User> existingByEmail = userRepository.findByEmail(email);
@@ -196,7 +214,7 @@ public class UserServiceImpl implements UserService {
                     throw new MoplException(ErrorCode.ACCOUNT_LOCKED);
                 }
                 linkSocialAccountSafely(user, provider, providerId);
-                return userMapper.toDto(user);
+                return toDto(user);
             }
             throw new MoplException(ErrorCode.DUPLICATE_EMAIL);
         }
@@ -204,7 +222,7 @@ public class UserServiceImpl implements UserService {
         User newUser = User.createOAuthUser(uniqueName, email, Role.USER, profileImageUrl);
         User savedUser = userRepository.save(newUser);
         linkSocialAccountSafely(savedUser, provider, providerId);
-        return userMapper.toDto(savedUser);
+        return toDto(savedUser);
     }
 
     //기존 유저 닉네임과 중복 체크 후 중복 시 뒤에 숫자 붙여 자동 변경
