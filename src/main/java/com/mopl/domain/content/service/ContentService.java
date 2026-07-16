@@ -1,6 +1,8 @@
 package com.mopl.domain.content.service;
 
 import com.mopl.domain.content.adapter.port.LoadWatcherCountPort;
+import com.mopl.domain.content.adapter.port.SearchContentPort;
+import com.mopl.domain.content.adapter.port.SearchContentResult;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentSortField;
 import com.mopl.domain.content.dto.ContentCreateRequest;
@@ -39,6 +41,7 @@ public class ContentService implements ContentUseCase {
   private final ContentRepository contentRepository;
   private final LoadWatcherCountPort loadWatcherCountPort;
   private final S3Service s3Service;
+  private final SearchContentPort searchContentPort;
 
   // ──────────────────────────────────────────────
   // 관리자 전용
@@ -64,6 +67,9 @@ public class ContentService implements ContentUseCase {
     );
 
     Content saved = contentRepository.save(content);
+
+    searchContentPort.save(saved);
+
     log.info("[Content] 등록 완료 - id: {}, type: {}", saved.getId(), saved.getType());
     return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()),
         resolveThumbnailUrl(saved.getThumbnailUrl()));
@@ -84,6 +90,7 @@ public class ContentService implements ContentUseCase {
     content.update(request.type(), request.title(), request.description(), thumbnailKey, request.tags());
 
     Content saved = contentRepository.save(content);
+    searchContentPort.save(saved);
     log.info("[Content] 수정 완료 - id: {}", id);
     return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()),
         resolveThumbnailUrl(saved.getThumbnailUrl()));
@@ -96,6 +103,7 @@ public class ContentService implements ContentUseCase {
       throw new MoplException(ErrorCode.CONTENT_NOT_FOUND);
     }
     contentRepository.deleteById(id);
+    searchContentPort.delete(id);
     log.info("[Content] 삭제 완료 - id: {}", id);
   }
 
@@ -109,9 +117,31 @@ public class ContentService implements ContentUseCase {
   @Override
   public CursorPageResponse<ContentResponse> getContents(ContentSearchRequest request) {
     // limit+1개 조회
-    List<Content> contents = contentRepository.findAllByCondition(request);
-    long totalCount = contentRepository.countByCondition(request);
+    List<Content> contents;
+    long totalCount;
 
+    if (request.keywordLike() == null ||
+        request.keywordLike().isBlank()) {
+
+      contents = contentRepository.findAllByCondition(request);
+      totalCount = contentRepository.countByCondition(request);
+
+    } else {
+
+      SearchContentResult result =
+          searchContentPort.search(
+              request.keywordLike(),
+              request
+          );
+
+      contents =
+          contentRepository.findAllByIdsWithCondition(
+              result.ids(),
+              request
+          );
+
+      totalCount = result.totalCount();
+    }
     // hasNext 판단: limit+1개가 조회됐으면 다음 페이지 있음
     boolean hasNext = contents.size() > request.limit();
 
@@ -154,7 +184,9 @@ public class ContentService implements ContentUseCase {
   public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
     Content content = findContentOrThrow(event.contentId());
     content.updateRatingStats(event.averageRating(), event.reviewCount());
-    contentRepository.save(content);
+    Content saved = contentRepository.save(content);
+
+    searchContentPort.save(saved);
     log.info("[Content] 평점 갱신 - id: {}", event.contentId());
   }
 
