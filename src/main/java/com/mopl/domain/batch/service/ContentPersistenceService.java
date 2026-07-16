@@ -124,7 +124,7 @@ public class ContentPersistenceService {
             event.idEvent(),
             title,
             description,
-            event.strThumb(),
+            event.resolveThumbnailUrl(),
             List.of(event.strLeague())
         );
         contentRepository.save(content);
