@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.domain.auth.dto.JwtDto;
 import com.mopl.domain.user.dto.UserDto;
 import com.mopl.global.auth.UserAuthInfo;
+import com.mopl.global.exception.ErrorResponse;
+import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.AuthTokenIssuer;
 import com.mopl.global.security.userdetails.MoplUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +33,18 @@ public class MoplLoginSuccessHandler implements AuthenticationSuccessHandler {
         MoplUserDetails userDetails = (MoplUserDetails) authentication.getPrincipal();
         UserAuthInfo user = userDetails.getUserAuthInfo();
 
-        String accessToken = authTokenIssuer.issue(user, response);
+        String accessToken;
+        try {
+            accessToken = authTokenIssuer.issue(user, response);
+        } catch (MoplException e) {
+            log.error("로그인 처리 중 토큰 발급 실패 - userId: {}", user.id(), e);
+            response.setStatus(e.getErrorCode().getStatus().value());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding("UTF-8");
+            objectMapper.writeValue(response.getWriter(),
+                    new ErrorResponse(e.getErrorCode().name(), e.getErrorCode().getMessage()));
+            return;
+        }
         log.info("로그인 성공 - userId: {}", user.id());
 
         UserDto userDto = new UserDto(
