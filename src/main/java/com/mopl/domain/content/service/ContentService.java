@@ -8,6 +8,7 @@ import com.mopl.domain.content.dto.ContentResponse;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
+import com.mopl.global.config.PlaceholderImageController;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
@@ -165,8 +166,14 @@ public class ContentService implements ContentUseCase {
 
   // 저장된 값에 스킴("://")이 없으면 우리가 업로드한 S3 key이므로 presigned URL로 치환하고,
   // 스킴이 있으면(TMDB 등 외부 썸네일 URL) 그대로 반환한다.
+  // 저장된 썸네일이 아예 없는 경우, null을 그대로 내려보내면 프론트 컴포넌트에 따라
+  // <img> 자체를 렌더링하지 않아(관리자 Preview 등) 깨진 화면으로 보일 수 있으므로
+  // 항상 유효한 이미지 URL(fallback)을 응답한다.
   private String resolveThumbnailUrl(String stored) {
-    if (stored == null || stored.isBlank() || stored.contains("://")) {
+    if (stored == null || stored.isBlank()) {
+      return PlaceholderImageController.PATH;
+    }
+    if (stored.contains("://")) {
       return stored;
     }
     return s3Service.getPresignedUrl(stored);
