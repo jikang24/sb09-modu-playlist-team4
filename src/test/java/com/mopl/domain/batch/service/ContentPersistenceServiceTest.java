@@ -5,6 +5,8 @@ import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.infra.tmdb.TmdbClient;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbMovieResult;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +34,9 @@ class ContentPersistenceServiceTest {
 
   @Mock
   private ContentRepository contentRepository;
+
+  @Spy
+  private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
   @InjectMocks
   private ContentPersistenceService contentPersistenceService;
@@ -58,6 +64,8 @@ class ContentPersistenceServiceTest {
     ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
     then(contentRepository).should().save(captor.capture());
     assertThat(captor.getValue().getThumbnailUrl()).isEqualTo("https://image.tmdb.org/t/p/w500/poster.jpg");
+    assertThat(meterRegistry.counter("content.sync.saved", "type", ContentType.MOVIE.name()).count())
+        .isEqualTo(1.0);
   }
 
   @Test
@@ -74,6 +82,8 @@ class ContentPersistenceServiceTest {
     assertThat(savedCount).isEqualTo(0); // 신규 저장 건수는 늘지 않음 (갱신이므로)
     then(contentRepository).should().save(existing);
     assertThat(existing.getThumbnailUrl()).isEqualTo("https://image.tmdb.org/t/p/w500/poster.jpg");
+    assertThat(meterRegistry.counter("content.sync.saved", "type", ContentType.MOVIE.name()).count())
+        .isEqualTo(0.0); // 갱신은 신규 저장 메트릭에 반영되지 않음
   }
 
   @Test
