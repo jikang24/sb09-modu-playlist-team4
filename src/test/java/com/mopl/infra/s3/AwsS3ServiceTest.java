@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -37,11 +38,14 @@ class AwsS3ServiceTest {
     @Mock
     private S3Client s3Client;
 
+    @Mock
+    private S3Presigner s3Presigner;
+
     private AwsS3Service awsS3Service;
 
     @BeforeEach
     void setUp() {
-        awsS3Service = new AwsS3Service(s3Client);
+        awsS3Service = new AwsS3Service(s3Client, s3Presigner);
         ReflectionTestUtils.setField(awsS3Service, "bucket", "mopl-bucket");
         ReflectionTestUtils.setField(awsS3Service, "region", "ap-northeast-2");
     }
