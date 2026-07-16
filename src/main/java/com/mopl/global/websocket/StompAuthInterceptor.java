@@ -3,10 +3,10 @@ package com.mopl.global.websocket;
 import com.mopl.domain.conversation.application.port.in.GetConversationUseCase;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import com.mopl.global.jwt.AuthTokenService;
 import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.jwt.JwtProvider;
 import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
 public class StompAuthInterceptor implements ChannelInterceptor {
   private final JwtProvider jwtProvider;
   private final GetConversationUseCase getConversationUseCase;
+  private final AuthTokenService authTokenService;
 
   @Override
   public Message<?> preSend(Message<?> message , MessageChannel channel){
@@ -38,6 +39,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
       try{
         String token = extractToken(accessor);
         JwtClaims claims = jwtProvider.parse(token);
+
+        if (isBlacklisted(claims)) {
+          log.warn("WebSocket 인증 실패 - 블랙리스트 처리된 토큰, jti: {}", claims.getTokenId());
+          throw new MoplException(ErrorCode.INVALID_TOKEN);
+        }
+
       accessor.getSessionAttributes().put("claims", claims);
 
       var authentication = new UsernamePasswordAuthenticationToken(
@@ -51,6 +58,9 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     }catch (MoplException e) {
           log.warn("WebSocket 인증 실패 - {}" , e.getMessage());
           throw new MessagingException("WebSocket 인증에 실패했습니다." + e.getMessage());
+    }catch (Exception e) {
+          log.warn("WebSocket 인증 중 예상하지 못한 오류", e);
+          throw new MessagingException("WebSocket 인증에 실패했습니다.");
         }
       }
     if(StompCommand.SUBSCRIBE.equals(accessor.getCommand())){
@@ -58,6 +68,16 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
     }
     return message;
+  }
+
+
+  private boolean isBlacklisted(JwtClaims claims) {
+    try {
+      return authTokenService.isBlacklistedJti(claims.getTokenId());
+    } catch (Exception e) {
+      log.error("블랙리스트 조회 실패 - fail-open으로 통과 처리, jti: {}", claims.getTokenId(), e);
+      return false;
+    }
   }
 
   private String extractToken(StompHeaderAccessor accessor){
@@ -75,6 +95,10 @@ public class StompAuthInterceptor implements ChannelInterceptor {
       UUID conversationId = extractConversationId(destination);
 
       JwtClaims claims = (JwtClaims) accessor.getSessionAttributes().get("claims");
+      if (claims == null) {
+        log.warn("WebSocket 구독 거부 - 인증 정보 없음, destination: {}", destination);
+        throw new MessagingException("인증되지 않은 구독 요청입니다.");
+      }
       UUID myId = claims.getUserId();
 
       getConversationUseCase.getById(conversationId, myId);
@@ -84,9 +108,4 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     String[] parts = destination.split("/");
     return UUID.fromString(parts[3]);
   }
-
-
-
-
-
 }
