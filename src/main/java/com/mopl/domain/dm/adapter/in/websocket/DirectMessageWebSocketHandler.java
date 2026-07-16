@@ -40,7 +40,6 @@ public class DirectMessageWebSocketHandler {
   private final ObjectMapper objectMapper;
   private final NotificationEventPublisher notificationEventPublisher;
   private final SimpMessagingTemplate messagingTemplate;
-  private final DirectMessageConversationPresenceListener presenceListener;
   private final SseNotificationSender sseNotificationSender;
 
   @MessageMapping("/conversations/{conversationId}/direct-messages")
@@ -68,28 +67,29 @@ public class DirectMessageWebSocketHandler {
 
     DirectMessageDto dto = directMessageWebMapper.toDto(directMessage);
 
+    // 프론트: 대화 목록 화면은 항상 SSE "direct-messages"를 구독해 목록/안읽음 배지를 갱신하고
+    // (읽음 여부는 프론트가 현재 선택된 대화ID와 비교해서 직접 판단),
+    // 대화 상세 화면은 그 대화방을 열어보는 동안만 웹소켓을 구독해 채팅창에 실시간 렌더링한다.
+    // 즉 "활성/비활성"에 따른 양자택일이 아니라 매 DM마다 둘 다 보내야 한다 - 서로 독립적인 실패 처리.
+    try {
+      Map<String, Object> message = new HashMap<>();
+      message.put("destination", "conversations/" + conversationId + "/direct-messages");
+      message.put("payload", dto);
 
-    if (presenceListener.isActive(receiverId, conversationId)) {
-      try {
-        Map<String, Object> message = new HashMap<>();
-        message.put("destination", "conversations/" + conversationId + "/direct-messages");
-        message.put("payload", dto);
+      String jsonPayload = objectMapper.writeValueAsString(message);
+      redisTemplate.convertAndSend(RedisConfig.DM_CHANNEL, jsonPayload);
+      log.info("Redis 발행 완료 - conversationId: {}", conversationId);
+    } catch (Exception e) {
+      log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);
+    }
 
-        String jsonPayload = objectMapper.writeValueAsString(message);
-        redisTemplate.convertAndSend(RedisConfig.DM_CHANNEL, jsonPayload);
-        log.info("Redis 발행 완료 - conversationId: {}", conversationId);
-      } catch (Exception e) {
-        log.error("Redis 발행 실패 - conversationId: {}", conversationId, e);
-      }
-    } else {
-      try {
-        sseNotificationSender.sendDirectMessage(receiverId, dto);
-        log.info("SSE direct-messages 발행 완료 - conversationId: {}, receiverId: {}",
-            conversationId, receiverId);
-      } catch (Exception e) {
-        log.error("SSE direct-messages 발행 실패 - conversationId: {}, receiverId: {}",
-            conversationId, receiverId, e);
-      }
+    try {
+      sseNotificationSender.sendDirectMessage(receiverId, dto);
+      log.info("SSE direct-messages 발행 완료 - conversationId: {}, receiverId: {}",
+          conversationId, receiverId);
+    } catch (Exception e) {
+      log.error("SSE direct-messages 발행 실패 - conversationId: {}, receiverId: {}",
+          conversationId, receiverId, e);
     }
 
     notificationEventPublisher.publish(new NotificationRequestedEvent(

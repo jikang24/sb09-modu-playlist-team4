@@ -70,9 +70,6 @@ class DirectMessageWebSocketHandlerTest {
   private SimpMessagingTemplate messagingTemplate;
 
   @Mock
-  private DirectMessageConversationPresenceListener presenceListener;
-
-  @Mock
   private SseNotificationSender sseNotificationSender;
 
   private final UUID senderId = UUID.randomUUID();
@@ -95,12 +92,8 @@ class DirectMessageWebSocketHandlerTest {
         .build();
   }
 
-  /**
-   * 성공 경로의 공통 stubbing (전송/저장/DTO 변환).
-   * objectMapper 직렬화는 활성 대화(Redis 발행 경로)에서만 쓰이므로 여기 포함시키지 않는다 -
-   * 안 그러면 비활성 대화(SSE 경로) 테스트에서 이 stub이 안 쓰여서 UnnecessaryStubbingException이 난다.
-   */
-  private DirectMessageDto stubSuccessPath(String content) {
+  /** 성공 경로의 공통 stubbing (전송/저장/DTO 변환 + Redis 직렬화) */
+  private DirectMessageDto stubSuccessPath(String content) throws Exception {
     Conversation conversation = new Conversation(conversationId, senderId, receiverId, Instant.now());
     given(getConversationUseCase.getById(conversationId, senderId)).willReturn(conversation);
 
@@ -116,24 +109,19 @@ class DirectMessageWebSocketHandlerTest {
     );
     given(directMessageWebMapper.toDto(directMessage)).willReturn(dto);
 
+    String jsonPayload = "{\"destination\":\"conversations/" + conversationId + "/direct-messages\",\"payload\":{}}";
+    given(objectMapper.writeValueAsString(any())).willReturn(jsonPayload);
+
     return dto;
   }
 
-  /** 활성 대화(Redis pub/sub 발행) 경로에서만 필요한 objectMapper 직렬화 stubbing */
-  private void stubRedisPublishPath() throws Exception {
-    String jsonPayload = "{\"destination\":\"conversations/" + conversationId + "/direct-messages\",\"payload\":{}}";
-    given(objectMapper.writeValueAsString(any())).willReturn(jsonPayload);
-  }
-
   @Test
-  @DisplayName("DM 전송 성공 - 활성 대화(구독 중)면 웹소켓(Redis pub/sub)으로 전달하고 SSE는 타지 않는다")
-  void sendMessage_success_activeConversation_sendsViaWebSocket() throws Exception {
+  @DisplayName("DM 전송 성공 - 대화 목록 갱신용 SSE(direct-messages)와 채팅창 실시간 렌더링용 웹소켓(Redis pub/sub)을 둘 다 발행한다")
+  void sendMessage_success_sendsViaBothWebSocketAndSse() throws Exception {
 
     JwtClaims claims = createClaims(senderId);
     DirectMessageSendRequest request = new DirectMessageSendRequest("안녕하세요");
-    stubSuccessPath("안녕하세요");
-    stubRedisPublishPath();
-    given(presenceListener.isActive(receiverId, conversationId)).willReturn(true);
+    DirectMessageDto dto = stubSuccessPath("안녕하세요");
 
     SimpMessageHeaderAccessor accessor = createAccessorWithClaims(claims);
 
@@ -141,37 +129,36 @@ class DirectMessageWebSocketHandlerTest {
 
     then(sendDirectMessageUseCase).should().send(conversationId, "안녕하세요", senderId, receiverId);
     then(redisTemplate).should().convertAndSend(eq(RedisConfig.DM_CHANNEL), anyString());
-    then(sseNotificationSender).should(never()).sendDirectMessage(any(), any());
+    then(sseNotificationSender).should().sendDirectMessage(receiverId, dto);
     then(notificationEventPublisher).should().publish(any());
   }
 
   @Test
-  @DisplayName("DM 전송 성공 - 비활성 대화(구독 중 아님)면 SSE direct-messages 이벤트로 전달하고 Redis는 타지 않는다")
-  void sendMessage_success_inactiveConversation_sendsViaSse() throws Exception {
+  @DisplayName("Redis 발행이 실패해도 SSE 발행과 알림은 그대로 수행된다 (서로 독립적인 실패 처리)")
+  void sendMessage_redisPublishFails_sseAndNotificationStillSent() throws Exception {
 
     JwtClaims claims = createClaims(senderId);
     DirectMessageSendRequest request = new DirectMessageSendRequest("안녕하세요");
     DirectMessageDto dto = stubSuccessPath("안녕하세요");
-    given(presenceListener.isActive(receiverId, conversationId)).willReturn(false);
+    willThrow(new RuntimeException("Redis 연결 실패"))
+        .given(redisTemplate).convertAndSend(eq(RedisConfig.DM_CHANNEL), anyString());
 
     SimpMessageHeaderAccessor accessor = createAccessorWithClaims(claims);
 
-    handler.sendMessage(conversationId, request, accessor);
+    assertThatCode(() -> handler.sendMessage(conversationId, request, accessor))
+        .doesNotThrowAnyException();
 
-    then(sendDirectMessageUseCase).should().send(conversationId, "안녕하세요", senderId, receiverId);
     then(sseNotificationSender).should().sendDirectMessage(receiverId, dto);
-    then(redisTemplate).should(never()).convertAndSend(anyString(), anyString());
     then(notificationEventPublisher).should().publish(any());
   }
 
   @Test
-  @DisplayName("비활성 대화에서 SSE 전송이 실패해도 예외가 전파되지 않고 알림은 정상 발행된다")
-  void sendMessage_inactiveConversation_sseFails_notificationStillPublished() throws Exception {
+  @DisplayName("SSE 발행이 실패해도 Redis 발행과 알림은 그대로 수행된다 (서로 독립적인 실패 처리)")
+  void sendMessage_ssePublishFails_redisAndNotificationStillSent() throws Exception {
 
     JwtClaims claims = createClaims(senderId);
     DirectMessageSendRequest request = new DirectMessageSendRequest("안녕하세요");
     stubSuccessPath("안녕하세요");
-    given(presenceListener.isActive(receiverId, conversationId)).willReturn(false);
     willThrow(new RuntimeException("SSE 연결 없음"))
         .given(sseNotificationSender).sendDirectMessage(eq(receiverId), any());
 
@@ -180,6 +167,7 @@ class DirectMessageWebSocketHandlerTest {
     assertThatCode(() -> handler.sendMessage(conversationId, request, accessor))
         .doesNotThrowAnyException();
 
+    then(redisTemplate).should().convertAndSend(eq(RedisConfig.DM_CHANNEL), anyString());
     then(notificationEventPublisher).should().publish(any());
   }
 
@@ -235,29 +223,6 @@ class DirectMessageWebSocketHandlerTest {
         .isInstanceOf(MoplException.class);
 
     then(sendDirectMessageUseCase).should(never()).send(any(), any(), any(), any());
-  }
-
-  @Test
-  @DisplayName("Redis 발행이 실패해도 예외가 전파되지 않고 알림은 정상 발행된다 (DM은 이미 DB에 저장됨)")
-  void sendMessage_redisPublishFails_notificationStillPublished() throws Exception {
-
-    JwtClaims claims = createClaims(senderId);
-    DirectMessageSendRequest request = new DirectMessageSendRequest("안녕하세요");
-    stubSuccessPath("안녕하세요");
-    stubRedisPublishPath();
-    given(presenceListener.isActive(receiverId, conversationId)).willReturn(true);
-
-    willThrow(new RuntimeException("Redis 연결 실패"))
-        .given(redisTemplate).convertAndSend(eq(RedisConfig.DM_CHANNEL), anyString());
-
-    SimpMessageHeaderAccessor accessor = createAccessorWithClaims(claims);
-
-    // 예외가 밖으로 던져지지 않아야 하고
-    assertThatCode(() -> handler.sendMessage(conversationId, request, accessor))
-        .doesNotThrowAnyException();
-
-    // 실시간 팬아웃 실패와 무관하게 알림 발행은 계속되어야 한다
-    then(notificationEventPublisher).should().publish(any());
   }
 
   @Nested
