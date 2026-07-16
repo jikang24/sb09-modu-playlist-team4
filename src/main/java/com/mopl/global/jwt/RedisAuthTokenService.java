@@ -1,11 +1,14 @@
 package com.mopl.global.jwt;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -123,8 +126,11 @@ public class RedisAuthTokenService implements AuthTokenService {
       deleteAccessJtiByUserId(userId);
       deleteRefreshTokenByUserId(userId);
       log.info("강제 로그아웃 처리 완료 - userId: {}", userId);
-    } catch (Exception e) {
-      log.error("강제 로그아웃 처리 실패 - userId: {}", userId, e);
+    } catch (DataAccessException e) {
+      log.error("강제 로그아웃 처리 실패 (Redis 오류) - userId: {}", userId, e);
+      throw new MoplException(ErrorCode.AUTH_STORAGE_UNAVAILABLE);
+    } catch (RuntimeException e) {
+      log.error("강제 로그아웃 처리 실패 (예상치 못한 오류) - userId: {}", userId, e);
     }
   }
 
