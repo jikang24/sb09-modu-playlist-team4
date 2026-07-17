@@ -8,6 +8,7 @@ import com.mopl.domain.content.dto.ContentResponse;
 import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
+import com.mopl.global.config.PlaceholderImageController;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
@@ -322,6 +323,25 @@ class ContentServiceTest {
           .isInstanceOf(MoplException.class)
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
               .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("썸네일이 없는 콘텐츠 조회 - null 대신 placeholder 경로를 반환한다")
+    void success_fallsBackToPlaceholderWhenThumbnailMissing() {
+      UUID id = UUID.randomUUID();
+      Content content = Content.restore(
+          id, ContentType.SPORT, "sports-001",
+          "테스트 제목", "테스트 설명", null,
+          BigDecimal.ZERO, 0,
+          java.time.Instant.now(), java.time.Instant.now(),
+          List.of("EPL")
+      );
+      given(contentRepository.findById(id)).willReturn(Optional.of(content));
+      given(loadWatcherCountPort.countByContentId(id)).willReturn(0L);
+
+      ContentResponse response = contentService.getContent(id);
+
+      assertThat(response.thumbnailUrl()).isEqualTo(PlaceholderImageController.PATH);
     }
   }
 
