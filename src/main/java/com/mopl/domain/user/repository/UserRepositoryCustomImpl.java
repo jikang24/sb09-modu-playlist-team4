@@ -23,6 +23,8 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         QUser u = QUser.user;
         BooleanBuilder builder = buildFilter(u, request);
 
+        boolean ascending = request.sortDirection() == SortDirection.ASCENDING;
+
         if (request.cursor() != null && request.idAfter() != null) {
             var sortField = switch (request.sortBy()) {
                 case NAME -> u.name;
@@ -33,28 +35,23 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
             };
 
             builder.and(
-                    sortField.gt(request.cursor())
+                    (ascending ? sortField.gt(request.cursor()) : sortField.lt(request.cursor()))
                             .or(sortField.eq(request.cursor())
-                                    .and(u.id.gt(request.idAfter())))
+                                    .and(ascending ? u.id.gt(request.idAfter()) : u.id.lt(request.idAfter())))
             );
         }
 
         OrderSpecifier<?> order = switch (request.sortBy()) {
-            case NAME -> request.sortDirection() == SortDirection.ASCENDING
-                    ? u.name.asc() : u.name.desc();
-            case EMAIL -> request.sortDirection() == SortDirection.ASCENDING
-                    ? u.email.asc() : u.email.desc();
-            case CREATEDAT -> request.sortDirection() == SortDirection.ASCENDING
-                    ? u.createdAt.asc() : u.createdAt.desc();
-            case ISLOCKED -> request.sortDirection() == SortDirection.ASCENDING
-                    ? u.locked.asc() : u.locked.desc();
-            case ROLE -> request.sortDirection() == SortDirection.ASCENDING
-                    ? u.role.asc() : u.role.desc();
+            case NAME -> ascending ? u.name.asc() : u.name.desc();
+            case EMAIL -> ascending ? u.email.asc() : u.email.desc();
+            case CREATEDAT -> ascending ? u.createdAt.asc() : u.createdAt.desc();
+            case ISLOCKED -> ascending ? u.locked.asc() : u.locked.desc();
+            case ROLE -> ascending ? u.role.asc() : u.role.desc();
         };
 
         return queryFactory.selectFrom(u)
                 .where(builder)
-                .orderBy(order, u.id.asc())
+                .orderBy(order, ascending ? u.id.asc() : u.id.desc())
                 .limit(request.limit() + 1L)
                 .fetch();
     }
