@@ -2,6 +2,8 @@ package com.mopl.global.security.oauth2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -99,7 +101,7 @@ public class CookieOAuth2AuthorizationRequestRepository
             return Base64.getUrlEncoder().encodeToString(
                     objectMapper.writeValueAsBytes(authorizationRequest));
         } catch (Exception e) {
-            throw new IllegalStateException("OAuth2AuthorizationRequest 직렬화에 실패했습니다.", e);
+            throw new MoplException(ErrorCode.OAUTH2_AUTHORIZATION_REQUEST_SERIALIZATION_FAILED);
         }
     }
 

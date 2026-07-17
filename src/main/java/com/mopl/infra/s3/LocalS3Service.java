@@ -1,5 +1,7 @@
 package com.mopl.infra.s3;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -34,7 +36,7 @@ public class LocalS3Service implements S3Service {
 
         } catch (IOException e) {
             log.error("[로컬] 파일 저장 실패", e);
-            throw new RuntimeException("로컬 파일 저장 실패", e);
+            throw new MoplException(ErrorCode.LOCAL_FILE_SAVE_FAILED);
         }
     }
 

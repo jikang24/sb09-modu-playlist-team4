@@ -52,6 +52,8 @@ public enum ErrorCode {
     S3_DELETE_FAILED("파일 삭제에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_FILE_EXTENSION("허용되지 않는 파일 확장자입니다", HttpStatus.BAD_REQUEST),
     INVALID_IMAGE_FILE("올바른 이미지 파일이 아닙니다", HttpStatus.BAD_REQUEST),
+    LOCAL_FILE_SAVE_FAILED("파일 저장에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_S3_URL("올바르지 않은 파일 경로입니다", HttpStatus.BAD_REQUEST),
 
     //Follow 모듈
     CANNOT_FOLLOW_SELF("자기 자신을 팔로우할 수 없습니다.", HttpStatus.BAD_REQUEST),
@@ -72,14 +74,16 @@ public enum ErrorCode {
     REFRESH_TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_REVOKED("이미 무효화된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
     TOKEN_NOT_FOUND("인증 토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
-    AUTH_REDIS_UNAVAILABLE("Redis 서버에 일시적으로 연결할 수 없어 인증 처리를 완료하지 못했습니다.", HttpStatus.SERVICE_UNAVAILABLE),
     AUTH_STORAGE_UNAVAILABLE("인증 저장소에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE),
+    SECURITY_FILTER_CHAIN_ONLY("이 엔드포인트는 SecurityFilterChain에서만 처리됩니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // 공통 응답
     INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),
     INTERNAL_SERVER_ERROR("서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_CURSOR_FORMAT("잘못된 커서 형식입니다.", HttpStatus.BAD_REQUEST),
     INVALID_SORT_DIRECTION("잘못된 정렬 방식입니다", HttpStatus.BAD_REQUEST),
+    INVALID_REQUEST_BODY("요청 본문을 읽을 수 없습니다.", HttpStatus.BAD_REQUEST),
+    FILE_TOO_LARGE("업로드 가능한 파일 용량을 초과했습니다.", HttpStatus.PAYLOAD_TOO_LARGE),
 
     // 외부 API
     TMDB_CLIENT_ERROR("TMDB API 요청 오류입니다.", HttpStatus.BAD_REQUEST),
@@ -95,7 +99,8 @@ public enum ErrorCode {
     //oauth
     EMAIL_ALREADY_EXISTS("이미 존재하는 이메일입니다.", HttpStatus.CONFLICT),
     UNSUPPORTED_SOCIAL_PROVIDER("지원하지 않는 소셜 provider입니다.", HttpStatus.BAD_REQUEST),
-    SOCIAL_ACCOUNT_ALREADY_LINKED("이미 연동되어 있는 계정입니다.", HttpStatus.CONFLICT);
+    SOCIAL_ACCOUNT_ALREADY_LINKED("이미 연동되어 있는 계정입니다.", HttpStatus.CONFLICT),
+    OAUTH2_AUTHORIZATION_REQUEST_SERIALIZATION_FAILED("소셜 로그인 요청 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String message;
     private final HttpStatus status;

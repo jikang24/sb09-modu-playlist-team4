@@ -1,7 +1,11 @@
 package com.mopl.global.config;
 
 import com.mopl.infra.redis.RedisMessageSubscriber;
+
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -17,6 +21,11 @@ public class RedisConfig {
   public static final String WATCHING_SESSION_CHANNEL = "websocket:watching-session";
 
   @Bean
+  @ConditionalOnProperty(
+      name = "redis.listener.enabled",
+      havingValue = "true",
+      matchIfMissing = true
+  )
   public RedisMessageListenerContainer redisMessageListenerContainer(
       RedisConnectionFactory connectionFactory,
       RedisMessageSubscriber subscriber) {
