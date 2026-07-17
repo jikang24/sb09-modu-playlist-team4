@@ -17,13 +17,13 @@ public record ContentResponse(
     int reviewCount,
     long watcherCount
 ) {
-  public static ContentResponse from(Content content, long watcherCount) {
+  public static ContentResponse from(Content content, long watcherCount, String thumbnailUrl) {
     return new ContentResponse(
         content.getId(),
         content.getType(),
         content.getTitle(),
         content.getDescription(),
-        content.getThumbnailUrl(),
+        thumbnailUrl,
         content.getTags(),
         content.getAverageRating(),
         content.getReviewCount(),

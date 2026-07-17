@@ -51,6 +51,12 @@ dependencies {
 	//s3
 	implementation 'software.amazon.awssdk:s3:2.25.0'
 
+	// OpenSearch
+	implementation "org.opensearch.client:opensearch-java:2.19.0"
+	implementation "org.apache.httpcomponents.client5:httpclient5:5.4.1"
+	implementation "org.apache.httpcomponents.core5:httpcore5:5.3.1"
+	implementation "org.apache.httpcomponents.core5:httpcore5-h2:5.3.1"
+
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.postgresql:postgresql'
@@ -65,8 +71,20 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	//ShedLock - 여러 ECS 태스크에서 동일 스케줄 배치가 동시에 실행되지 않도록 분산 락
+	implementation 'net.javacrumbs.shedlock:shedlock-spring:5.16.0'
+	implementation 'net.javacrumbs.shedlock:shedlock-provider-redis-spring:5.16.0'
 }
 
+
+configurations.all {
+	resolutionStrategy {
+		force "org.apache.httpcomponents.client5:httpclient5:5.4.1"
+		force "org.apache.httpcomponents.core5:httpcore5:5.3.1"
+		force "org.apache.httpcomponents.core5:httpcore5-h2:5.3.1"
+	}
+}
 
 tasks.named('test') {
 	useJUnitPlatform()

@@ -5,6 +5,7 @@ import com.mopl.domain.user.service.UserService;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.GlobalExceptionHandler;
 import com.mopl.global.exception.MoplException;
+import com.mopl.global.jwt.JwtClaims;
 import com.mopl.global.response.CursorPageResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mopl.infra.s3.S3Service;
@@ -15,16 +16,26 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.support.WebDataBinderFactory;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.method.support.ModelAndViewContainer;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.hamcrest.Matchers.hasSize;
@@ -44,15 +55,29 @@ class UserControllerTest {
 
     private UUID userId;
     private UserDto userDto;
+    private UUID authUserId;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
         mockMvc = MockMvcBuilders.standaloneSetup(new UserController(userService, s3Service))
                 .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {
+                    @Override
+                    public boolean supportsParameter(MethodParameter parameter) {
+                        return parameter.getParameterType().equals(JwtClaims.class);
+                    }
+
+                    @Override
+                    public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
+                                                   NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+                        return JwtClaims.builder().userId(authUserId).build();
+                    }
+                })
                 .build();
 
         userId = UUID.randomUUID();
+        authUserId = userId;
         userDto = new UserDto(
                 userId,
                 Instant.now(),
@@ -342,6 +367,183 @@ class UserControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @DisplayName("updateProfile: 프로필 수정")
+    class UpdateProfileTest {
+
+        @Test
+        @DisplayName("성공: 본인 프로필을 이미지 없이 수정한다")
+        void updateProfile_success_noImage() throws Exception {
+            UserUpdateRequest request = new UserUpdateRequest("buzz");
+            MockMultipartFile requestPart = new MockMultipartFile(
+                    "request", "request", MediaType.APPLICATION_JSON_VALUE,
+                    objectMapper.writeValueAsString(request).getBytes());
+            UserDto updated = new UserDto(userId, Instant.now(), userDto.email(), "buzz", null, Role.USER, false);
+            given(userService.updateProfile(eq(userId), eq(request), eq(null))).willReturn(updated);
+
+            mockMvc.perform(multipart("/api/users/" + userId)
+                            .file(requestPart)
+                            .with(req -> { req.setMethod("PATCH"); return req; }))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.name").value("buzz"));
+
+            verify(s3Service, never()).upload(any());
+        }
+
+        @Test
+        @DisplayName("성공: 이미지를 포함하여 본인 프로필을 수정한다")
+        void updateProfile_success_withImage() throws Exception {
+            UserUpdateRequest request = new UserUpdateRequest("buzz");
+            MockMultipartFile requestPart = new MockMultipartFile(
+                    "request", "request", MediaType.APPLICATION_JSON_VALUE,
+                    objectMapper.writeValueAsString(request).getBytes());
+            MockMultipartFile imagePart = new MockMultipartFile(
+                    "image", "profile.png", MediaType.IMAGE_PNG_VALUE, "image-bytes".getBytes());
+            UserDto updated = new UserDto(userId, Instant.now(), userDto.email(), "buzz", "https://s3.url/profile.png", Role.USER, false);
+
+            given(s3Service.upload(any())).willReturn("https://s3.url/profile.png");
+            given(s3Service.extractKey("https://s3.url/profile.png")).willReturn("profile.png");
+            given(userService.updateProfile(eq(userId), eq(request), eq("profile.png"))).willReturn(updated);
+
+            mockMvc.perform(multipart("/api/users/" + userId)
+                            .file(requestPart)
+                            .file(imagePart)
+                            .with(req -> { req.setMethod("PATCH"); return req; }))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.profileImageUrl").value("https://s3.url/profile.png"));
+        }
+
+        @Test
+        @DisplayName("실패: 본인이 아닌 사용자의 프로필을 수정하려고 하면 403 Forbidden 반환")
+        void updateProfile_fail_forbidden() throws Exception {
+            UUID otherUserId = UUID.randomUUID();
+            authUserId = UUID.randomUUID();
+            UserUpdateRequest request = new UserUpdateRequest("buzz");
+            MockMultipartFile requestPart = new MockMultipartFile(
+                    "request", "request", MediaType.APPLICATION_JSON_VALUE,
+                    objectMapper.writeValueAsString(request).getBytes());
+
+            mockMvc.perform(multipart("/api/users/" + otherUserId)
+                            .file(requestPart)
+                            .with(req -> { req.setMethod("PATCH"); return req; }))
+                    .andExpect(status().isForbidden());
+
+            verify(userService, never()).updateProfile(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("실패: 이름이 비어있으면 400 Bad Request 반환")
+        void updateProfile_fail_blankName() throws Exception {
+            MockMultipartFile requestPart = new MockMultipartFile(
+                    "request", "request", MediaType.APPLICATION_JSON_VALUE,
+                    "{\"name\":\"\"}".getBytes());
+
+            mockMvc.perform(multipart("/api/users/" + userId)
+                            .file(requestPart)
+                            .with(req -> { req.setMethod("PATCH"); return req; }))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("실패: 변경하려는 이름이 이미 존재하면 409 Conflict 반환")
+        void updateProfile_fail_duplicateName() throws Exception {
+            UserUpdateRequest request = new UserUpdateRequest("buzz");
+            MockMultipartFile requestPart = new MockMultipartFile(
+                    "request", "request", MediaType.APPLICATION_JSON_VALUE,
+                    objectMapper.writeValueAsString(request).getBytes());
+            given(userService.updateProfile(eq(userId), eq(request), eq(null)))
+                    .willThrow(new MoplException(ErrorCode.DUPLICATE_NAME));
+
+            mockMvc.perform(multipart("/api/users/" + userId)
+                            .file(requestPart)
+                            .with(req -> { req.setMethod("PATCH"); return req; }))
+                    .andExpect(status().isConflict());
+        }
+    }
+
+    @Nested
+    @DisplayName("updatePassword: 비밀번호 변경")
+    class UpdatePasswordTest {
+
+        @Test
+        @DisplayName("성공: 본인 비밀번호를 변경한다")
+        void updatePassword_success() throws Exception {
+            ChangePasswordRequest request = new ChangePasswordRequest("newPassword1!");
+            given(userService.updatePassword(userId, request)).willReturn(userDto);
+
+            mockMvc.perform(patch("/api/users/" + userId + "/password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(userId.toString()));
+        }
+
+        @Test
+        @DisplayName("실패: 본인이 아닌 사용자의 비밀번호를 변경하려고 하면 403 Forbidden 반환")
+        void updatePassword_fail_forbidden() throws Exception {
+            UUID otherUserId = UUID.randomUUID();
+            authUserId = UUID.randomUUID();
+            ChangePasswordRequest request = new ChangePasswordRequest("newPassword1!");
+
+            mockMvc.perform(patch("/api/users/" + otherUserId + "/password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isForbidden());
+
+            verify(userService, never()).updatePassword(any(), any());
+        }
+
+        @Test
+        @DisplayName("실패: 비밀번호가 비어있으면 400 Bad Request 반환")
+        void updatePassword_fail_blank() throws Exception {
+            mockMvc.perform(patch("/api/users/" + userId + "/password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"password\":\"\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("실패: 존재하지 않는 사용자면 404 Not Found 반환")
+        void updatePassword_fail_userNotFound() throws Exception {
+            ChangePasswordRequest request = new ChangePasswordRequest("newPassword1!");
+            given(userService.updatePassword(userId, request)).willThrow(new MoplException(ErrorCode.USER_NOT_FOUND));
+
+            mockMvc.perform(patch("/api/users/" + userId + "/password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @DisplayName("register: 유효성 검증")
+    class RegisterValidationTest {
+
+        @Test
+        @DisplayName("실패: 이메일 형식이 올바르지 않으면 400 Bad Request 반환")
+        void register_fail_invalidEmail() throws Exception {
+            String invalidRequest = "{\"name\":\"woody\",\"email\":\"not-an-email\",\"password\":\"mopl1!\"}";
+
+            mockMvc.perform(post("/api/users")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(invalidRequest))
+                    .andExpect(status().isBadRequest());
+
+            verify(userService, never()).register(any());
+        }
+
+        @Test
+        @DisplayName("실패: 이름이 비어있으면 400 Bad Request 반환")
+        void register_fail_blankName() throws Exception {
+            String invalidRequest = "{\"name\":\"\",\"email\":\"woody@mopl.io\",\"password\":\"mopl1!\"}";
+
+            mockMvc.perform(post("/api/users")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(invalidRequest))
+                    .andExpect(status().isBadRequest());
         }
     }
 

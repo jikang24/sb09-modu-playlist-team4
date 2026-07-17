@@ -1,42 +1,40 @@
 package com.mopl.domain.watchingsession.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mopl.domain.watchingsession.adapter.port.LoadContentPort;
-import com.mopl.domain.watchingsession.adapter.port.LoadUserPort;
+import com.mopl.domain.watchingsession.application.port.in.WatchingSessionUseCase;
+import com.mopl.domain.watchingsession.application.port.out.LoadContentPort;
+import com.mopl.domain.watchingsession.application.port.out.LoadUserPort;
+import com.mopl.domain.watchingsession.application.port.out.PublishWatchingSessionEventPort;
 import com.mopl.domain.watchingsession.domain.WatchingSession;
 import com.mopl.domain.watchingsession.dto.WatchingSessionChange;
 import com.mopl.domain.watchingsession.dto.WatchingSessionChange.ChangeType;
 import com.mopl.domain.watchingsession.dto.WatchingSessionDto;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.domain.watchingsession.repository.WatchingSessionRepository;
-import com.mopl.global.config.RedisConfig;
 import com.mopl.global.dto.ContentSummary;
 import com.mopl.global.dto.UserSummary;
 import com.mopl.global.event.WatchingSessionStartedEvent;
 import com.mopl.global.response.CursorPageResponse;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class WatchingSessionService {
+public class WatchingSessionService implements WatchingSessionUseCase {
 
   private final WatchingSessionRepository watchingSessionRepository;
   private final LoadUserPort loadUserPort;
   private final LoadContentPort loadContentPort;
-  private final StringRedisTemplate redisTemplate;
-  private final ObjectMapper objectMapper;
+  private final PublishWatchingSessionEventPort publishWatchingSessionEventPort;
   private final ApplicationEventPublisher applicationEventPublisher;
 
   /** 시청 입장 - 이미 다른 콘텐츠를 보고 있었다면 그 세션은 자동 종료됨 */
+  @Override
   public WatchingSessionDto enter(UUID watcherId, UUID contentId) {
     WatchingSession session = watchingSessionRepository.enter(watcherId, contentId);
     WatchingSessionDto dto = toDto(session);
@@ -47,6 +45,7 @@ public class WatchingSessionService {
   }
 
   /** 시청 퇴장 - 보고 있는 게 없으면 WATCHING_SESSION_NOT_FOUND */
+  @Override
   public void leave(UUID watcherId) {
     WatchingSession session = watchingSessionRepository.leave(watcherId);
     WatchingSessionDto dto = toDto(session);
@@ -57,39 +56,28 @@ public class WatchingSessionService {
    * STOMP 구독 해제/연결 종료처럼 자동으로 걸리는 퇴장 - sessionId로 지금 활성 세션이 맞는지 확인 후 처리.
    * 탭 전환 등으로 이미 다른 세션으로 교체됐으면 조용히 무시한다 (사용자가 직접 요청한 게 아니라 에러로 취급하지 않음).
    */
+  @Override
   public void leaveIfCurrent(UUID watcherId, UUID sessionId) {
     watchingSessionRepository.leaveIfCurrent(watcherId, sessionId)
         .ifPresent(session -> broadcast(ChangeType.LEAVE, session.contentId(), toDto(session)));
   }
 
-  /**
-   * 시청자 입장/퇴장을 같은 콘텐츠를 보고 있는 다른 시청자들에게 실시간으로 알림
-   * 고정 채널(WATCHING_SESSION_CHANNEL) 하나에 destination/payload를 담은 봉투를 발행하는 방식
-   */
+  /** 시청자 입장/퇴장을 같은 콘텐츠를 보고 있는 다른 시청자들에게 실시간으로 알림 */
   private void broadcast(ChangeType type, UUID contentId, WatchingSessionDto dto) {
     long watcherCount = watchingSessionRepository.countByContentId(contentId);
     WatchingSessionChange change = new WatchingSessionChange(type, dto, watcherCount);
-
-    try {
-      Map<String, Object> message = new HashMap<>();
-      message.put("destination", "contents/" + contentId + "/watch");
-      message.put("payload", change);
-
-      String jsonPayload = objectMapper.writeValueAsString(message);
-      redisTemplate.convertAndSend(RedisConfig.WATCHING_SESSION_CHANNEL, jsonPayload);
-    } catch (Exception e) {
-      log.error("Redis 발행 실패 - contentId: {}", contentId, e);
-    }
-    log.info("Redis 발행 완료 - contentId: {}", contentId);
+    publishWatchingSessionEventPort.publish(contentId, change);
   }
 
   /** 특정 사용자가 지금 보고 있는 세션 (없으면 null) */
+  @Override
   public WatchingSessionDto getByWatcherId(UUID watcherId) {
     return watchingSessionRepository.findByWatcherId(watcherId)
         .map(this::toDto)
         .orElse(null);
   }
 
+  @Override
   public CursorPageResponse<WatchingSessionDto> getByContentId(WatchingSessionSearchRequest request) {
     List<WatchingSession> sessions = watchingSessionRepository.findByContentId(request);
 

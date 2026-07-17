@@ -163,9 +163,9 @@ class ConversationControllerTest {
 
     given(getConversationListUseCase.getList(eq(myId), any(ConversationSearchCondition.class)))
         .willReturn(domainResponse);
-    given(conversationWebMapper.toDto(conversation, myId)).willReturn(dto);
+    given(conversationWebMapper.toDtoList(List.of(conversation), myId)).willReturn(List.of(dto));
 
-    
+
     ResponseEntity<CursorPageResponse<ConversationDto>> response =
         conversationController.getConversations(request, claims);
 

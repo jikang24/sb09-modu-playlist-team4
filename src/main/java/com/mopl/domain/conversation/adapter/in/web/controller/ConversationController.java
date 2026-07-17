@@ -82,7 +82,6 @@ public class ConversationController {
       @ModelAttribute ConversationSearchRequest request,
       @AuthenticationPrincipal JwtClaims claims
   ) {
-    System.out.println("!!!!! CONTROLLER CALLED !!!!!");
     UUID myId = claims.getUserId();
     log.info("대화 목록 조회 요청 - myId: {}, limit: {}, sortBy: {}, sortDirection: {}",
         myId, request.limit(), request.sortBy(), request.sortDirection());
@@ -101,9 +100,7 @@ public class ConversationController {
         myId, result.data().size(), result.hasNext());
 
     CursorPageResponse<ConversationDto> response = new CursorPageResponse<>(
-        result.data().stream()
-            .map(c -> conversationWebMapper.toDto(c, myId))
-            .toList(),
+        conversationWebMapper.toDtoList(result.data(), myId),
         result.nextCursor(),
         result.nextIdAfter(),
         result.hasNext(),

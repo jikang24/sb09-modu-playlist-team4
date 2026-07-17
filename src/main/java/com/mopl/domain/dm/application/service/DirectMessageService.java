@@ -12,11 +12,16 @@ import com.mopl.domain.dm.application.port.out.LoadUserPort;
 import com.mopl.domain.dm.application.port.out.SaveDirectMessagePort;
 import com.mopl.domain.dm.domain.DirectMessage;
 import com.mopl.global.dto.DirectMessageDto;
+import com.mopl.global.dto.UserSummary;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,8 +47,24 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
   }
 
   @Override
+  public Set<UUID> hasUnreadBulk(Collection<UUID> conversationIds, UUID myId) {
+    if (conversationIds.isEmpty()) {
+      return Set.of();
+    }
+    return loadDirectMessagePort.findConversationIdsWithUnread(conversationIds, myId);
+  }
+
+  @Override
   public Optional<DirectMessage> getLatest(UUID conversationId) {
     return loadDirectMessagePort.findLatestByConversationId(conversationId);
+  }
+
+  @Override
+  public Map<UUID, DirectMessage> getLatestBulk(Collection<UUID> conversationIds) {
+    if (conversationIds.isEmpty()) {
+      return Map.of();
+    }
+    return loadDirectMessagePort.findLatestByConversationIds(conversationIds);
   }
 
   @Override
@@ -69,14 +90,25 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
   @Transactional(readOnly = true)
   public CursorPageResponse<DirectMessageDto> getList(UUID conversationId,
       DirectMessageSearchCondition condition) {
-    CursorPageResponse<DirectMessage> result =loadDirectMessagePort.findList(conversationId, condition);
+    CursorPageResponse<DirectMessage> result = loadDirectMessagePort.findList(conversationId, condition);
+
+    // 페이지 안 DM들의 발신/수신자 ID를 모아서 한 번에 조회 (N+1 방지)
+    Set<UUID> userIds = new HashSet<>();
+    result.data().forEach(dm -> {
+      userIds.add(dm.getSenderId());
+      userIds.add(dm.getReceiverId());
+    });
+    Map<UUID, UserSummary> users = userIds.isEmpty()
+        ? Map.of()
+        : loadUserPort.getUserSummaries(userIds);
+
     return new CursorPageResponse<>(
         result.data().stream().map(dm -> new DirectMessageDto(
             dm.getId(),
             dm.getConversationId(),
             dm.getCreatedAt(),
-            loadUserPort.getUserSummary(dm.getSenderId()),
-            loadUserPort.getUserSummary(dm.getReceiverId()),
+            users.get(dm.getSenderId()),
+            users.get(dm.getReceiverId()),
             dm.getContent()
         )).toList(),
         result.nextCursor(),
