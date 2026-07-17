@@ -303,6 +303,9 @@ CREATE TABLE IF NOT EXISTS outbox_event (
 
     event_type VARCHAR(100) NOT NULL,
 
+    topic VARCHAR(150) NOT NULL,
+    message_key VARCHAR(100),
+
     payload TEXT NOT NULL,
 
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
