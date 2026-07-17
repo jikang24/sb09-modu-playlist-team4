@@ -36,7 +36,20 @@ public class MoplOAuth2LoginSuccessHandler implements AuthenticationSuccessHandl
         UserAuthInfo user = userAuthPort.findById(principal.getUserId())
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
-        authTokenIssuer.issue(user, response);
+        try {
+            authTokenIssuer.issue(user, response);
+        } catch (MoplException e) {
+            log.error("소셜 로그인 처리 중 토큰 발급 실패 - userId: {}", user.id(), e);
+            String errorRedirectUrl = UriComponentsBuilder.fromUriString(frontendBaseUrl)
+                    .path("/sign-in")
+                    .queryParam("error", e.getErrorCode().name())
+                    .queryParam("error_message", e.getErrorCode().getMessage())
+                    .encode()
+                    .build()
+                    .toUriString();
+            response.sendRedirect(errorRedirectUrl);
+            return;
+        }
         log.info("소셜 로그인 성공 - userId: {}", user.id());
 
         String redirectUrl = UriComponentsBuilder.fromUriString(frontendBaseUrl)

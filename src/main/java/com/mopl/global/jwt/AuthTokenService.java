@@ -26,5 +26,8 @@ public interface AuthTokenService {
     Optional<AccessJtiEntry> findAccessJtiByUserId(UUID userId);
 
     void deleteAccessJtiByUserId(UUID userId);
+
+    // 계정 잠금/권한 변경 등으로 인한 강제 로그아웃
+    void forceLogoutByUserId(UUID userId);
 }
 

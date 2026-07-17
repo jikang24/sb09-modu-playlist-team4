@@ -1,8 +1,11 @@
 package com.mopl.global.jwt;
 
 import com.mopl.global.auth.UserAuthInfo;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
@@ -10,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AuthTokenIssuer {
@@ -21,33 +25,40 @@ public class AuthTokenIssuer {
     private boolean cookieSecure;
 
     public String issue(UserAuthInfo user, HttpServletResponse response) {
-        // 기존 로그인 세션 강제 로그아웃: 살아있는 액세스 토큰을 블랙리스트에 등록
-        authTokenService.findAccessJtiByUserId(user.id()).ifPresent(entry -> {
-            Duration remaining = Duration.between(Instant.now(), entry.expiresAt());
-            if (!remaining.isNegative()) {
-                authTokenService.blacklistJti(entry.jti(), remaining);
-            }
-        });
-        authTokenService.deleteRefreshTokenByUserId(user.id());
+        try {
+            // 기존 로그인 세션 강제 로그아웃: 살아있는 액세스 토큰을 블랙리스트에 등록
+            authTokenService.findAccessJtiByUserId(user.id()).ifPresent(entry -> {
+                Duration remaining = Duration.between(Instant.now(), entry.expiresAt());
+                if (!remaining.isNegative()) {
+                    authTokenService.blacklistJti(entry.jti(), remaining);
+                }
+            });
+            authTokenService.deleteRefreshTokenByUserId(user.id());
 
-        String accessToken = jwtProvider.generateAccessToken(user.id(), user.email(), user.role().name());
-        String refreshToken = jwtProvider.generateRefreshToken(user.id(), user.email(), user.role().name());
+            String accessToken = jwtProvider.generateAccessToken(user.id(), user.email(), user.role().name());
+            String refreshToken = jwtProvider.generateRefreshToken(user.id(), user.email(), user.role().name());
 
-        Duration refreshTtl = jwtProvider.calculateTtl(refreshToken);
-        authTokenService.saveRefreshToken(user.id(), refreshToken, refreshTtl);
+            Duration refreshTtl = jwtProvider.calculateTtl(refreshToken);
+            authTokenService.saveRefreshToken(user.id(), refreshToken, refreshTtl);
 
-        JwtClaims accessClaims = jwtProvider.parse(accessToken);
-        authTokenService.saveAccessJti(user.id(), accessClaims.getTokenId(), jwtProvider.getExpiration(accessToken));
+            JwtClaims accessClaims = jwtProvider.parse(accessToken);
+            authTokenService.saveAccessJti(user.id(), accessClaims.getTokenId(), jwtProvider.getExpiration(accessToken));
 
-        ResponseCookie refreshCookie = ResponseCookie.from("REFRESH_TOKEN", refreshToken)
-                .httpOnly(true)
-                .secure(cookieSecure)
-                .path("/")
-                .maxAge(refreshTtl)
-                .sameSite("Lax")
-                .build();
-        response.addHeader("Set-Cookie", refreshCookie.toString());
+            ResponseCookie refreshCookie = ResponseCookie.from("REFRESH_TOKEN", refreshToken)
+                    .httpOnly(true)
+                    .secure(cookieSecure)
+                    .path("/")
+                    .maxAge(refreshTtl)
+                    .sameSite("Lax")
+                    .build();
+            response.addHeader("Set-Cookie", refreshCookie.toString());
 
-        return accessToken;
+            return accessToken;
+        } catch (MoplException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("토큰 발급 중 인증 저장소 오류 - userId: {}", user.id(), e);
+            throw new MoplException(ErrorCode.AUTH_STORAGE_UNAVAILABLE);
+        }
     }
 }

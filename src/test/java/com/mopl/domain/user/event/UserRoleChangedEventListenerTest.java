@@ -4,6 +4,7 @@ import com.mopl.domain.notification.domain.NotificationType;
 import com.mopl.domain.user.dto.Role;
 import com.mopl.global.event.NotificationEventPublisher;
 import com.mopl.global.event.NotificationRequestedEvent;
+import com.mopl.global.jwt.AuthTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,11 +25,14 @@ class UserRoleChangedEventListenerTest {
     @Mock
     private NotificationEventPublisher notificationEventPublisher;
 
+    @Mock
+    private AuthTokenService authTokenService;
+
     private UserRoleChangedEventListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new UserRoleChangedEventListener(notificationEventPublisher);
+        listener = new UserRoleChangedEventListener(notificationEventPublisher, authTokenService);
     }
 
     @Test
@@ -46,5 +50,16 @@ class UserRoleChangedEventListenerTest {
         assertThat(published.receiverId()).isEqualTo(userId);
         assertThat(published.type()).isEqualTo(NotificationType.ROLE_CHANGED.name());
         assertThat(published.content()).contains("USER").contains("ADMIN");
+    }
+
+    @Test
+    @DisplayName("성공: 권한 변경 이벤트를 받으면 기존 세션을 강제 로그아웃시킨다")
+    void onRoleChanged_forcesLogout() {
+        UUID userId = UUID.randomUUID();
+        UserRoleChangedEvent event = new UserRoleChangedEvent(userId, Role.USER, Role.ADMIN);
+
+        listener.onRoleChanged(event);
+
+        verify(authTokenService).forceLogoutByUserId(userId);
     }
 }

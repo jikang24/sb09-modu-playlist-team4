@@ -8,7 +8,10 @@ import com.mopl.global.config.QueryDslConfig;
 import com.mopl.global.dto.SortDirection;
 import com.mopl.global.response.CursorPageResponse;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -186,6 +189,81 @@ class DirectMessagePersistenceAdapterTest {
 
     assertThat(adapter.findConversationIdsByContent("hello"))
         .containsExactlyInAnyOrder(conversation1, conversation2);
+  }
+
+  @Test
+  @DisplayName("여러 대화방의 최근 메시지를 한 번에 조회한다")
+  void findLatestByConversationIds_success() {
+
+    UUID conversation1 = UUID.randomUUID();
+    UUID conversation2 = UUID.randomUUID();
+    UUID conversation3WithNoMessage = UUID.randomUUID();
+
+    adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversation1, UUID.randomUUID(), UUID.randomUUID(),
+        "conv1-old", Instant.parse("2026-01-01T00:00:00Z"), false
+    ));
+    DirectMessage conv1Latest = adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversation1, UUID.randomUUID(), UUID.randomUUID(),
+        "conv1-new", Instant.parse("2026-01-02T00:00:00Z"), false
+    ));
+    DirectMessage conv2Latest = adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversation2, UUID.randomUUID(), UUID.randomUUID(),
+        "conv2-only", Instant.parse("2026-01-01T12:00:00Z"), false
+    ));
+
+    Map<UUID, DirectMessage> result = adapter.findLatestByConversationIds(
+        List.of(conversation1, conversation2, conversation3WithNoMessage)
+    );
+
+    assertThat(result).hasSize(2);
+    assertThat(result.get(conversation1).getId()).isEqualTo(conv1Latest.getId());
+    assertThat(result.get(conversation1).getContent()).isEqualTo("conv1-new");
+    assertThat(result.get(conversation2).getId()).isEqualTo(conv2Latest.getId());
+    assertThat(result).doesNotContainKey(conversation3WithNoMessage);
+  }
+
+  @Test
+  @DisplayName("대화방 ID 목록이 비어있으면 빈 Map을 반환한다")
+  void findLatestByConversationIds_empty() {
+
+    Map<UUID, DirectMessage> result = adapter.findLatestByConversationIds(List.of());
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  @DisplayName("여러 대화방 중 안 읽은 메시지가 있는 대화방만 한 번에 조회한다")
+  void findConversationIdsWithUnread_success() {
+
+    UUID myId = UUID.randomUUID();
+    UUID conversationWithUnread = UUID.randomUUID();
+    UUID conversationAllRead = UUID.randomUUID();
+    UUID conversationNoMessage = UUID.randomUUID();
+
+    adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversationWithUnread, UUID.randomUUID(), myId,
+        "안 읽음", Instant.now(), false
+    ));
+    adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversationAllRead, UUID.randomUUID(), myId,
+        "읽음", Instant.now(), true
+    ));
+
+    Set<UUID> result = adapter.findConversationIdsWithUnread(
+        List.of(conversationWithUnread, conversationAllRead, conversationNoMessage), myId
+    );
+
+    assertThat(result).containsExactly(conversationWithUnread);
+  }
+
+  @Test
+  @DisplayName("대화방 ID 목록이 비어있으면 빈 Set을 반환한다")
+  void findConversationIdsWithUnread_empty() {
+
+    Set<UUID> result = adapter.findConversationIdsWithUnread(List.of(), UUID.randomUUID());
+
+    assertThat(result).isEmpty();
   }
 
   @Test

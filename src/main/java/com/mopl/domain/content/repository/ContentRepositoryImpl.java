@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * [Adapter Out] ContentRepository 구현체
@@ -106,7 +107,7 @@ public class ContentRepositoryImpl implements ContentRepository {
     ContentSortField sortField = ContentSortField.resolve(request.sortBy());
     boolean isAscending = "ASCENDING".equalsIgnoreCase(request.sortDirection());
 
-    BooleanBuilder builder = filterPredicate(content, request);
+    BooleanBuilder builder = filterPredicate(content, request, true);
     if (request.cursor() != null && request.idAfter() != null) {
       builder.and(cursorPredicate(content, sortField, request, isAscending));
     }
@@ -158,7 +159,7 @@ public class ContentRepositoryImpl implements ContentRepository {
     // 커서는 빼고 필터 조건만으로 카운트 (페이지가 넘어가도 totalCount는 동일해야 함)
     Long count = queryFactory.select(content.count())
         .from(content)
-        .where(filterPredicate(content, request))
+        .where(filterPredicate(content, request, true))
         .fetchOne();
 
     return count != null ? count : 0L;
@@ -184,23 +185,40 @@ public class ContentRepositoryImpl implements ContentRepository {
   }
 
   /** 타입/키워드/태그 필터 조건 (커서 제외 - totalCount 계산에도 그대로 재사용됨) */
-  private BooleanBuilder filterPredicate(QContentJpaEntity content, ContentSearchRequest request) {
+  private BooleanBuilder filterPredicate(
+      QContentJpaEntity content,
+      ContentSearchRequest request,
+      boolean includeKeyword
+  ) {
+
     BooleanBuilder builder = new BooleanBuilder();
 
     if (request.typeEqual() != null) {
       builder.and(content.type.eq(request.typeEqual()));
     }
 
-    if (request.keywordLike() != null && !request.keywordLike().isBlank()) {
-      builder.and(content.title.lower().like("%" + request.keywordLike().toLowerCase() + "%"));
+    if (includeKeyword &&
+        request.keywordLike() != null &&
+        !request.keywordLike().isBlank()) {
+
+      builder.and(
+          content.title.lower()
+              .like("%" + request.keywordLike().toLowerCase() + "%")
+      );
     }
 
     if (request.tagsIn() != null && !request.tagsIn().isEmpty()) {
       QContentTagJpaEntity tag = QContentTagJpaEntity.contentTagJpaEntity;
-      builder.and(JPAExpressions.selectOne()
-          .from(tag)
-          .where(tag.content.eq(content).and(tag.tag.in(request.tagsIn())))
-          .exists());
+
+      builder.and(
+          JPAExpressions.selectOne()
+              .from(tag)
+              .where(
+                  tag.content.eq(content)
+                      .and(tag.tag.in(request.tagsIn()))
+              )
+              .exists()
+      );
     }
 
     return builder;
@@ -261,5 +279,71 @@ public class ContentRepositoryImpl implements ContentRepository {
                 .or(content.averageRating.eq(cursorValue).and(content.id.lt(request.idAfter())));
       }
     };
+  }
+
+  @Override
+  public List<Content> findAllByIdsWithCondition(
+      List<UUID> ids,
+      ContentSearchRequest request
+  ) {
+
+    if (ids == null || ids.isEmpty()) {
+      return List.of();
+    }
+
+    QContentJpaEntity content = QContentJpaEntity.contentJpaEntity;
+
+    ContentSortField sortField =
+        ContentSortField.resolve(request.sortBy());
+
+    boolean isAscending =
+        "ASCENDING".equalsIgnoreCase(request.sortDirection());
+
+    BooleanBuilder builder = idPredicate(content, ids);
+
+    if (request.cursor() != null &&
+        request.idAfter() != null) {
+
+      builder.and(
+          cursorPredicate(
+              content,
+              sortField,
+              request,
+              isAscending
+          )
+      );
+    }
+
+    List<ContentJpaEntity> entities =
+        queryFactory
+            .selectFrom(content)
+            .where(builder)
+            .orderBy(
+                sortOrder(content, sortField, isAscending),
+                isAscending
+                    ? content.id.asc()
+                    : content.id.desc()
+            )
+            .limit(request.limit() + 1L)
+            .fetch();
+
+    return entities.stream()
+        .map(contentMapper::toDomain)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  @Override
+  public List<Content> findAll() {
+    return jpaRepository.findAll()
+        .stream()
+        .map(contentMapper::toDomain)
+        .toList();
+  }
+
+  private BooleanBuilder idPredicate(QContentJpaEntity content, List<UUID> ids) {
+    BooleanBuilder builder = new BooleanBuilder();
+    builder.and(content.id.in(ids));
+    return builder;
   }
 }

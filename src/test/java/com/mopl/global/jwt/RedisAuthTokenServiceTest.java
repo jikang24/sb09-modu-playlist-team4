@@ -1,6 +1,7 @@
 package com.mopl.global.jwt;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -246,6 +247,63 @@ class RedisAuthTokenServiceTest {
       service.deleteAccessJtiByUserId(userId);
 
       then(redisTemplate).should().delete(accessJtiKey(userId));
+    }
+  }
+
+  @Nested
+  @DisplayName("강제 로그아웃")
+  class ForceLogout {
+
+    @Test
+    @DisplayName("성공: 살아있는 액세스 토큰이 있으면 블랙리스트 등록 후 access-jti/refresh를 모두 삭제한다")
+    void forceLogoutByUserId_withActiveAccessToken_blacklistsAndDeletesAll() {
+      UUID userId = UUID.randomUUID();
+      given(valueOperations.get(accessJtiKey(userId))).willReturn("access-jti-1");
+      given(redisTemplate.getExpire(accessJtiKey(userId))).willReturn(1800L);
+      given(valueOperations.get(refreshUserKey(userId))).willReturn("refresh-token-1");
+
+      service.forceLogoutByUserId(userId);
+
+      then(valueOperations).should().set(eq(blacklistKey("access-jti-1")), eq("1"), any(Duration.class));
+      then(redisTemplate).should().delete(accessJtiKey(userId));
+      then(redisTemplate).should().delete(refreshUserKey(userId));
+      then(redisTemplate).should().delete(refreshTokenKey("refresh-token-1"));
+    }
+
+    @Test
+    @DisplayName("실패: jti는 남아있지만 이미 만료된 상태면 블랙리스트 등록 없이 삭제만 진행한다")
+    void forceLogoutByUserId_expiredAccessToken_skipsBlacklist() {
+      UUID userId = UUID.randomUUID();
+      given(valueOperations.get(accessJtiKey(userId))).willReturn("access-jti-1");
+      given(redisTemplate.getExpire(accessJtiKey(userId))).willReturn(-1L);
+      given(valueOperations.get(refreshUserKey(userId))).willReturn(null);
+
+      service.forceLogoutByUserId(userId);
+
+      then(valueOperations).should(never()).set(any(String.class), any(String.class), any(Duration.class));
+      then(redisTemplate).should().delete(accessJtiKey(userId));
+    }
+
+    @Test
+    @DisplayName("성공: 저장된 액세스 토큰이 없으면 블랙리스트 등록 없이 access-jti/refresh 삭제만 시도한다")
+    void forceLogoutByUserId_withoutAccessToken_skipsBlacklist() {
+      UUID userId = UUID.randomUUID();
+      given(valueOperations.get(accessJtiKey(userId))).willReturn(null);
+      given(valueOperations.get(refreshUserKey(userId))).willReturn(null);
+
+      service.forceLogoutByUserId(userId);
+
+      then(valueOperations).should(never()).set(any(String.class), any(String.class), any(Duration.class));
+      then(redisTemplate).should().delete(accessJtiKey(userId));
+    }
+
+    @Test
+    @DisplayName("실패: Redis 조회 중 예외가 발생해도 밖으로 전파하지 않고 삼킨다")
+    void forceLogoutByUserId_redisThrows_doesNotPropagate() {
+      UUID userId = UUID.randomUUID();
+      given(valueOperations.get(accessJtiKey(userId))).willThrow(new RuntimeException("redis connection failed"));
+
+      assertThatCode(() -> service.forceLogoutByUserId(userId)).doesNotThrowAnyException();
     }
   }
 }
