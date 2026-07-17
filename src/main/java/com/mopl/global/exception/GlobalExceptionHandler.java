@@ -3,6 +3,7 @@ package com.mopl.global.exception;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -79,9 +81,31 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 잘못된 형식의 요청 본문 (예: 깨진 JSON, 잘못된 타입의 필드값)
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleMessageNotReadable(HttpMessageNotReadableException e) {
+        log.warn("[요청 본문 파싱 실패] {}", e.getMessage());
+
+        return ResponseEntity
+            .status(ErrorCode.INVALID_REQUEST_BODY.getStatus())
+            .body(new ErrorResponse(ErrorCode.INVALID_REQUEST_BODY.name(), ErrorCode.INVALID_REQUEST_BODY.getMessage()));
+    }
+
+    /**
+     * 업로드 파일이 설정된 최대 용량을 초과한 경우
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        log.warn("[업로드 용량 초과] {}", e.getMessage());
+
+        return ResponseEntity
+            .status(ErrorCode.FILE_TOO_LARGE.getStatus())
+            .body(new ErrorResponse(ErrorCode.FILE_TOO_LARGE.name(), ErrorCode.FILE_TOO_LARGE.getMessage()));
+    }
+
+    /**
      * @PreAuthorize 등 메서드 보안 실패
-     * ExceptionTranslationFilter보다 @RestControllerAdvice가 먼저 처리하므로
-     * 여기서 잡아주지 않으면 최후 안전망(Exception.class)이 500으로 감싸버림
      */
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAuthorizationDenied(AuthorizationDeniedException e) {
@@ -94,7 +118,6 @@ public class GlobalExceptionHandler {
 
     /**
      * 존재하지 않는 정적 리소스 요청 (예: 없는 이미지 경로)
-     * 최후 안전망(Exception.class)이 잡으면 단순 404가 500으로 둔갑하므로 여기서 먼저 처리
      */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException e) {
