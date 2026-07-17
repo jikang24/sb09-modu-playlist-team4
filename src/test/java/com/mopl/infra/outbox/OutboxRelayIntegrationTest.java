@@ -25,6 +25,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest
 @EmbeddedKafka(partitions = 1, topics = "notification-requested")
 @TestPropertySource(properties = {
+    "opensearch.init.enabled=false",
     "outbox.relay.fixed-delay-ms=200",
     "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}"
 })
