@@ -1,5 +1,6 @@
 package com.mopl.domain.user.service;
 
+import com.mopl.domain.user.domain.SocialAccount;
 import com.mopl.domain.user.domain.User;
 import com.mopl.domain.user.dto.*;
 import com.mopl.domain.user.event.UserLockedEvent;
@@ -8,6 +9,7 @@ import com.mopl.domain.user.mapper.UserMapper;
 import com.mopl.domain.user.repository.SocialAccountRepository;
 import com.mopl.domain.user.repository.UserRepository;
 import com.mopl.global.dto.SortDirection;
+import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
 import com.mopl.infra.s3.S3Service;
@@ -22,17 +24,20 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -505,6 +510,299 @@ class UserServiceTest {
             userService.updatePassword(userId, request2);
 
             verify(passwordEncoder, times(2)).encode(anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("findAllByIds: 여러 사용자 ID로 조회")
+    class FindAllByIds {
+
+        @Test
+        @DisplayName("성공: 존재하는 ID 목록으로 조회한다")
+        void findAllByIds_success() {
+            User other = User.builder()
+                    .name("buzz")
+                    .email("buzz@mopl.io")
+                    .password("encoded")
+                    .role(Role.USER)
+                    .locked(false)
+                    .build();
+            given(userRepository.findAllById(Set.of(userId))).willReturn(List.of(user, other));
+            given(userMapper.toDto(any(User.class))).willReturn(userDto);
+
+            List<UserDto> result = userService.findAllByIds(Set.of(userId));
+
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("성공: 빈 컬렉션이면 빈 목록을 반환한다")
+        void findAllByIds_empty() {
+            given(userRepository.findAllById(Set.of())).willReturn(List.of());
+
+            List<UserDto> result = userService.findAllByIds(Set.of());
+
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findUserIdBySocialAccount: 소셜 계정으로 사용자 ID 조회")
+    class FindUserIdBySocialAccount {
+
+        @Test
+        @DisplayName("성공: 연동된 계정이 있으면 사용자 ID를 반환한다")
+        void findUserIdBySocialAccount_found() {
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.of(userId));
+
+            Optional<UUID> result = userService.findUserIdBySocialAccount(SocialProvider.GOOGLE, "provider-id");
+
+            assertThat(result).contains(userId);
+        }
+
+        @Test
+        @DisplayName("실패: 연동된 계정이 없으면 빈 Optional을 반환한다")
+        void findUserIdBySocialAccount_notFound() {
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.empty());
+
+            Optional<UUID> result = userService.findUserIdBySocialAccount(SocialProvider.GOOGLE, "provider-id");
+
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findOrCreateSocialUser: 소셜 로그인 사용자 조회/생성")
+    class FindOrCreateSocialUser {
+
+        @Test
+        @DisplayName("성공: 이미 연동된 소셜 계정이 있으면 기존 사용자를 반환한다")
+        void findOrCreateSocialUser_existingSocialAccount() {
+            User existing = User.builder()
+                    .id(userId)
+                    .name("woody")
+                    .email("woody@mopl.io")
+                    .role(Role.USER)
+                    .locked(false)
+                    .build();
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.of(userId));
+            given(userRepository.findById(userId)).willReturn(Optional.of(existing));
+            given(userMapper.toDto(existing)).willReturn(userDto);
+
+            UserDto result = userService.findOrCreateSocialUser(SocialProvider.GOOGLE, "provider-id", "woody@mopl.io", true, "woody", null);
+
+            assertThat(result).isEqualTo(userDto);
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("실패: 연동된 소셜 계정의 사용자가 잠금 상태면 ACCOUNT_LOCKED 예외가 발생한다")
+        void findOrCreateSocialUser_existingSocialAccount_locked() {
+            User lockedUser = User.builder()
+                    .id(userId)
+                    .name("woody")
+                    .email("woody@mopl.io")
+                    .role(Role.USER)
+                    .locked(true)
+                    .build();
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.of(userId));
+            given(userRepository.findById(userId)).willReturn(Optional.of(lockedUser));
+
+            assertThatThrownBy(() -> userService.findOrCreateSocialUser(SocialProvider.GOOGLE, "provider-id", "woody@mopl.io", true, "woody", null))
+                    .isInstanceOf(MoplException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ACCOUNT_LOCKED);
+        }
+
+        @Test
+        @DisplayName("성공: 연동된 계정은 없지만 구글 인증된 이메일이 일치하면 기존 계정에 연동한다")
+        void findOrCreateSocialUser_linkToExistingEmail_google() {
+            User existing = User.builder()
+                    .id(userId)
+                    .name("woody")
+                    .email("woody@mopl.io")
+                    .role(Role.USER)
+                    .locked(false)
+                    .build();
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.empty());
+            given(userRepository.findByEmail("woody@mopl.io")).willReturn(Optional.of(existing));
+            given(userMapper.toDto(existing)).willReturn(userDto);
+
+            UserDto result = userService.findOrCreateSocialUser(SocialProvider.GOOGLE, "provider-id", "woody@mopl.io", true, "woody", null);
+
+            assertThat(result).isEqualTo(userDto);
+            verify(socialAccountRepository).save(any(SocialAccount.class));
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("실패: 이메일이 일치하는 기존 사용자가 잠금 상태면 ACCOUNT_LOCKED 예외가 발생한다")
+        void findOrCreateSocialUser_linkToExistingEmail_locked() {
+            User lockedUser = User.builder()
+                    .id(userId)
+                    .name("woody")
+                    .email("woody@mopl.io")
+                    .role(Role.USER)
+                    .locked(true)
+                    .build();
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.empty());
+            given(userRepository.findByEmail("woody@mopl.io")).willReturn(Optional.of(lockedUser));
+
+            assertThatThrownBy(() -> userService.findOrCreateSocialUser(SocialProvider.GOOGLE, "provider-id", "woody@mopl.io", true, "woody", null))
+                    .isInstanceOf(MoplException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ACCOUNT_LOCKED);
+
+            verify(socialAccountRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("실패: 이메일이 일치하지만 구글이 아니거나 인증되지 않았으면 DUPLICATE_EMAIL 예외가 발생한다")
+        void findOrCreateSocialUser_duplicateEmail_notVerified() {
+            User existing = User.builder()
+                    .id(userId)
+                    .name("woody")
+                    .email("woody@mopl.io")
+                    .role(Role.USER)
+                    .locked(false)
+                    .build();
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.KAKAO, "provider-id"))
+                    .willReturn(Optional.empty());
+            given(userRepository.findByEmail("woody@mopl.io")).willReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> userService.findOrCreateSocialUser(SocialProvider.KAKAO, "provider-id", "woody@mopl.io", false, "woody", null))
+                    .isInstanceOf(MoplException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_EMAIL);
+        }
+
+        @Test
+        @DisplayName("성공: 신규 이메일이면 새 사용자를 생성하고 소셜 계정을 연동한다")
+        void findOrCreateSocialUser_createNewUser() {
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.empty());
+            given(userRepository.findByEmail("new@mopl.io")).willReturn(Optional.empty());
+            given(userRepository.existsByName("newbie")).willReturn(false);
+            given(userRepository.save(any(User.class))).willReturn(user);
+            given(userMapper.toDto(user)).willReturn(userDto);
+
+            UserDto result = userService.findOrCreateSocialUser(SocialProvider.GOOGLE, "provider-id", "new@mopl.io", true, "newbie", "https://img.url/p.png");
+
+            assertThat(result).isEqualTo(userDto);
+            verify(userRepository).save(any(User.class));
+            verify(socialAccountRepository).save(any(SocialAccount.class));
+        }
+
+        @Test
+        @DisplayName("성공: 닉네임이 중복되면 숫자를 붙여 고유한 이름으로 생성한다")
+        void findOrCreateSocialUser_createNewUser_duplicateNameSuffix() {
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.empty());
+            given(userRepository.findByEmail("new@mopl.io")).willReturn(Optional.empty());
+            given(userRepository.existsByName("newbie")).willReturn(true);
+            given(userRepository.existsByName("newbie1")).willReturn(false);
+            given(userRepository.save(any(User.class))).willReturn(user);
+            given(userMapper.toDto(user)).willReturn(userDto);
+
+            userService.findOrCreateSocialUser(SocialProvider.GOOGLE, "provider-id", "new@mopl.io", true, "newbie", null);
+
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepository).save(captor.capture());
+            assertThat(captor.getValue().getName()).isEqualTo("newbie1");
+        }
+
+        @Test
+        @DisplayName("성공: 동시 연동 요청으로 DataIntegrityViolationException이 발생해도 이미 연동된 상태면 정상 처리한다")
+        void findOrCreateSocialUser_concurrentLink_alreadyLinked() {
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.empty())
+                    .willReturn(Optional.of(userId));
+            given(userRepository.findByEmail("new@mopl.io")).willReturn(Optional.empty());
+            given(userRepository.existsByName("newbie")).willReturn(false);
+            User savedUser = User.builder()
+                    .id(userId)
+                    .name("newbie")
+                    .email("new@mopl.io")
+                    .role(Role.USER)
+                    .locked(false)
+                    .build();
+            given(userRepository.save(any(User.class))).willReturn(savedUser);
+            given(socialAccountRepository.save(any(SocialAccount.class)))
+                    .willThrow(new DataIntegrityViolationException("duplicate"));
+            given(userMapper.toDto(savedUser)).willReturn(userDto);
+
+            UserDto result = userService.findOrCreateSocialUser(SocialProvider.GOOGLE, "provider-id", "new@mopl.io", true, "newbie", null);
+
+            assertThat(result).isEqualTo(userDto);
+        }
+
+        @Test
+        @DisplayName("실패: 동시 연동 요청으로 DataIntegrityViolationException이 발생하고 다른 사용자에게 연동돼있으면 예외가 발생한다")
+        void findOrCreateSocialUser_concurrentLink_linkedToAnotherUser() {
+            UUID anotherUserId = UUID.randomUUID();
+            given(socialAccountRepository.findUserIdByProviderAndProviderUserId(SocialProvider.GOOGLE, "provider-id"))
+                    .willReturn(Optional.empty())
+                    .willReturn(Optional.of(anotherUserId));
+            given(userRepository.findByEmail("new@mopl.io")).willReturn(Optional.empty());
+            given(userRepository.existsByName("newbie")).willReturn(false);
+            User savedUser = User.builder()
+                    .id(userId)
+                    .name("newbie")
+                    .email("new@mopl.io")
+                    .role(Role.USER)
+                    .locked(false)
+                    .build();
+            given(userRepository.save(any(User.class))).willReturn(savedUser);
+            given(socialAccountRepository.save(any(SocialAccount.class)))
+                    .willThrow(new DataIntegrityViolationException("duplicate"));
+
+            assertThatThrownBy(() -> userService.findOrCreateSocialUser(SocialProvider.GOOGLE, "provider-id", "new@mopl.io", true, "newbie", null))
+                    .isInstanceOf(MoplException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED);
+        }
+    }
+
+    @Nested
+    @DisplayName("toDto: 프로필 이미지 URL 변환")
+    class ProfileImageUrlResolution {
+
+        @Test
+        @DisplayName("성공: 저장된 값이 S3 key면 presigned URL로 치환한다")
+        void resolveImageUrl_s3Key() {
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
+            given(userMapper.toDto(user)).willReturn(new UserDto(userId, Instant.now(), "woody@mopl.io", "woody", "profile/key.png", Role.USER, false));
+            given(s3Service.getPresignedUrl("profile/key.png")).willReturn("https://s3.presigned/profile/key.png");
+
+            UserDto result = userService.find(userId);
+
+            assertThat(result.profileImageUrl()).isEqualTo("https://s3.presigned/profile/key.png");
+        }
+
+        @Test
+        @DisplayName("성공: 저장된 값이 외부 URL(스킴 포함)이면 그대로 반환한다")
+        void resolveImageUrl_externalUrl() {
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
+            given(userMapper.toDto(user)).willReturn(new UserDto(userId, Instant.now(), "woody@mopl.io", "woody", "https://external.com/img.png", Role.USER, false));
+
+            UserDto result = userService.find(userId);
+
+            assertThat(result.profileImageUrl()).isEqualTo("https://external.com/img.png");
+            verify(s3Service, never()).getPresignedUrl(anyString());
+        }
+
+        @Test
+        @DisplayName("성공: 저장된 값이 없으면 그대로 null을 반환한다")
+        void resolveImageUrl_null() {
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
+            given(userMapper.toDto(user)).willReturn(userDto);
+
+            UserDto result = userService.find(userId);
+
+            assertThat(result.profileImageUrl()).isNull();
+            verify(s3Service, never()).getPresignedUrl(anyString());
         }
     }
 }
