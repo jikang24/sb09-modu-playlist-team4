@@ -22,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.multipart.MultipartFile;
+import com.mopl.domain.content.adapter.port.SearchContentPort;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -48,6 +49,9 @@ class ContentServiceTest {
 
   @Mock
   private S3Service s3Service;
+
+  @Mock
+  private SearchContentPort searchContentPort;
 
   @InjectMocks
   private ContentService contentService;
