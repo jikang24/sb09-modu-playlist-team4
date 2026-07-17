@@ -73,6 +73,7 @@ public enum ErrorCode {
     REFRESH_TOKEN_REVOKED("이미 무효화된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
     TOKEN_NOT_FOUND("인증 토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
     AUTH_REDIS_UNAVAILABLE("Redis 서버에 일시적으로 연결할 수 없어 인증 처리를 완료하지 못했습니다.", HttpStatus.SERVICE_UNAVAILABLE),
+    AUTH_STORAGE_UNAVAILABLE("인증 저장소에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE),
 
     // 공통 응답
     INVALID_INPUT("잘못된 입력입니다", HttpStatus.BAD_REQUEST),

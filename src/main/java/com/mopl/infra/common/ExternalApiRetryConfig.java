@@ -1,5 +1,6 @@
 package com.mopl.infra.common;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collections;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -27,7 +28,7 @@ public class ExternalApiRetryConfig {
   private static final double BACKOFF_MULTIPLIER = 2.0;
 
   @Bean
-  public RetryTemplate externalApiRetryTemplate() {
+  public RetryTemplate externalApiRetryTemplate(MeterRegistry meterRegistry) {
     RetryTemplate retryTemplate = new RetryTemplate();
 
     retryTemplate.setRetryPolicy(new SimpleRetryPolicy(
@@ -47,6 +48,11 @@ public class ExternalApiRetryConfig {
           RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
         log.warn("[ExternalAPI] 재시도 {}회차 실패 - {}",
             context.getRetryCount(), throwable.getMessage());
+
+        String errorCode = throwable instanceof ExternalApiRetryableException retryable
+            ? retryable.getErrorCode().name()
+            : throwable.getClass().getSimpleName();
+        meterRegistry.counter("external.api.retry", "errorCode", errorCode).increment();
       }
     });
 

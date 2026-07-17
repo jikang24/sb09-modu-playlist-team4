@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS playlist_contents (
     playlist_id     UUID            NOT NULL,
     -- [모듈 간 REF] content 모듈의 contents.id 참조 — FK 없음
     content_id      UUID            NOT NULL,
+    position        INT             NOT NULL,
     created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
 
     UNIQUE (playlist_id, content_id),                      -- 중복 추가 방지
