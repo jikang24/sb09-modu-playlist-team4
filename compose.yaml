@@ -145,4 +145,5 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
   opensearch-data:
