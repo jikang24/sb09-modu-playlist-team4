@@ -12,6 +12,7 @@ import com.mopl.global.dto.UserSummary;
 import com.mopl.global.response.CursorPageResponse;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,23 @@ class ConversationUserAdapterTest {
     assertThat(result.userId()).isEqualTo(userId);
     assertThat(result.name()).isEqualTo("test");
     assertThat(result.profileImageUrl()).isEqualTo("profile.jpg");
+  }
+
+  @Test
+  @DisplayName("userId 목록으로 UserSummary를 한 번에 조회한다")
+  void getUserSummaries_success(){
+    UUID userId1 = UUID.randomUUID();
+    UUID userId2 = UUID.randomUUID();
+    UserDto user1 = new UserDto(userId1, Instant.now(), "a@email.com", "userA", "a.jpg", Role.USER, false);
+    UserDto user2 = new UserDto(userId2, Instant.now(), "b@email.com", "userB", null, Role.USER, false);
+
+    given(userService.findAllByIds(List.of(userId1, userId2))).willReturn(List.of(user1, user2));
+
+    Map<UUID, UserSummary> result = conversationUserAdapter.getUserSummaries(List.of(userId1, userId2));
+
+    assertThat(result).hasSize(2);
+    assertThat(result.get(userId1).name()).isEqualTo("userA");
+    assertThat(result.get(userId2).name()).isEqualTo("userB");
   }
 
   @Test
