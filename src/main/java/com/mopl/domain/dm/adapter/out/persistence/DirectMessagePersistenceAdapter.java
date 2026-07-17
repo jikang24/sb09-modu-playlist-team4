@@ -7,11 +7,17 @@ import com.mopl.domain.dm.domain.DirectMessage;
 import com.mopl.global.dto.SortDirection;
 import com.mopl.global.response.CursorPageResponse;
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Repository;
@@ -118,5 +124,68 @@ public class DirectMessagePersistenceAdapter implements SaveDirectMessagePort,
         .where(dm.content.containsIgnoreCase(keyword))
         .distinct()
         .fetch();
+  }
+
+  @Override
+  public Map<UUID, DirectMessage> findLatestByConversationIds(Collection<UUID> conversationIds) {
+    if (conversationIds.isEmpty()) {
+      return Map.of();
+    }
+    QDirectMessageJpaEntity dm = QDirectMessageJpaEntity.directMessageJpaEntity;
+    var maxCreatedAt = dm.createdAt.max();
+
+    // 1) 대화방별 최신 시각을 한 번에 조회 (conversationId 개수와 무관하게 쿼리 1번)
+    List<Tuple> latestTimes = queryFactory
+        .select(dm.conversationId, maxCreatedAt)
+        .from(dm)
+        .where(dm.conversationId.in(conversationIds))
+        .groupBy(dm.conversationId)
+        .fetch();
+
+    if (latestTimes.isEmpty()) {
+      return Map.of();
+    }
+
+    // 2) (conversationId, 최신 시각) 쌍으로 실제 메시지 엔티티를 한 번에 조회
+    BooleanBuilder condition = new BooleanBuilder();
+    for (Tuple t : latestTimes) {
+      UUID conversationId = t.get(dm.conversationId);
+      Instant latestCreatedAt = t.get(maxCreatedAt);
+      condition.or(dm.conversationId.eq(conversationId).and(dm.createdAt.eq(latestCreatedAt)));
+    }
+
+    List<DirectMessageJpaEntity> latestEntities = queryFactory
+        .selectFrom(dm)
+        .where(condition)
+        .fetch();
+
+    return latestEntities.stream()
+        .map(mapper::toDomain)
+        .collect(Collectors.toMap(
+            DirectMessage::getConversationId,
+            message -> message,
+            (existing, duplicate) -> existing
+        ));
+  }
+
+  @Override
+  public Set<UUID> findConversationIdsWithUnread(Collection<UUID> conversationIds, UUID myId) {
+    if (conversationIds.isEmpty()) {
+      return Set.of();
+    }
+    QDirectMessageJpaEntity dm = QDirectMessageJpaEntity.directMessageJpaEntity;
+
+    List<UUID> unreadConversationIds = queryFactory
+        .select(dm.conversationId)
+        .from(dm)
+        .where(
+            dm.conversationId.in(conversationIds),
+            dm.receiverId.eq(myId),
+            dm.read.eq(false)
+        )
+        .distinct()
+        .fetch();
+
+    return new HashSet<>(unreadConversationIds);
   }
 }
