@@ -13,10 +13,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
+@Testcontainers
 @SpringBootTest
 @EmbeddedKafka(partitions = 1, topics = "notification-requested")
 @TestPropertySource(properties = {
@@ -25,11 +30,17 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 })
 class OutboxRelayIntegrationTest {
 
+  @Container
+  @ServiceConnection
+  static PostgreSQLContainer<?> postgres =
+      new PostgreSQLContainer<>("postgres:16")
+          .withDatabaseName("mopl")
+          .withUsername("postgres")
+          .withPassword("postgres");
+
   @Autowired
   private OutboxRepository outboxRepository;
 
-  // ContentSyncScheduler가 실제 JobLauncher 대신 이 목(mock)을 사용하게 되어,
-  // 배치(TMDB 수집)가 테스트 중 실행되지 않는다.
   @MockitoBean
   private JobLauncher jobLauncher;
 
@@ -52,10 +63,12 @@ class OutboxRelayIntegrationTest {
         .messageKey("user-1")
         .payload("{\"receiverId\":\"user-1\"}")
         .build();
+
     savedId = outboxRepository.saveAndFlush(event).getId();
 
     await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
       OutboxEvent reloaded = outboxRepository.findById(savedId).orElseThrow();
+
       assertThat(reloaded.getStatus()).isEqualTo(OutboxStatus.PUBLISHED);
       assertThat(reloaded.getPublishedAt()).isNotNull();
     });
