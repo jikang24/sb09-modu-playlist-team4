@@ -29,4 +29,9 @@ public interface ReviewRepository
       @Param("userId") UUID userId,
       @Param("name") String name,
       @Param("imageUrl") String imageUrl);
+
+  // 콘텐츠가 삭제됐을 때, FK 없이 contentId만 참조하는 리뷰가 고아로 남지 않도록 일괄 삭제
+  @Modifying
+  @Query("DELETE FROM Review r WHERE r.contentId = :contentId")
+  void deleteByContentId(@Param("contentId") UUID contentId);
 }
