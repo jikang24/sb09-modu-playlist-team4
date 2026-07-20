@@ -5,13 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
-import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RedisAuthTokenService 테스트")
@@ -97,6 +98,15 @@ class RedisAuthTokenServiceTest {
       given(redisTemplate.hasKey(blacklistKey("unknown-jti"))).willReturn(false);
 
       assertThat(service.isBlacklistedJti("unknown-jti")).isFalse();
+    }
+
+    @Test
+    @DisplayName("실패: Redis 조회 중 오류가 발생하면 fail-open으로 블랙리스트되지 않은 것으로 간주한다")
+    void isBlacklistedJti_redisError_failsOpen() {
+      given(redisTemplate.hasKey(blacklistKey("jti-1")))
+          .willThrow(new DataAccessResourceFailureException("redis down"));
+
+      assertThat(service.isBlacklistedJti("jti-1")).isFalse();
     }
   }
 
@@ -192,6 +202,30 @@ class RedisAuthTokenServiceTest {
       service.deleteRefreshTokenByUserId(userId);
 
       then(redisTemplate).should(never()).delete(any(String.class));
+    }
+
+    @Test
+    @DisplayName("성공: 스크립트가 1을 반환하면 교체 성공으로 판단한다")
+    void rotateRefreshToken_scriptReturnsOne_returnsTrue() {
+      UUID userId = UUID.randomUUID();
+      given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
+          .willReturn(1L);
+
+      boolean result = service.rotateRefreshToken(userId, "old-token", "new-token", Duration.ofDays(7));
+
+      assertThat(result).isTrue();
+    }
+
+    @Test
+    @DisplayName("실패: 스크립트가 0을 반환하면 이미 교체된 것으로 보고 실패를 반환한다")
+    void rotateRefreshToken_scriptReturnsZero_returnsFalse() {
+      UUID userId = UUID.randomUUID();
+      given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
+          .willReturn(0L);
+
+      boolean result = service.rotateRefreshToken(userId, "old-token", "new-token", Duration.ofDays(7));
+
+      assertThat(result).isFalse();
     }
   }
 
@@ -302,16 +336,14 @@ class RedisAuthTokenServiceTest {
     }
 
     @Test
-    @DisplayName("실패: Redis 접근 예외가 발생하면 fail-closed로 AUTH_STORAGE_UNAVAILABLE을 던진다")
-    void forceLogoutByUserId_dataAccessExceptionThrown_propagatesAsAuthStorageUnavailable() {
+    @DisplayName("성공: Redis 접근 예외가 발생해도 예외를 던지지 않고 로그만 남기고 넘어간다 (fail-soft)")
+    void forceLogoutByUserId_dataAccessExceptionThrown_failsSoft() {
       UUID userId = UUID.randomUUID();
-      given(valueOperations.get(accessJtiKey(userId)))
-          .willThrow(new DataAccessResourceFailureException("redis connection failed"));
 
-      assertThatThrownBy(() -> service.forceLogoutByUserId(userId))
-          .isInstanceOf(MoplException.class)
-          .extracting(e -> ((MoplException) e).getErrorCode())
-          .isEqualTo(ErrorCode.AUTH_STORAGE_UNAVAILABLE);
+      given(redisTemplate.delete(accessJtiKey(userId)))
+              .willThrow(new DataAccessResourceFailureException("redis connection failed"));
+
+      assertThatCode(() -> service.forceLogoutByUserId(userId)).doesNotThrowAnyException();
     }
 
     @Test
