@@ -36,6 +36,7 @@ public enum ErrorCode {
 
     // WatchingSession 모듈
     WATCHING_SESSION_NOT_FOUND("현재 시청 중인 세션이 없습니다.", HttpStatus.NOT_FOUND),
+    WATCHING_SESSION_LOCK_TIMEOUT("잠시 후 다시 시도해주세요.", HttpStatus.CONFLICT),
 
 
     //Conversation 모듈
