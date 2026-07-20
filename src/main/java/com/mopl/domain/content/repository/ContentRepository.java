@@ -4,6 +4,7 @@ import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
 
 import com.mopl.domain.content.dto.ContentSearchRequest;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -49,4 +50,7 @@ public interface ContentRepository {
   );
 
   List<Content> findAll();
+
+  /** review_count/average_rating을 원자적으로 증감시킨다 (동시 리뷰 생성/삭제 시 lost-update 방지) */
+  void applyRatingDelta(UUID contentId, BigDecimal ratingDelta, int countDelta);
 }
