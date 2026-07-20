@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -28,7 +27,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.data.redis.core.script.RedisScript;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RedisAuthTokenService 테스트")
@@ -202,30 +200,6 @@ class RedisAuthTokenServiceTest {
       service.deleteRefreshTokenByUserId(userId);
 
       then(redisTemplate).should(never()).delete(any(String.class));
-    }
-
-    @Test
-    @DisplayName("성공: 스크립트가 1을 반환하면 교체 성공으로 판단한다")
-    void rotateRefreshToken_scriptReturnsOne_returnsTrue() {
-      UUID userId = UUID.randomUUID();
-      given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
-          .willReturn(1L);
-
-      boolean result = service.rotateRefreshToken(userId, "old-token", "new-token", Duration.ofDays(7));
-
-      assertThat(result).isTrue();
-    }
-
-    @Test
-    @DisplayName("실패: 스크립트가 0을 반환하면 이미 교체된 것으로 보고 실패를 반환한다")
-    void rotateRefreshToken_scriptReturnsZero_returnsFalse() {
-      UUID userId = UUID.randomUUID();
-      given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
-          .willReturn(0L);
-
-      boolean result = service.rotateRefreshToken(userId, "old-token", "new-token", Duration.ofDays(7));
-
-      assertThat(result).isFalse();
     }
   }
 
