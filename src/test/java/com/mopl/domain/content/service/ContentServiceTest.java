@@ -537,28 +537,28 @@ class ContentServiceTest {
   class HandleReviewRatingUpdated {
 
     @Test
-    @DisplayName("정상 처리 - 평점/리뷰수 갱신 후 저장")
+    @DisplayName("정상 처리 - delta만큼 원자적으로 갱신하고, 반영된 최신값을 검색 인덱스에 동기화한다")
     void success() {
       UUID id = UUID.randomUUID();
-      Content content = makeContent(id, ContentType.MOVIE, "tmdb-001");
-      ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(
-          id, new java.math.BigDecimal("4.50"), 15);
+      BigDecimal ratingDelta = new BigDecimal("4.50");
+      Content updated = makeContent(id, ContentType.MOVIE, "tmdb-001");
+      ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(id, ratingDelta, 1);
 
-      given(contentRepository.findById(id)).willReturn(Optional.of(content));
-      given(contentRepository.save(any(Content.class))).willReturn(content);
+      given(contentRepository.findById(id)).willReturn(Optional.of(updated));
 
       contentService.handleReviewRatingUpdated(event);
 
+      then(contentRepository).should().applyRatingDelta(id, ratingDelta, 1);
       then(contentRepository).should().findById(id);
-      then(contentRepository).should().save(any(Content.class));
+      then(searchContentPort).should().save(updated);
     }
 
     @Test
     @DisplayName("존재하지 않는 콘텐츠 - CONTENT_NOT_FOUND 예외")
     void fail_notFound() {
       UUID id = UUID.randomUUID();
-      ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(
-          id, new java.math.BigDecimal("3.00"), 5);
+      BigDecimal ratingDelta = new BigDecimal("3.00");
+      ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(id, ratingDelta, 1);
 
       given(contentRepository.findById(id)).willReturn(Optional.empty());
 
@@ -567,7 +567,8 @@ class ContentServiceTest {
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
               .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
 
-      then(contentRepository).shouldHaveNoMoreInteractions();
+      then(contentRepository).should().applyRatingDelta(id, ratingDelta, 1);
+      then(searchContentPort).shouldHaveNoInteractions();
     }
   }
 }
