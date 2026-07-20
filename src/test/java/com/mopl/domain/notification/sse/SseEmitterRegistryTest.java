@@ -5,6 +5,8 @@ import com.mopl.domain.notification.domain.NotificationType;
 import com.mopl.domain.notification.dto.NotificationDto;
 import com.mopl.domain.notification.dto.NotificationLevel;
 import com.mopl.domain.notification.repository.NotificationRepository;
+import com.mopl.global.dto.DirectMessageDto;
+import com.mopl.global.dto.UserSummary;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -158,6 +160,45 @@ class SseEmitterRegistryTest {
       );
 
       registry.send(userId, dto);
+    }
+  }
+
+  @Nested
+  @DisplayName("sendDirectMessage")
+  class SendDirectMessage {
+
+    private DirectMessageDto directMessageDto() {
+      return new DirectMessageDto(
+          UUID.randomUUID(),
+          UUID.randomUUID(),
+          Instant.now(),
+          new UserSummary(UUID.randomUUID(), "sender", null),
+          new UserSummary(userId, "receiver", null),
+          "안녕하세요"
+      );
+    }
+
+    @Test
+    @DisplayName("성공: 연결된 클라이언트에 direct-messages 이벤트로 전송한다")
+    void sendDirectMessage_toConnectedClient() {
+      registry.connect(userId, null);
+
+      registry.sendDirectMessage(userId, directMessageDto());
+    }
+
+    @Test
+    @DisplayName("성공: 연결된 클라이언트가 없으면 아무 동작도 하지 않는다")
+    void sendDirectMessage_noConnectedClient() {
+      registry.sendDirectMessage(userId, directMessageDto());
+    }
+
+    @Test
+    @DisplayName("성공: 완료된 emitter에 전송하면 실패해도 예외를 던지지 않는다")
+    void sendDirectMessage_completedEmitter() {
+      SseEmitter emitter = registry.connect(userId, null);
+      emitter.complete();
+
+      registry.sendDirectMessage(userId, directMessageDto());
     }
   }
 }

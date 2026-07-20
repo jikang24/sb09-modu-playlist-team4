@@ -100,9 +100,7 @@ public class ConversationController {
         myId, result.data().size(), result.hasNext());
 
     CursorPageResponse<ConversationDto> response = new CursorPageResponse<>(
-        result.data().stream()
-            .map(c -> conversationWebMapper.toDto(c, myId))
-            .toList(),
+        conversationWebMapper.toDtoList(result.data(), myId),
         result.nextCursor(),
         result.nextIdAfter(),
         result.hasNext(),

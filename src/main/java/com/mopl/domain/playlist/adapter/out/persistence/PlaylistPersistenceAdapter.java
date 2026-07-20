@@ -80,9 +80,17 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
   @Override
   public List<Playlist> findAllByCondition(PlaylistSearchCondition condition) {
 
-    return playlistJpaRepository.findAllWithCursor(condition)
-        .stream()
-        .map(mapper::toDomain)
+    List<PlaylistJpaEntity> playlists = playlistJpaRepository.findAllWithCursor(condition);
+
+    // playlist마다 contents를 개별 조회하지 않도록, 페이지 안 playlist 전체의 contents를
+    // 한 번에 조회해 playlistId 기준으로 묶어둔다 (N+1 방지)
+    List<UUID> playlistIds = playlists.stream().map(PlaylistJpaEntity::getId).toList();
+    Map<UUID, List<PlaylistContentJpaEntity>> contentsByPlaylistId =
+        playlistJpaRepository.findContentsByPlaylistIds(playlistIds).stream()
+            .collect(Collectors.groupingBy(pc -> pc.getPlaylist().getId()));
+
+    return playlists.stream()
+        .map(p -> mapper.toDomain(p, contentsByPlaylistId.getOrDefault(p.getId(), List.of())))
         .toList();
   }
 

@@ -49,7 +49,15 @@ public interface ContentMapper {
     List<String> tags = entity.getTags().stream()
         .map(ContentTagJpaEntity::getTag)
         .toList();
+    return toDomain(entity, tags);
+  }
 
+  /**
+   * 목록 조회 등 여러 Content를 한 번에 변환할 때 사용.
+   * entity.getTags()(지연 로딩)를 건마다 트리거하지 않도록, 호출부에서 벌크 조회해 둔
+   * tags를 그대로 전달받는다 (N+1 방지).
+   */
+  default Content toDomain(ContentJpaEntity entity, List<String> tags) {
     return Content.restore(
         entity.getId(),
         entity.getType(),

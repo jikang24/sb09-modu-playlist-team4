@@ -22,7 +22,7 @@ public class OpenSearchConfig {
   @Bean
   public OpenSearchClient openSearchClient() {
 
-    HttpHost httpHost = new HttpHost("https", host, port);
+    HttpHost httpHost = new HttpHost("http", host, port);
 
     OpenSearchTransport transport =
         ApacheHttpClient5TransportBuilder

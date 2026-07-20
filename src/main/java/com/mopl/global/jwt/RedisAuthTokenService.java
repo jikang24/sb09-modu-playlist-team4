@@ -1,11 +1,14 @@
 package com.mopl.global.jwt;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -41,7 +44,12 @@ public class RedisAuthTokenService implements AuthTokenService {
 
   @Override
   public boolean isBlacklistedJti(String jti) {
-    return Boolean.TRUE.equals(redisTemplate.hasKey(blacklistKey(jti)));
+    try {
+      return Boolean.TRUE.equals(redisTemplate.hasKey(blacklistKey(jti)));
+    } catch (Exception e) {
+      log.error("Redis 블랙리스트 조회 실패", e);
+      return false;  // 에러 나면 "블랙리스트 아님"으로 처리하고 로그인 계속 진행
+    }
   }
 
   @Override
@@ -109,6 +117,24 @@ public class RedisAuthTokenService implements AuthTokenService {
   @Override
   public void deleteAccessJtiByUserId(UUID userId) {
     redisTemplate.delete(accessJtiKey(userId));
+  }
+
+  @Override
+  public void forceLogoutByUserId(UUID userId) {
+    try {
+      findAccessJtiByUserId(userId).ifPresent(entry -> {
+        Duration remaining = Duration.between(Instant.now(), entry.expiresAt());
+        if (!remaining.isNegative()) {
+          blacklistJti(entry.jti(), remaining);
+        }
+      });
+      deleteAccessJtiByUserId(userId);
+      deleteRefreshTokenByUserId(userId);
+      log.info("강제 로그아웃 처리 완료 - userId: {}", userId);
+    } catch (DataAccessException e) {
+      log.error("강제 로그아웃 처리 실패 (Redis 오류) - userId: {}", userId, e);
+      throw new MoplException(ErrorCode.AUTH_STORAGE_UNAVAILABLE);
+    }
   }
 
   private String blacklistKey(String jti) {

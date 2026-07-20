@@ -5,6 +5,8 @@ import com.mopl.domain.auth.dto.RefreshResult;
 import com.mopl.domain.auth.dto.ResetPasswordRequest;
 import com.mopl.domain.auth.dto.SignInRequest;
 import com.mopl.domain.auth.port.in.AuthUseCase;
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -66,13 +68,13 @@ public class AuthController {
             content = @Content(schema = @Schema(implementation = JwtDto.class)))
     @PostMapping("/sign-in")
     public JwtDto signIn(@RequestBody SignInRequest request) {
-        throw new IllegalStateException("Should be handled by SecurityFilterChain");
+        throw new MoplException(ErrorCode.SECURITY_FILTER_CHAIN_ONLY);
     }
 
     @Operation(summary = "로그아웃", description = "SecurityFilterChain에서 처리합니다.")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그아웃 성공")
     @PostMapping("/sign-out")
     public void signOut() {
-        throw new IllegalStateException("Should be handled by SecurityFilterChain");
+        throw new MoplException(ErrorCode.SECURITY_FILTER_CHAIN_ONLY);
     }
 }

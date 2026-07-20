@@ -36,14 +36,20 @@ public class MoplLogoutHandler implements LogoutHandler {
 
         JwtClaims claims = (JwtClaims) authentication.getPrincipal();
 
-        Duration remaining = Duration.between(Instant.now(), jwtProvider.getExpiration(rawToken));
-        if (!remaining.isNegative()) {
-            authTokenService.blacklistJti(claims.getTokenId(), remaining);
-        }
+        try {
+            Duration remaining = Duration.between(Instant.now(), jwtProvider.getExpiration(rawToken));
+            if (!remaining.isNegative()) {
+                authTokenService.blacklistJti(claims.getTokenId(), remaining);
+            }
 
-        authTokenService.deleteRefreshTokenByUserId(claims.getUserId());
-        authTokenService.deleteAccessJtiByUserId(claims.getUserId());
-        log.info("로그아웃 성공 - userId: {}", claims.getUserId());
+            authTokenService.deleteRefreshTokenByUserId(claims.getUserId());
+            authTokenService.deleteAccessJtiByUserId(claims.getUserId());
+            log.info("로그아웃 성공 - userId: {}", claims.getUserId());
+        } catch (Exception e) {
+            // 인증 저장소 장애로 토큰 폐기에 실패해도 로그아웃 자체(쿠키 삭제 등)는 계속 진행되어야 하므로
+            // 예외를 삼키고 로그만 남긴다.
+            log.error("로그아웃 처리 중 인증 저장소 오류 - userId: {}", claims.getUserId(), e);
+        }
     }
 
     private String extractToken(HttpServletRequest request) {

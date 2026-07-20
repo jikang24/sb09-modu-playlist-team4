@@ -55,6 +55,3 @@ mopl:
     access-token-expiry-ms: ${JWT_ACCESS_TOKEN_EXPIRY_MS:1800000}
     refresh-token-expiry-ms: ${JWT_REFRESH_TOKEN_EXPIRY_MS:604800000}
 
-opensearch:
-  host: localhost
-  port: 9200

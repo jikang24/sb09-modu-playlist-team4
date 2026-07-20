@@ -48,6 +48,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             } catch (MoplException e) {
                 log.debug("JWT 검증 실패: {}", e.getMessage());
+            } catch (Exception e) {
+                log.error("인증 처리 중 예상치 못한 오류 발생", e);
             }
         }
 
@@ -105,6 +107,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             log.info("SSE 재연결 시 액세스 토큰 silent refresh 완료 - userId: {}", refreshClaims.getUserId());
         } catch (MoplException e) {
             log.debug("SSE silent refresh 실패: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("SSE silent refresh 중 예상치 못한 오류 발생", e);
         }
     }
 

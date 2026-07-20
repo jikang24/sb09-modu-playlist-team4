@@ -7,6 +7,7 @@ import com.mopl.infra.sportsdb.SportsDbClient.SportsDbEvent;
 import com.mopl.infra.tmdb.TmdbClient;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbMovieResult;
 import com.mopl.infra.tmdb.TmdbResponse.TmdbTvResult;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,6 +36,7 @@ public class ContentPersistenceService {
 
   private final TmdbClient tmdbClient;
   private final ContentRepository contentRepository;
+  private final MeterRegistry meterRegistry;
 
   @Transactional
   public int saveMovies(List<TmdbMovieResult> movies) {
@@ -60,6 +62,7 @@ public class ContentPersistenceService {
           );
           contentRepository.save(content);
           savedCount++;
+          meterRegistry.counter("content.sync.saved", "type", ContentType.MOVIE.name()).increment();
         } else {
           // 신규 수집 시점엔 TMDB가 poster_path를 안 내려줘서 썸네일이 비어있던 콘텐츠 보정
           fillMissingThumbnail(existing, thumbnailUrl);
@@ -96,6 +99,7 @@ public class ContentPersistenceService {
           );
           contentRepository.save(content);
           savedCount++;
+          meterRegistry.counter("content.sync.saved", "type", ContentType.TV_SERIES.name()).increment();
         } else {
           fillMissingThumbnail(existing, thumbnailUrl);
         }
@@ -124,11 +128,12 @@ public class ContentPersistenceService {
             event.idEvent(),
             title,
             description,
-            event.strThumb(),
+            event.resolveThumbnailUrl(),
             List.of(event.strLeague())
         );
         contentRepository.save(content);
         savedCount++;
+        meterRegistry.counter("content.sync.saved", "type", ContentType.SPORT.name()).increment();
       } catch (Exception e) {
         log.warn("[Batch] 스포츠 저장 실패 - id: {}, 원인: {}", event.idEvent(), e.getMessage());
       }

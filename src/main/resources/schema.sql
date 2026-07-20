@@ -293,3 +293,29 @@ CREATE INDEX IF NOT EXISTS idx_notifications_receiver_id
     ON notifications (receiver_id);                        -- 내 알림 목록
 CREATE INDEX IF NOT EXISTS idx_notifications_receiver_is_read
     ON notifications (receiver_id, is_read);               -- 읽지 않은 알림 조회
+
+-- outbox
+CREATE TABLE IF NOT EXISTS outbox_event (
+                                            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    aggregate_type VARCHAR(100) NOT NULL,
+    aggregate_id UUID NOT NULL,
+
+    event_type VARCHAR(100) NOT NULL,
+
+    topic VARCHAR(150) NOT NULL,
+    message_key VARCHAR(100),
+
+    payload TEXT NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+
+    retry_count INT NOT NULL DEFAULT 0,
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    published_at TIMESTAMP NULL
+    );
+
+CREATE INDEX idx_outbox_status
+    ON outbox_event(status, created_at);

@@ -3,6 +3,7 @@ package com.mopl.domain.notification.sse;
 import com.mopl.domain.notification.domain.Notification;
 import com.mopl.domain.notification.dto.NotificationDto;
 import com.mopl.domain.notification.repository.NotificationRepository;
+import com.mopl.global.dto.DirectMessageDto;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
@@ -80,6 +81,27 @@ public class SseEmitterRegistry implements SseNotificationSender {
       } catch (IOException | IllegalStateException e) {
         log.debug("SSE notification send failed: receiverId={}, notificationId={}",
             receiverId, notification.id(), e);
+        remove(receiverId, emitter);
+      }
+    }
+  }
+
+  @Override
+  public void sendDirectMessage(UUID receiverId, DirectMessageDto directMessage) {
+    Set<SseEmitter> userEmitters = emitters.get(receiverId);
+    if (userEmitters == null || userEmitters.isEmpty()) {
+      return;
+    }
+
+    for (SseEmitter emitter : userEmitters) {
+      try {
+        emitter.send(SseEmitter.event()
+            .id(directMessage.id().toString())
+            .name("direct-messages")
+            .data(directMessage));
+      } catch (IOException | IllegalStateException e) {
+        log.debug("SSE direct message send failed: receiverId={}, directMessageId={}",
+            receiverId, directMessage.id(), e);
         remove(receiverId, emitter);
       }
     }
