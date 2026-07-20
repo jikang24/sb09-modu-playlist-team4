@@ -258,6 +258,46 @@ class UserServiceTest {
 
             verify(eventPublisher, never()).publishEvent(any());
         }
+
+        @Test
+        @DisplayName("실패: 마지막 ADMIN을 강등하려 하면 예외가 발생하고 이벤트가 발행되지 않는다")
+        void updateRole_fail_lastAdminDemotion() {
+            User adminUser = User.builder()
+                    .name("admin")
+                    .email("admin@mopl.io")
+                    .password("encodedPassword")
+                    .role(Role.ADMIN)
+                    .locked(false)
+                    .build();
+            UserRoleUpdateRequest request = new UserRoleUpdateRequest(Role.USER);
+            given(userRepository.findById(userId)).willReturn(Optional.of(adminUser));
+            given(userRepository.existsByRoleAndIdNot(Role.ADMIN, userId)).willReturn(false);
+
+            assertThatThrownBy(() -> userService.updateRole(userId, request))
+                    .isInstanceOf(MoplException.class);
+
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("성공: 다른 ADMIN이 남아있으면 강등할 수 있다")
+        void updateRole_success_demoteWithOtherAdminRemaining() {
+            User adminUser = User.builder()
+                    .name("admin")
+                    .email("admin@mopl.io")
+                    .password("encodedPassword")
+                    .role(Role.ADMIN)
+                    .locked(false)
+                    .build();
+            UserRoleUpdateRequest request = new UserRoleUpdateRequest(Role.USER);
+            given(userRepository.findById(userId)).willReturn(Optional.of(adminUser));
+            given(userRepository.existsByRoleAndIdNot(Role.ADMIN, userId)).willReturn(true);
+            given(userMapper.toDto(adminUser)).willReturn(userDto);
+
+            userService.updateRole(userId, request);
+
+            verify(eventPublisher).publishEvent(any(UserRoleChangedEvent.class));
+        }
     }
 
     @Nested
@@ -327,6 +367,46 @@ class UserServiceTest {
                     .isInstanceOf(MoplException.class);
 
             verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("실패: 마지막 남은 잠금 해제 ADMIN을 잠그려 하면 예외가 발생하고 이벤트가 발행되지 않는다")
+        void updateLocked_fail_lastActiveAdmin() {
+            User adminUser = User.builder()
+                    .name("admin")
+                    .email("admin@mopl.io")
+                    .password("encodedPassword")
+                    .role(Role.ADMIN)
+                    .locked(false)
+                    .build();
+            UserLockUpdateRequest request = new UserLockUpdateRequest(true);
+            given(userRepository.findById(userId)).willReturn(Optional.of(adminUser));
+            given(userRepository.existsByRoleAndLockedFalseAndIdNot(Role.ADMIN, userId)).willReturn(false);
+
+            assertThatThrownBy(() -> userService.updateLocked(userId, request))
+                    .isInstanceOf(MoplException.class);
+
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("성공: 잠금 해제 상태인 다른 ADMIN이 남아있으면 잠글 수 있다")
+        void updateLocked_success_lockWithOtherActiveAdminRemaining() {
+            User adminUser = User.builder()
+                    .name("admin")
+                    .email("admin@mopl.io")
+                    .password("encodedPassword")
+                    .role(Role.ADMIN)
+                    .locked(false)
+                    .build();
+            UserLockUpdateRequest request = new UserLockUpdateRequest(true);
+            given(userRepository.findById(userId)).willReturn(Optional.of(adminUser));
+            given(userRepository.existsByRoleAndLockedFalseAndIdNot(Role.ADMIN, userId)).willReturn(true);
+            given(userMapper.toDto(adminUser)).willReturn(userDto);
+
+            userService.updateLocked(userId, request);
+
+            verify(eventPublisher, times(1)).publishEvent(any(UserLockedEvent.class));
         }
     }
 

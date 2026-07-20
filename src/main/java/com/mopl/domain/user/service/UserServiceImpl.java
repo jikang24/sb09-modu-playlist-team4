@@ -126,6 +126,11 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
         Role oldRole = user.getRole();
+        if (oldRole == Role.ADMIN && request.role() != Role.ADMIN
+                && !userRepository.existsByRoleAndIdNot(Role.ADMIN, userId)) {
+            throw new MoplException(ErrorCode.LAST_ADMIN_CANNOT_BE_CHANGED);
+        }
+
         user.updateRole(request.role());
         if (oldRole != request.role()) {
             eventPublisher.publishEvent(new UserRoleChangedEvent(user.getId(), oldRole, request.role()));
@@ -151,6 +156,11 @@ public class UserServiceImpl implements UserService {
     public UserDto updateLocked(UUID userId, UserLockUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
+
+        if (request.locked() && user.getRole() == Role.ADMIN
+                && !userRepository.existsByRoleAndLockedFalseAndIdNot(Role.ADMIN, userId)) {
+            throw new MoplException(ErrorCode.LAST_ADMIN_CANNOT_BE_CHANGED);
+        }
 
         user.updateLocked(request.locked());
         if (request.locked()) {
