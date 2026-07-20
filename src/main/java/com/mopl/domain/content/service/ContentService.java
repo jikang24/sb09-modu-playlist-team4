@@ -188,11 +188,13 @@ public class ContentService implements ContentUseCase {
   @EventListener
   @Transactional
   public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
-    Content content = findContentOrThrow(event.contentId());
-    content.updateRatingStats(event.averageRating(), event.reviewCount());
-    Content saved = contentRepository.save(content);
+    // 절대값을 덮어쓰지 않고 DB에서 원자적으로 증감시켜, 동시에 여러 리뷰가
+    // 생성/삭제돼도 lost-update 없이 정확한 값이 나오게 한다.
+    contentRepository.applyRatingDelta(event.contentId(), event.ratingDelta(), event.countDelta());
 
-    searchContentPort.save(saved);
+    // applyRatingDelta가 캐시를 evict했으므로, 검색 인덱스 동기화를 위해 반영된 최신값을 다시 조회
+    Content updated = findContentOrThrow(event.contentId());
+    searchContentPort.save(updated);
     log.info("[Content] 평점 갱신 - id: {}", event.contentId());
   }
 
