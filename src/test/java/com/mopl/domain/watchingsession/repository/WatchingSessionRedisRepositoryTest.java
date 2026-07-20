@@ -15,6 +15,7 @@ import com.mopl.domain.watchingsession.domain.WatchingSession;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("WatchingSessionRedisRepository 테스트")
@@ -57,6 +59,9 @@ class WatchingSessionRedisRepositoryTest {
     lenient().when(redisTemplate.opsForHash()).thenReturn(hashOperations);
     lenient().when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
     lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    // enter/leave가 watcherId 기준 락을 먼저 잡으므로, 기본적으로 항상 락 획득에 성공한다고 가정
+    lenient().when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+        .thenReturn(true);
     repository = new WatchingSessionRedisRepository(redisTemplate);
   }
 
@@ -70,6 +75,10 @@ class WatchingSessionRedisRepositoryTest {
 
   private String contentKey(UUID contentId) {
     return "watching:content:" + contentId + ":sessions";
+  }
+
+  private String lockKey(UUID watcherId) {
+    return "watching:lock:watcher:" + watcherId;
   }
 
   private Map<Object, Object> sessionFields(UUID watcherId, UUID contentId, Instant createdAt) {
@@ -99,6 +108,37 @@ class WatchingSessionRedisRepositoryTest {
           eq(contentKey(contentId)), eq(session.id().toString()),
           eq((double) session.createdAt().toEpochMilli()));
       then(valueOperations).should().set(watcherKey(watcherId), session.id().toString());
+    }
+
+    @Test
+    @DisplayName("watcherId 기준 락을 잡고, 끝나면 해제한다")
+    void acquiresAndReleasesWatcherLock() {
+      UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(null);
+
+      repository.enter(watcherId, contentId);
+
+      then(valueOperations).should()
+          .setIfAbsent(eq(lockKey(watcherId)), anyString(), eq(Duration.ofSeconds(5)));
+      then(redisTemplate).should()
+          .execute(any(RedisScript.class), eq(List.of(lockKey(watcherId))), anyString());
+    }
+
+    @Test
+    @DisplayName("락 획득에 계속 실패하면 WATCHING_SESSION_LOCK_TIMEOUT 예외를 던진다")
+    void fail_lockTimeout() {
+      UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      given(valueOperations.setIfAbsent(eq(lockKey(watcherId)), anyString(), any(Duration.class)))
+          .willReturn(false);
+
+      assertThatThrownBy(() -> repository.enter(watcherId, contentId))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.WATCHING_SESSION_LOCK_TIMEOUT));
+
+      then(hashOperations).should(never()).putAll(anyString(), anyMap());
     }
 
     @Test
