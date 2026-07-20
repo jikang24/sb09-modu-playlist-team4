@@ -80,9 +80,11 @@ public class Review {
     // updatedAt은 안 건드림 - 리뷰 "내용"이 바뀐 게 아니라 표시 정보만 갱신된 거라서
   }
 
+  // DB CHECK 제약(rating >= 0.5 AND rating <= 5.0)과 동일한 범위
+  // DB 저장 시점에 CHECK violation으로 500으로 남는것을 막기 위함
   private static void validateRating(BigDecimal rating) {
     if (rating == null
-        || rating.compareTo(BigDecimal.ZERO) < 0
+        || rating.compareTo(BigDecimal.valueOf(0.5)) < 0
         || rating.compareTo(BigDecimal.valueOf(5)) > 0) {
       throw new MoplException(ErrorCode.INVALID_INPUT);
     }

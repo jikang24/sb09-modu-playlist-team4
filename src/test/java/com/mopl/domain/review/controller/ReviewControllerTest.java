@@ -114,12 +114,9 @@ class ReviewControllerTest {
     }
 
     @Test
-    @DisplayName("실패: rating이 유효 범위를 벗어나면 400 Bad Request")
+    @DisplayName("실패: rating이 유효 범위를 벗어나면 400 Bad Request (Bean Validation이 서비스 호출 전에 막는다)")
     void fail_invalidRating() throws Exception {
       ReviewCreateRequest request = new ReviewCreateRequest(UUID.randomUUID(), "좋아요", 10.0);
-
-      given(reviewService.createReview(any(), eq(userId), any(), any()))
-          .willThrow(new MoplException(ErrorCode.INVALID_INPUT));
 
       mockMvc.perform(post("/api/reviews")
               .contentType(MediaType.APPLICATION_JSON)

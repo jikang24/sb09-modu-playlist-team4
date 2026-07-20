@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,7 +50,14 @@ public class ReviewService {
 
     Review review = Review.create(
         contentId, userId, rating, text, author.name(), author.profileImageUrl());
-    reviewRepository.save(review);
+    try {
+      // saveAndFlush로 즉시 flush해서, 위 선검증을 통과한 두 요청이 동시에 들어와도
+      // UNIQUE(user_id, content_id) 위반이 이 지점에서 바로 터지게 한다.
+      // (그냥 save()면 flush가 늦춰져서 뒤에서 다른 예외로 새어나갈 수 있음)
+      reviewRepository.saveAndFlush(review);
+    } catch (DataIntegrityViolationException e) {
+      throw new MoplException(ErrorCode.REVIEW_ALREADY_EXISTS);
+    }
 
     publishRatingUpdatedEvent(contentId);
     return review.getId();

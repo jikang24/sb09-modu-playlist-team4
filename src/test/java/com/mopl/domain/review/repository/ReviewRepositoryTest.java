@@ -135,6 +135,23 @@ class ReviewRepositoryTest {
   }
 
   @Test
+  @DisplayName("deleteByContentId - 해당 콘텐츠의 리뷰만 일괄 삭제되고 다른 콘텐츠의 리뷰는 남는다")
+  void deleteByContentId_removesOnlyMatchingContentReviews() {
+    UUID targetContentId = UUID.randomUUID();
+    Review review1 = persistReview(targetContentId, UUID.randomUUID(), BigDecimal.valueOf(4));
+    Review review2 = persistReview(targetContentId, UUID.randomUUID(), BigDecimal.valueOf(3));
+    Review otherContentReview = persistReview(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.valueOf(5));
+
+    reviewRepository.deleteByContentId(targetContentId);
+    testEntityManager.flush();
+    testEntityManager.clear();
+
+    assertThat(reviewRepository.findById(review1.getId())).isEmpty();
+    assertThat(reviewRepository.findById(review2.getId())).isEmpty();
+    assertThat(reviewRepository.findById(otherContentReview.getId())).isPresent();
+  }
+
+  @Test
   @DisplayName("findAllByCondition - contentId로 필터링한다")
   void findAll_filtersByContentId() {
     UUID targetContentId = UUID.randomUUID();

@@ -34,6 +34,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceTest {
@@ -76,7 +77,7 @@ class ReviewServiceTest {
       UUID reviewId = reviewService.createReview(contentId, userId, BigDecimal.valueOf(4.5), "좋아요");
 
       assertThat(reviewId).isNotNull();
-      then(reviewRepository).should().save(any(Review.class));
+      then(reviewRepository).should().saveAndFlush(any(Review.class));
 
       ArgumentCaptor<ReviewRatingUpdatedEvent> captor =
           ArgumentCaptor.forClass(ReviewRatingUpdatedEvent.class);
@@ -102,6 +103,27 @@ class ReviewServiceTest {
 
       then(loadUserPort).shouldHaveNoInteractions();
       then(reviewRepository).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    @DisplayName("동시 요청 - 선검증 통과 후 저장 시점에 unique 제약 위반이면 500 대신 REVIEW_ALREADY_EXISTS로 변환된다")
+    void fail_concurrentDuplicate() {
+      UUID contentId = UUID.randomUUID();
+      UUID userId = UUID.randomUUID();
+      UserSummary author = new UserSummary(userId, "작성자", "https://image.jpg");
+
+      given(reviewRepository.existsByContentIdAndUserId(contentId, userId)).willReturn(false);
+      given(loadUserPort.getUserSummary(userId)).willReturn(author);
+      given(reviewRepository.saveAndFlush(any(Review.class)))
+          .willThrow(new DataIntegrityViolationException("duplicate key"));
+
+      assertThatThrownBy(() ->
+          reviewService.createReview(contentId, userId, BigDecimal.valueOf(4), "좋아요"))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.REVIEW_ALREADY_EXISTS));
+
+      then(eventPublisher).shouldHaveNoInteractions();
     }
 
     @Test

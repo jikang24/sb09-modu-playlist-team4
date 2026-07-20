@@ -69,6 +69,16 @@ public class PlaylistRepositoryCustomImpl implements PlaylistRepositoryCustom {
   }
 
   @Override
+  public void deleteByContentId(UUID contentId) {
+    QPlaylistContentJpaEntity pc = QPlaylistContentJpaEntity.playlistContentJpaEntity;
+
+    queryFactory
+        .delete(pc)
+        .where(pc.contentId.eq(contentId))
+        .execute();
+  }
+
+  @Override
   public long countAll(PlaylistSearchCondition condition) {
     QPlaylistJpaEntity p = QPlaylistJpaEntity.playlistJpaEntity;
     QPlaylistSubscriptionJpaEntity s =
