@@ -73,7 +73,16 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
         log.error("directMessage not found");
         return new MoplException(ErrorCode.DIRECT_MESSAGE_NOT_FOUND);
       });
-      if(directMessage.isSender(myId)){
+      // 요청 경로의 conversationId가 실제 이 메시지가 속한 대화와 일치하는지,
+      // 그리고 호출자가 이 메시지의 수신자 본인인지 명시적으로 검증한다.
+      // (이전엔 "발신자가 아니면 통과"만 확인해서, 대화 참여자가 아닌 제3자도
+      // directMessageId만 알면 남의 메시지를 읽음 처리할 수 있었다 - IDOR)
+      if (!directMessage.getConversationId().equals(conversationId)) {
+        log.warn("directMessage {} does not belong to conversation {}", directMessageId, conversationId);
+        throw new MoplException(ErrorCode.FORBIDDEN_ACCESS);
+      }
+      if (!directMessage.getReceiverId().equals(myId)) {
+        log.warn("user {} is not the receiver of directMessage {}", myId, directMessageId);
         throw new MoplException(ErrorCode.FORBIDDEN_ACCESS);
       }
       directMessage.markAsRead();

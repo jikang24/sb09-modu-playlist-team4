@@ -124,14 +124,46 @@ class DirectMessageServiceTest {
   @Test
   @DisplayName("DM 읽음 처리 실패 - 발신자가 읽음 처리 시도")
   void read_fail_sender_cannot_read() {
-    
+
     UUID directMessageId = UUID.randomUUID();
     DirectMessage directMessage = DirectMessage.create(conversationId, senderId, receiverId, "안녕");
     given(loadDirectMessagePort.findById(directMessageId)).willReturn(Optional.of(directMessage));
 
-    
+
     assertThatThrownBy(() ->
         directMessageService.read(conversationId, directMessageId, senderId))
+        .isInstanceOf(MoplException.class);
+    then(saveDirectMessagePort).should(never()).save(any());
+  }
+
+  @Test
+  @DisplayName("DM 읽음 처리 실패 - 대화 참여자가 아닌 제3자가 읽음 처리 시도 (IDOR 방지)")
+  void read_fail_third_party_cannot_read() {
+
+    UUID directMessageId = UUID.randomUUID();
+    UUID strangerId = UUID.randomUUID();
+    DirectMessage directMessage = DirectMessage.create(conversationId, senderId, receiverId, "안녕");
+    given(loadDirectMessagePort.findById(directMessageId)).willReturn(Optional.of(directMessage));
+
+
+    assertThatThrownBy(() ->
+        directMessageService.read(conversationId, directMessageId, strangerId))
+        .isInstanceOf(MoplException.class);
+    then(saveDirectMessagePort).should(never()).save(any());
+  }
+
+  @Test
+  @DisplayName("DM 읽음 처리 실패 - 경로의 conversationId와 실제 메시지가 속한 대화가 다름")
+  void read_fail_conversationId_mismatch() {
+
+    UUID directMessageId = UUID.randomUUID();
+    UUID otherConversationId = UUID.randomUUID();
+    DirectMessage directMessage = DirectMessage.create(conversationId, senderId, receiverId, "안녕");
+    given(loadDirectMessagePort.findById(directMessageId)).willReturn(Optional.of(directMessage));
+
+
+    assertThatThrownBy(() ->
+        directMessageService.read(otherConversationId, directMessageId, receiverId))
         .isInstanceOf(MoplException.class);
     then(saveDirectMessagePort).should(never()).save(any());
   }
