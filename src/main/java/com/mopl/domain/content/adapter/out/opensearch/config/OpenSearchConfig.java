@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.core5.util.Timeout;
 
 @Configuration
 public class OpenSearchConfig {
@@ -44,6 +46,15 @@ public class OpenSearchConfig {
                       .setMaxConnPerRoute(100)
                       .build();
               httpClientBuilder.setConnectionManager(connectionManager);
+
+              RequestConfig requestConfig = RequestConfig.custom()
+                  .setConnectTimeout(Timeout.ofSeconds(2))
+                  .setResponseTimeout(Timeout.ofSeconds(3))
+                  .build();
+
+              httpClientBuilder
+                  .setConnectionManager(connectionManager)
+                  .setDefaultRequestConfig(requestConfig);
 
               if (useAuth) {
                 BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();

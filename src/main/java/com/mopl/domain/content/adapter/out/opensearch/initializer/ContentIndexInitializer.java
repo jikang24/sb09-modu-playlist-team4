@@ -11,6 +11,7 @@ import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+
 import java.util.List;
 
 @Slf4j
@@ -75,7 +76,7 @@ public class ContentIndexInitializer {
       }
 
     } catch (Exception e) {
-      throw new RuntimeException("Failed to initialize OpenSearch index.", e);
+      log.error("Failed to initialize OpenSearch index.", e);
     }
   }
 }
