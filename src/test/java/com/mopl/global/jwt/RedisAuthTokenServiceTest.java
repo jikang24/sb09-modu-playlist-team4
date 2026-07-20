@@ -2,6 +2,7 @@ package com.mopl.global.jwt;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -10,6 +11,8 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
+import com.mopl.global.exception.ErrorCode;
+import com.mopl.global.exception.MoplException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -22,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -298,12 +302,27 @@ class RedisAuthTokenServiceTest {
     }
 
     @Test
-    @DisplayName("실패: Redis 조회 중 예외가 발생해도 밖으로 전파하지 않고 삼킨다")
-    void forceLogoutByUserId_redisThrows_doesNotPropagate() {
+    @DisplayName("실패: Redis 접근 예외가 발생하면 fail-closed로 AUTH_STORAGE_UNAVAILABLE을 던진다")
+    void forceLogoutByUserId_dataAccessExceptionThrown_propagatesAsAuthStorageUnavailable() {
       UUID userId = UUID.randomUUID();
-      given(valueOperations.get(accessJtiKey(userId))).willThrow(new RuntimeException("redis connection failed"));
+      given(valueOperations.get(accessJtiKey(userId)))
+          .willThrow(new DataAccessResourceFailureException("redis connection failed"));
 
-      assertThatCode(() -> service.forceLogoutByUserId(userId)).doesNotThrowAnyException();
+      assertThatThrownBy(() -> service.forceLogoutByUserId(userId))
+          .isInstanceOf(MoplException.class)
+          .extracting(e -> ((MoplException) e).getErrorCode())
+          .isEqualTo(ErrorCode.AUTH_STORAGE_UNAVAILABLE);
+    }
+
+    @Test
+    @DisplayName("실패: Redis와 무관한 런타임 예외는 감추지 않고 그대로 전파한다")
+    void forceLogoutByUserId_unexpectedRuntimeException_propagatesAsIs() {
+      UUID userId = UUID.randomUUID();
+      given(valueOperations.get(accessJtiKey(userId))).willThrow(new IllegalStateException("unexpected bug"));
+
+      assertThatThrownBy(() -> service.forceLogoutByUserId(userId))
+          .isInstanceOf(IllegalStateException.class)
+          .isNotInstanceOf(MoplException.class);
     }
   }
 }

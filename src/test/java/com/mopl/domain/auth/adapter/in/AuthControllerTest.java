@@ -271,31 +271,31 @@ class AuthControllerTest {
     @Test
     @DisplayName("실패: 로그인 요청은 SecurityFilterChain에서 처리하므로 예외를 발생시킨다")
     void signIn() {
-        assertThrows(IllegalStateException.class, () -> authController.signIn(null));
+        assertThrows(MoplException.class, () -> authController.signIn(null));
     }
 
     @Test
     @DisplayName("실패: 로그인 요청이 어떤 정보로 들어와도 예외가 발생한다")
     void signIn_ThrowsIllegalStateException() {
-        assertThrows(IllegalStateException.class, () -> authController.signIn(null));
+        assertThrows(MoplException.class, () -> authController.signIn(null));
     }
 
     @Test
     @DisplayName("실패: 로그인 요청 시 예외 메시지가 설정되어 있다")
     void signIn_WithRequest_StillThrows() {
-        assertThrows(IllegalStateException.class,
+        assertThrows(MoplException.class,
             () -> authController.signIn(new com.mopl.domain.auth.dto.SignInRequest("test@example.com", "password")));
     }
 
     @Test
     @DisplayName("실패: 로그아웃 요청은 SecurityFilterChain에서 처리하므로 예외를 발생시킨다")
     void signOut() {
-        assertThrows(IllegalStateException.class, () -> authController.signOut());
+        assertThrows(MoplException.class, () -> authController.signOut());
     }
 
     @Test
     @DisplayName("실패: 로그아웃 요청 시 예외가 발생한다")
     void signOut_ThrowsIllegalStateException() {
-        assertThrows(IllegalStateException.class, () -> authController.signOut());
+        assertThrows(MoplException.class, () -> authController.signOut());
     }
 }

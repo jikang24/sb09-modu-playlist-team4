@@ -244,6 +244,22 @@ class ContentRepositoryImplTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    @DisplayName("[findAllByType] tags를 벌크 조회해 N+1 없이 쿼리 2번(content 1 + tags 1)만 발생한다")
+    void findAllByType_doesNotCauseNPlusOneForTags() {
+        org.hibernate.stat.Statistics statistics = em.getEntityManagerFactory()
+                .unwrap(org.hibernate.SessionFactory.class)
+                .getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        List<Content> result = contentRepository.findAllByType(ContentType.MOVIE);
+
+        assertThat(statistics.getQueryExecutionCount()).isEqualTo(2);
+        assertThat(result).hasSize(2);
+        assertThat(result).allSatisfy(c -> assertThat(c.getTags()).isNotEmpty());
+    }
+
     // ── findAllByIds ──────────────────────────────────────────────────────────
 
     @Test
@@ -266,6 +282,23 @@ class ContentRepositoryImplTest {
     @DisplayName("[findAllByIds] null이면 조회 없이 빈 리스트 반환")
     void findAllByIds_null_returnsEmpty() {
         assertThat(contentRepository.findAllByIds(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("[findAllByIds] tags를 벌크 조회해 N+1 없이 쿼리 2번(content 1 + tags 1)만 발생한다")
+    void findAllByIds_doesNotCauseNPlusOneForTags() {
+        org.hibernate.stat.Statistics statistics = em.getEntityManagerFactory()
+                .unwrap(org.hibernate.SessionFactory.class)
+                .getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        List<Content> result = contentRepository.findAllByIds(
+                List.of(movie1.getId(), movie2.getId(), sport1.getId()));
+
+        assertThat(statistics.getQueryExecutionCount()).isEqualTo(2);
+        assertThat(result).hasSize(3);
+        assertThat(result).allSatisfy(c -> assertThat(c.getTags()).isNotEmpty());
     }
 
     // ── findExternalIdsByType ─────────────────────────────────────────────────
@@ -320,6 +353,24 @@ class ContentRepositoryImplTest {
         List<Content> result = contentRepository.findAllByCondition(req);
 
         assertThat(result).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("[findAllByCondition] tags를 벌크 조회해 N+1 없이 쿼리 2번(content 1 + tags 1)만 발생한다")
+    void findAll_doesNotCauseNPlusOneForTags() {
+        org.hibernate.stat.Statistics statistics = em.getEntityManagerFactory()
+                .unwrap(org.hibernate.SessionFactory.class)
+                .getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        ContentSearchRequest req = request(null, null, null, null, null, 10, "createdAt", "DESCENDING");
+        List<Content> result = contentRepository.findAllByCondition(req);
+
+        // content 목록 조회 1번 + tags 벌크 조회 1번 = 총 2번 (content 건수만큼 늘어나면 N+1)
+        assertThat(statistics.getQueryExecutionCount()).isEqualTo(2);
+        assertThat(result).hasSize(3);
+        assertThat(result).allSatisfy(c -> assertThat(c.getTags()).isNotEmpty());
     }
 
     @Test
