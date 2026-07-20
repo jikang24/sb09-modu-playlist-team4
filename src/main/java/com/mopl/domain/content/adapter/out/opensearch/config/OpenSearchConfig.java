@@ -1,5 +1,9 @@
 package com.mopl.domain.content.adapter.out.opensearch.config;
 
+import java.net.URI;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.HttpHost;
@@ -9,20 +13,26 @@ import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBui
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 
 @Configuration
 public class OpenSearchConfig {
 
-  @Value("${opensearch.host}")
-  private String host;
+  @Value("${opensearch.uri}")
+  private String uri;
 
-  @Value("${opensearch.port}")
-  private int port;
+  @Value("${opensearch.username:}")
+  private String username;
+
+  @Value("${opensearch.password:}")
+  private String password;
 
   @Bean
   public OpenSearchClient openSearchClient() {
+    URI parsed = URI.create(uri);
+    HttpHost httpHost = new HttpHost(parsed.getScheme(), parsed.getHost(), parsed.getPort());
 
-    HttpHost httpHost = new HttpHost("https", host, port);
+    boolean useAuth = StringUtils.hasText(username) && StringUtils.hasText(password);
 
     OpenSearchTransport transport =
         ApacheHttpClient5TransportBuilder
@@ -33,7 +43,17 @@ public class OpenSearchConfig {
                       .setMaxConnTotal(100)
                       .setMaxConnPerRoute(100)
                       .build();
-              return httpClientBuilder.setConnectionManager(connectionManager);
+              httpClientBuilder.setConnectionManager(connectionManager);
+
+              if (useAuth) {
+                BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                credentialsProvider.setCredentials(
+                    new AuthScope(httpHost),
+                    new UsernamePasswordCredentials(username, password.toCharArray()));
+                httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+              }
+
+              return httpClientBuilder;
             })
             .build();
 
