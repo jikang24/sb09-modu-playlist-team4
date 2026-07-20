@@ -86,6 +86,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserDto findRaw(UUID userId) {
+        return userRepository.findById(userId)
+                .map(userMapper::toDto)
+                .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Override
     public List<UserDto> findAllByIds(Collection<UUID> userIds) {
         return userRepository.findAllById(userIds).stream()
                 .map(this::toDto)

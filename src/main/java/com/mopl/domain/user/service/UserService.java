@@ -13,6 +13,9 @@ public interface UserService {
 
     UserDto find(UUID userId);
 
+    /** presigned URL로 치환하지 않은 원본 값(S3 key/외부 URL) 그대로 반환 - 다른 모듈이 값을 영구 저장(스냅샷)할 때 사용 */
+    UserDto findRaw(UUID userId);
+
     /** 존재하는 id만 반환 - 목록 조회에서 유저 정보를 배치로 붙일 때 씀 (N+1 방지용) */
     List<UserDto> findAllByIds(Collection<UUID> userIds);
 

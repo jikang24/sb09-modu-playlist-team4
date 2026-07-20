@@ -11,6 +11,7 @@ import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -34,6 +35,7 @@ public class ReviewService {
   private final ReviewRepository reviewRepository;
   private final ApplicationEventPublisher eventPublisher;
   private final LoadUserPort loadUserPort;
+  private final S3Service s3Service;
 
   public UUID createReview(UUID contentId, UUID userId, BigDecimal rating, String text) {
     // 1인 1리뷰 검증 - DB unique 제약이 최종 방어선, 이건 친절한 에러 메시지용 1차 검증
@@ -90,7 +92,8 @@ public class ReviewService {
     List<ReviewDto> reviewDtos = content.stream()
         .map(r -> new ReviewDto(
             r.getId(), r.getContentId(),
-            new ReviewDto.AuthorDto(r.getUserId(), r.getAuthorName(), r.getAuthorProfileImageUrl()),
+            new ReviewDto.AuthorDto(
+                r.getUserId(), r.getAuthorName(), resolveAuthorImageUrl(r.getAuthorProfileImageUrl())),
             r.getText(), r.getRating()))
         .toList();
 
@@ -109,6 +112,15 @@ public class ReviewService {
     return new CursorPageResponse<>(
         reviewDtos, nextCursor, nextIdAfter, hasNext, totalCount,
         sortBy.name(), request.sortDirection().name());
+  }
+
+  // 저장된 값(스냅샷)에 스킴("://")이 없으면 우리가 업로드한 S3 key이므로 presigned URL로 치환하고,
+  // 스킴이 있으면(소셜 로그인 프로필 이미지 등 외부 URL) 그대로 반환한다.
+  private String resolveAuthorImageUrl(String stored) {
+    if (stored == null || stored.isBlank() || stored.contains("://")) {
+      return stored;
+    }
+    return s3Service.getPresignedUrl(stored);
   }
 
   private void validateOwner(Review review, UUID userId) {
