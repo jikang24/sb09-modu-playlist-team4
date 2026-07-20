@@ -9,6 +9,7 @@ import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
+import com.mopl.global.event.ContentDeletedEvent;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
@@ -22,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.multipart.MultipartFile;
 import com.mopl.domain.content.adapter.port.SearchContentPort;
 
@@ -53,6 +55,9 @@ class ContentServiceTest {
 
   @Mock
   private SearchContentPort searchContentPort;
+
+  @Mock
+  private ApplicationEventPublisher eventPublisher;
 
   @InjectMocks
   private ContentService contentService;
@@ -276,6 +281,7 @@ class ContentServiceTest {
       contentService.deleteContent(id);
 
       then(contentRepository).should().deleteById(id);
+      then(eventPublisher).should().publishEvent(new ContentDeletedEvent(id));
     }
 
     @Test
