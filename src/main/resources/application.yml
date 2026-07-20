@@ -63,5 +63,6 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080}
 
 opensearch:
-  host: ${OPENSEARCH_HOST:localhost}
-  port: ${OPENSEARCH_PORT:9200}
+  uri: ${OPENSEARCH_URI:https://localhost:9200}
+  username: ${OPENSEARCH_USERNAME:}
+  password: ${OPENSEARCH_PASSWORD:}
