@@ -1,7 +1,5 @@
 package com.mopl.global.jwt;
 
-import com.mopl.global.exception.ErrorCode;
-import com.mopl.global.exception.MoplException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -133,7 +131,6 @@ public class RedisAuthTokenService implements AuthTokenService {
       log.info("강제 로그아웃 처리 완료 - userId: {}", userId);
     } catch (DataAccessException e) {
       log.error("강제 로그아웃 처리 실패 (Redis 오류) - userId: {}", userId, e);
-      throw new MoplException(ErrorCode.AUTH_STORAGE_UNAVAILABLE);
     }
   }
 
