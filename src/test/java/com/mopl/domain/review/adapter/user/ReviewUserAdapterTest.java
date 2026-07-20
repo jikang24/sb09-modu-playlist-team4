@@ -26,18 +26,18 @@ class ReviewUserAdapterTest {
   private ReviewUserAdapter adapter;
 
   @Test
-  @DisplayName("getUserSummary: UserService 조회 결과를 UserSummary로 변환해 반환한다")
+  @DisplayName("getUserSummary: findRaw() 조회 결과(presign 미적용 원본 값)를 UserSummary로 변환해 반환한다")
   void getUserSummary_mapsUserDtoToUserSummary() {
     UUID userId = UUID.randomUUID();
     UserDto userDto = new UserDto(
-        userId, Instant.now(), "user@email.com", "닉네임", "https://profile.jpg",
+        userId, Instant.now(), "user@email.com", "닉네임", "profile-key.jpg",
         Role.USER, false);
-    given(userService.find(userId)).willReturn(userDto);
+    given(userService.findRaw(userId)).willReturn(userDto);
 
     UserSummary result = adapter.getUserSummary(userId);
 
     assertThat(result.userId()).isEqualTo(userId);
     assertThat(result.name()).isEqualTo("닉네임");
-    assertThat(result.profileImageUrl()).isEqualTo("https://profile.jpg");
+    assertThat(result.profileImageUrl()).isEqualTo("profile-key.jpg");
   }
 }

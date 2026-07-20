@@ -20,6 +20,7 @@ import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,9 @@ class ReviewServiceTest {
 
   @Mock
   private LoadUserPort loadUserPort;
+
+  @Mock
+  private S3Service s3Service;
 
   @InjectMocks
   private ReviewService reviewService;
@@ -342,6 +346,26 @@ class ReviewServiceTest {
       assertThat(dto.author().name()).isEqualTo("작성자");
       assertThat(dto.author().profileImageUrl()).isEqualTo("https://image.jpg");
       assertThat(dto.rating()).isEqualByComparingTo(BigDecimal.valueOf(4));
+      then(s3Service).shouldHaveNoInteractions(); // 스킴이 있는 외부 URL은 그대로 반환, presign 호출 없음
+    }
+
+    @Test
+    @DisplayName("ReviewDto 변환 - 저장된 값이 S3 key(스킴 없음)면 조회 시점에 presigned URL로 치환한다")
+    void mapsAuthorSnapshot_resolvesS3KeyToPresignedUrl() {
+      ReviewSearchRequest request = makeRequest(10, null, "DESCENDING");
+      UUID userId = UUID.randomUUID();
+      Review review = Review.create(
+          request.contentId(), userId, BigDecimal.valueOf(4), "좋아요", "작성자", "profile-key.jpg");
+
+      mockFindAll(List.of(review));
+      given(reviewRepository.countByCondition(any(ReviewSearchRequest.class))).willReturn(1L);
+      given(s3Service.getPresignedUrl("profile-key.jpg"))
+          .willReturn("https://signed.example.com/profile-key.jpg?sig=abc");
+
+      CursorPageResponse<ReviewDto> response = reviewService.getReviews(request);
+
+      assertThat(response.data().get(0).author().profileImageUrl())
+          .isEqualTo("https://signed.example.com/profile-key.jpg?sig=abc");
     }
   }
 }
