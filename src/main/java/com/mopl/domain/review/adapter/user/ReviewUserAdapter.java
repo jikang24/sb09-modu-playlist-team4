@@ -18,7 +18,9 @@ public class ReviewUserAdapter implements LoadUserPort {
 
   @Override
   public UserSummary getUserSummary(UUID userId) {
-    var userDto = userService.find(userId);
+    // Review는 이 값을 스냅샷으로 영구 저장하므로, 2시간 후 만료되는 presigned URL이 아니라
+    // 원본 값(S3 key/외부 URL)을 받아야 한다. presigned URL 변환은 조회 시점에 따로 한다.
+    var userDto = userService.findRaw(userId);
     return new UserSummary(userDto.id(), userDto.name(), userDto.profileImageUrl());
   }
 }
