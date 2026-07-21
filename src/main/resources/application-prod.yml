@@ -1,0 +1,65 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+      max-lifetime: 1740000
+      leak-detection-threshold: 2000
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      ssl:
+        enabled: true
+
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: >
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="${KAFKA_API_KEY}"
+        password="${KAFKA_API_SECRET}";
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.mopl.global.event.NotificationRequestedEvent
+
+  elasticsearch:
+    uris: ${OPENSEARCH_URI}
+app:
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://13.125.155.102:8080}
+  cookie:
+    secure: true
+  cors:
+    allowed-origins: https://mopl-codeit.link
