@@ -11,7 +11,6 @@ import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
-import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -20,8 +19,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -179,21 +176,6 @@ public class ContentService implements ContentUseCase {
         hasNext, totalCount,
         request.sortBy(), request.sortDirection()
     );
-  }
-
-  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-  @Transactional
-  public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
-    Content content = findContentOrThrow(event.contentId());
-    content.updateRatingStats(event.averageRating(), event.reviewCount());
-    Content saved = contentRepository.save(content);
-
-    try {
-      searchContentPort.save(saved);
-    } catch (Exception e) {
-      log.error("[Content] OpenSearch 평점 갱신 실패 - id: {}", event.contentId(), e);
-    }
-    log.info("[Content] 평점 갱신 - id: {}", event.contentId());
   }
 
   private Content findContentOrThrow(UUID id) {
