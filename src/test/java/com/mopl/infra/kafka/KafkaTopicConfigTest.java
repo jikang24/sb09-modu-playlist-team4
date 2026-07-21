@@ -1,5 +1,6 @@
 package com.mopl.infra.kafka;
 
+import com.mopl.global.config.KafkaTopicConfig;
 import com.mopl.global.event.NotificationTopics;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.junit.jupiter.api.DisplayName;
