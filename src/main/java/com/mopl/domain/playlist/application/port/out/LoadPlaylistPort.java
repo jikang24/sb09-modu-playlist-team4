@@ -11,6 +11,13 @@ public interface LoadPlaylistPort {
 
   Optional<Playlist> findById(UUID id);
 
+  /**
+   * 콘텐츠 추가/삭제, 메타데이터 수정처럼 조회 후 그대로 다시 저장하는 흐름 전용 조회.
+   * 행 잠금을 걸어 동시 수정으로 인한 lost update(SavePlaylistPort.save 참고)를 막는다.
+   * 캐시를 거치지 않고 항상 DB에서 최신 상태를 잠근 채로 읽는다.
+   */
+  Optional<Playlist> findByIdForUpdate(UUID id);
+
   List<Playlist> findAllByCondition(PlaylistSearchCondition condition);
 
   long countByCondition(PlaylistSearchCondition condition);

@@ -105,7 +105,7 @@ public class PlaylistService implements PlaylistUseCase {
   @Override
   @Transactional
   public PlaylistDto update(UUID playlistId, UUID currentUserId, PlaylistUpdateRequest request) {
-    Playlist playlist = findPlaylistOrThrow(playlistId);
+    Playlist playlist = findPlaylistForUpdateOrThrow(playlistId);
     assertOwner(playlist, currentUserId);
     playlist.update(request.title(), request.description());
     Playlist saved = savePlaylistPort.save(playlist);
@@ -161,7 +161,7 @@ public class PlaylistService implements PlaylistUseCase {
   @Override
   @Transactional
   public void addContent(UUID playlistId, UUID contentId, UUID currentUserId) {
-    Playlist playlist = findPlaylistOrThrow(playlistId);
+    Playlist playlist = findPlaylistForUpdateOrThrow(playlistId);
     assertOwner(playlist, currentUserId);
 
     if (!loadContentPort.existsById(contentId)) {
@@ -178,7 +178,7 @@ public class PlaylistService implements PlaylistUseCase {
   @Override
   @Transactional
   public void removeContent(UUID playlistId, UUID contentId, UUID currentUserId) {
-    Playlist playlist = findPlaylistOrThrow(playlistId);
+    Playlist playlist = findPlaylistForUpdateOrThrow(playlistId);
     assertOwner(playlist, currentUserId);
     playlist.removeContent(contentId);
     savePlaylistPort.save(playlist);
@@ -252,6 +252,16 @@ public class PlaylistService implements PlaylistUseCase {
 
   private Playlist findPlaylistOrThrow(UUID playlistId) {
     return loadPlaylistPort.findById(playlistId)
+        .orElseThrow(() -> new MoplException(ErrorCode.PLAYLIST_NOT_FOUND));
+  }
+
+  /**
+   * update/addContent/removeContent처럼 조회한 Playlist를 그대로 다시 저장하는 흐름 전용.
+   * 행 잠금 없이 조회하면 두 요청이 겹칠 때 뒤에 저장되는 쪽의 스냅샷이 앞쪽 변경을 모른 채
+   * 저장되어 SavePlaylistPort.save()가 그 변경분을 지워버릴 수 있다 (lost update).
+   */
+  private Playlist findPlaylistForUpdateOrThrow(UUID playlistId) {
+    return loadPlaylistPort.findByIdForUpdate(playlistId)
         .orElseThrow(() -> new MoplException(ErrorCode.PLAYLIST_NOT_FOUND));
   }
 

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -52,6 +53,7 @@ class NotificationEventListenerTest {
         NotificationLevel.INFO
     );
     given(notificationService.send(
+        eq(event.eventId()),
         eq(receiverId),
         eq(NotificationType.FOLLOW),
         eq("새 팔로워"),
@@ -61,6 +63,7 @@ class NotificationEventListenerTest {
     listener.handle(event);
 
     verify(notificationService).send(
+        event.eventId(),
         receiverId,
         NotificationType.FOLLOW,
         "새 팔로워",
@@ -82,10 +85,7 @@ class NotificationEventListenerTest {
     listener.handle(event);
 
     verify(notificationService, never()).send(
-        eq(receiverId),
-        eq(NotificationType.FOLLOW),
-        eq("제목"),
-        eq("내용")
+        any(), any(), any(), any(), any()
     );
   }
 }

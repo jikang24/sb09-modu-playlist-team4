@@ -8,4 +8,6 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     NotificationRepositoryCustom {
 
   long countByReceiverIdAndIsReadFalse(UUID receiverId);
+
+  java.util.Optional<Notification> findByEventId(UUID eventId);
 }
