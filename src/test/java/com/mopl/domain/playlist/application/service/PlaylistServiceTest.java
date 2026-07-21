@@ -99,7 +99,7 @@ class PlaylistServiceTest {
         UUID playlistId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         Playlist playlist = Playlist.create(userId, "Old Title", "Old Desc");
-        given(loadPlaylistPort.findById(playlistId)).willReturn(Optional.of(playlist));
+        given(loadPlaylistPort.findByIdForUpdate(playlistId)).willReturn(Optional.of(playlist));
         given(savePlaylistPort.save(any(Playlist.class))).willAnswer(inv -> inv.getArgument(0));
         given(loadUserPort.getUserSummary(userId)).willReturn(new UserSummary(userId, "User", null));
         PlaylistUpdateRequest request = new PlaylistUpdateRequest("New Title", "New Desc");
@@ -119,7 +119,7 @@ class PlaylistServiceTest {
         UUID userId = UUID.randomUUID();
         UUID otherId = UUID.randomUUID();
         Playlist playlist = Playlist.create(otherId, "Title", "Desc");
-        given(loadPlaylistPort.findById(playlistId)).willReturn(Optional.of(playlist));
+        given(loadPlaylistPort.findByIdForUpdate(playlistId)).willReturn(Optional.of(playlist));
 
         // when & then
         assertThatThrownBy(() -> playlistService.update(playlistId, userId, new PlaylistUpdateRequest("T", "D")))
@@ -150,7 +150,7 @@ class PlaylistServiceTest {
         UUID userId = UUID.randomUUID();
         UUID contentId = UUID.randomUUID();
         Playlist playlist = Playlist.create(userId, "Title", "Desc");
-        given(loadPlaylistPort.findById(playlistId)).willReturn(Optional.of(playlist));
+        given(loadPlaylistPort.findByIdForUpdate(playlistId)).willReturn(Optional.of(playlist));
         given(loadContentPort.existsById(contentId)).willReturn(true);
 
         // when
@@ -169,7 +169,7 @@ class PlaylistServiceTest {
         UUID contentId = UUID.randomUUID();
         Playlist playlist = Playlist.create(userId, "Title", "Desc");
         playlist.addContent(contentId);
-        given(loadPlaylistPort.findById(playlistId)).willReturn(Optional.of(playlist));
+        given(loadPlaylistPort.findByIdForUpdate(playlistId)).willReturn(Optional.of(playlist));
 
         // when
         playlistService.removeContent(playlistId, contentId, userId);
