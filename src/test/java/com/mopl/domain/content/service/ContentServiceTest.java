@@ -551,6 +551,7 @@ class ContentServiceTest {
 
       then(contentRepository).should().findById(id);
       then(contentRepository).should().save(any(Content.class));
+      then(searchContentPort).should().save(any(Content.class));
     }
 
     @Test
