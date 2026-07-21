@@ -2,6 +2,7 @@ package com.mopl.domain.auth.event;
 
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
 import com.mopl.global.event.PasswordChangedEvent;
+import com.mopl.global.jwt.AuthTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,11 +22,25 @@ class PasswordChangedEventListenerTest {
     @Mock
     private PasswordResetTokenPort passwordResetTokenPort;
 
+    @Mock
+    private AuthTokenService authTokenService;
+
     private PasswordChangedEventListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new PasswordChangedEventListener(passwordResetTokenPort);
+        listener = new PasswordChangedEventListener(passwordResetTokenPort, authTokenService);
+    }
+
+    @Test
+    @DisplayName("성공: 비밀번호 변경 커밋 후 기존 세션을 강제 로그아웃한다")
+    void onPasswordChangedForceLogout_ForcesLogoutByUserId() {
+        UUID userId = UUID.randomUUID();
+        PasswordChangedEvent event = new PasswordChangedEvent(userId);
+
+        listener.onPasswordChangedForceLogout(event);
+
+        verify(authTokenService).forceLogoutByUserId(userId);
     }
 
     @Test

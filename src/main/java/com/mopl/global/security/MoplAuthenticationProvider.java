@@ -30,23 +30,27 @@ public class MoplAuthenticationProvider implements AuthenticationProvider {
         UserAuthInfo user = userAuthPort.findByEmail(email)
                 .orElseThrow(() -> new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다."));
 
-        if (user.locked()) {
-            throw new LockedException("잠긴 계정입니다.");
-        }
-
         PasswordResetToken activeToken = passwordResetTokenPort
                 .findActiveByUserId(user.id())
                 .filter(PasswordResetToken::isValid)
                 .orElse(null);
 
+        // 비밀번호가 틀린 경우 계정 존재 여부/잠금 여부와 무관하게 항상 동일한 예외(401)를 반환하기 위해 비밀번호 검증을 잠금 여부 체크보다 먼저 수행
+        boolean passwordMatches = activeToken != null
+                ? passwordEncoder.matches(rawPassword, activeToken.getTemporaryPassword())
+                : passwordEncoder.matches(rawPassword, user.password());
+
+        if (!passwordMatches) {
+            throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
+        }
+
+        if (user.locked()) {
+            throw new LockedException("잠긴 계정입니다.");
+        }
+
         if (activeToken != null) {
-            if (!passwordEncoder.matches(rawPassword, activeToken.getTemporaryPassword())) {
-                throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
-            }
-        } else {
-            if (!passwordEncoder.matches(rawPassword, user.password())) {
-                throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
-            }
+            activeToken.markUsed();
+            passwordResetTokenPort.save(activeToken);
         }
 
         MoplUserDetails userDetails = new MoplUserDetails(user);

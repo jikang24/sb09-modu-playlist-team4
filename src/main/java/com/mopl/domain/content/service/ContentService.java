@@ -13,7 +13,6 @@ import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
 import com.mopl.global.event.ContentDeletedEvent;
 import com.mopl.global.event.ContentSearchSyncRequestedEvent;
-import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -182,25 +181,6 @@ public class ContentService implements ContentUseCase {
         hasNext, totalCount,
         request.sortBy(), request.sortDirection()
     );
-  }
-
-  /**
-   * 리뷰 작성/수정/삭제로 평점이 바뀌었을 때 콘텐츠 통계를 갱신하고 검색 색인에 반영.
-   * @Async + AFTER_COMMIT: 리뷰 쪽 트랜잭션이 커밋된 후 별도 스레드에서 처리 -
-   * OpenSearch 장애/지연이 리뷰 작성 트랜잭션을 롤백시키지 않도록 분리.
-   * AFTER_COMMIT 시점엔 원본 트랜잭션이 이미 끝났으므로, 참여할 게 아니라 REQUIRES_NEW로
-   * 새 트랜잭션을 열어야 한다 (기본 REQUIRED는 Spring이 기동 시점에 막는다).
-   */
-  @Async
-  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
-    Content content = findContentOrThrow(event.contentId());
-    content.updateRatingStats(event.averageRating(), event.reviewCount());
-    Content saved = contentRepository.save(content);
-
-    searchContentPort.save(saved);
-    log.info("[Content] 평점 갱신 - id: {}", event.contentId());
   }
 
   /**

@@ -13,7 +13,6 @@ import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
 import com.mopl.infra.s3.S3Service;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -59,7 +58,7 @@ public class ReviewService {
       throw new MoplException(ErrorCode.REVIEW_ALREADY_EXISTS);
     }
 
-    publishRatingUpdatedEvent(contentId);
+    eventPublisher.publishEvent(new ReviewRatingUpdatedEvent(contentId, rating, 1));
     return review.getId();
   }
 
@@ -68,11 +67,14 @@ public class ReviewService {
         .orElseThrow(() -> new MoplException(ErrorCode.REVIEW_NOT_FOUND));
     validateOwner(review, userId);
 
+    BigDecimal previousRating = review.getRating();
+
     // save() 호출 없음 - review는 이미 영속 상태라, 필드만 바꾸면 트랜잭션 끝날 때
     // JPA가 dirty checking으로 알아서 UPDATE 쿼리를 날려줌
     review.update(rating, text);
 
-    publishRatingUpdatedEvent(review.getContentId());
+    BigDecimal ratingDelta = rating.subtract(previousRating);
+    eventPublisher.publishEvent(new ReviewRatingUpdatedEvent(review.getContentId(), ratingDelta, 0));
   }
 
   public void deleteReview(UUID reviewId, UUID userId) {
@@ -81,9 +83,10 @@ public class ReviewService {
     validateOwner(review, userId);
 
     UUID contentId = review.getContentId(); // 삭제 전에 미리 꺼내둠
+    BigDecimal ratingDelta = review.getRating().negate();
     reviewRepository.delete(review);
 
-    publishRatingUpdatedEvent(contentId); // 마지막 리뷰였다면 평균 0, 개수 0으로 반영됨
+    eventPublisher.publishEvent(new ReviewRatingUpdatedEvent(contentId, ratingDelta, -1));
   }
 
   @Transactional(readOnly = true)
@@ -135,19 +138,5 @@ public class ReviewService {
     if (!review.getUserId().equals(userId)) {
       throw new MoplException(ErrorCode.REVIEW_NOT_OWNER);
     }
-  }
-
-  /** 재집계 방식 - create/update/delete 세 곳에서 공통 호출 (하나라도 빠지면 평점이 안 맞게 됨) */
-  private void publishRatingUpdatedEvent(UUID contentId) {
-    Object[] result = reviewRepository.aggregateRatingStats(contentId).get(0);
-    Double avg = (Double) result[0];
-    Long count = (Long) result[1];
-
-    BigDecimal averageRating = (avg == null)
-        ? BigDecimal.ZERO
-        : BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP);
-
-    eventPublisher.publishEvent(
-        new ReviewRatingUpdatedEvent(contentId, averageRating, count.intValue()));
   }
 }

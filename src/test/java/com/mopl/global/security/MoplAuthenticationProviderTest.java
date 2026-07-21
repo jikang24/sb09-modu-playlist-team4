@@ -68,7 +68,7 @@ class MoplAuthenticationProviderTest {
     }
 
     @Test
-    @DisplayName("성공: 유효한 임시 비밀번호로 인증에 성공한다")
+    @DisplayName("성공: 유효한 임시 비밀번호로 인증에 성공하고 토큰이 1회성으로 소진된다")
     void authenticate_withValidTemporaryPassword_success() {
         PasswordResetToken activeToken =
                 PasswordResetToken.create(userId, "temp-encoded", Instant.now().plusSeconds(600));
@@ -80,6 +80,8 @@ class MoplAuthenticationProviderTest {
                 new UsernamePasswordAuthenticationToken(user.email(), "temp-raw"));
 
         assertThat(result.isAuthenticated()).isTrue();
+        assertThat(activeToken.isUsed()).isTrue();
+        org.mockito.Mockito.verify(passwordResetTokenPort).save(activeToken);
     }
 
     @Test
@@ -93,15 +95,31 @@ class MoplAuthenticationProviderTest {
     }
 
     @Test
-    @DisplayName("실패: 잠긴 계정이면 LockedException이 발생한다")
+    @DisplayName("실패: 비밀번호가 일치해도 잠긴 계정이면 LockedException이 발생한다")
     void authenticate_lockedUser_throws() {
         UserAuthInfo lockedUser = new UserAuthInfo(userId, Instant.now(), "woody@mopl.io", "encoded-password",
                 "woody", null, Role.USER, true);
         when(userAuthPort.findByEmail(lockedUser.email())).thenReturn(Optional.of(lockedUser));
+        when(passwordResetTokenPort.findActiveByUserId(userId)).thenReturn(Optional.empty());
+        when(passwordEncoder.matches("raw-password", lockedUser.password())).thenReturn(true);
 
         assertThatThrownBy(() -> provider.authenticate(
                 new UsernamePasswordAuthenticationToken(lockedUser.email(), "raw-password")))
                 .isInstanceOf(LockedException.class);
+    }
+
+    @Test
+    @DisplayName("실패: 비밀번호가 틀리면 잠긴 계정이어도 BadCredentialsException이 발생한다 (잠금 여부 노출 방지)")
+    void authenticate_lockedUserWrongPassword_throwsBadCredentials() {
+        UserAuthInfo lockedUser = new UserAuthInfo(userId, Instant.now(), "woody@mopl.io", "encoded-password",
+                "woody", null, Role.USER, true);
+        when(userAuthPort.findByEmail(lockedUser.email())).thenReturn(Optional.of(lockedUser));
+        when(passwordResetTokenPort.findActiveByUserId(userId)).thenReturn(Optional.empty());
+        when(passwordEncoder.matches("wrong-password", lockedUser.password())).thenReturn(false);
+
+        assertThatThrownBy(() -> provider.authenticate(
+                new UsernamePasswordAuthenticationToken(lockedUser.email(), "wrong-password")))
+                .isInstanceOf(BadCredentialsException.class);
     }
 
     @Test
