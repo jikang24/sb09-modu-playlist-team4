@@ -10,6 +10,7 @@ import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
 import com.mopl.global.event.ContentDeletedEvent;
+import com.mopl.global.event.ContentSearchSyncRequestedEvent;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
@@ -24,7 +25,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.web.multipart.MultipartFile;
 import com.mopl.domain.content.adapter.port.SearchContentPort;
 
 import java.math.BigDecimal;
@@ -39,7 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class ContentServiceTest {
@@ -93,10 +93,9 @@ class ContentServiceTest {
   class CreateContent {
 
     @Test
-    @DisplayName("정상 등록 - 새로운 콘텐츠가 저장되고, 외부 ID는 서버에서 생성된다")
+    @DisplayName("정상 등록 - 새로운 콘텐츠가 저장되고, 외부 ID는 서버에서 생성된다. 검색 색인 반영은 커밋 후 비동기 이벤트로 위임")
     void success() {
       ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE);
-      MultipartFile thumbnail = mock(MultipartFile.class);
 
       UUID savedId = UUID.randomUUID();
       Content saved = makeContent(savedId, ContentType.MOVIE, "tmdb-001");
@@ -104,7 +103,7 @@ class ContentServiceTest {
       given(contentRepository.save(any(Content.class)))
           .willReturn(saved);
 
-      ContentResponse response = contentService.createContent(request, thumbnail);
+      ContentResponse response = contentService.createContent(request, null);
 
       assertThat(response.id()).isEqualTo(savedId);
       assertThat(response.type()).isEqualTo(ContentType.MOVIE);
@@ -113,24 +112,23 @@ class ContentServiceTest {
       ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
       then(contentRepository).should().save(captor.capture());
       assertThat(captor.getValue().getExternalId()).isNotBlank();
+
+      then(eventPublisher).should().publishEvent(new ContentSearchSyncRequestedEvent(savedId));
+      then(searchContentPort).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("썸네일이 S3에 업로드되고, 그 URL이 콘텐츠에 반영된다")
-    void success_uploadsThumbnailToS3() {
+    @DisplayName("전달받은 썸네일 key가 콘텐츠에 저장되고 presigned URL로 응답된다 (S3 업로드 자체는 컨트롤러 책임)")
+    void success_storesThumbnailKey() {
       ContentCreateRequest request = makeCreateRequest(ContentType.MOVIE);
-      MultipartFile thumbnail = mock(MultipartFile.class);
 
-      given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/thumb.jpg");
-      given(s3Service.extractKey("https://s3.example.com/thumb.jpg")).willReturn("thumb.jpg");
       given(s3Service.getPresignedUrl("thumb.jpg")).willReturn("https://s3.example.com/thumb.jpg");
       given(contentRepository.save(any(Content.class)))
           .willAnswer(invocation -> invocation.getArgument(0));
 
-      ContentResponse response = contentService.createContent(request, thumbnail);
+      ContentResponse response = contentService.createContent(request, "thumb.jpg");
 
       assertThat(response.thumbnailUrl()).isEqualTo("https://s3.example.com/thumb.jpg");
-      then(s3Service).should().upload(thumbnail);
     }
   }
 
@@ -139,7 +137,7 @@ class ContentServiceTest {
   class UpdateContent {
 
     @Test
-    @DisplayName("정상 수정 - 제목/설명/태그 변경")
+    @DisplayName("정상 수정 - 제목/설명/태그 변경, 검색 색인 반영은 커밋 후 비동기 이벤트로 위임")
     void success() {
 
       UUID id = UUID.randomUUID();
@@ -148,47 +146,44 @@ class ContentServiceTest {
       ContentUpdateRequest request = new ContentUpdateRequest(
           ContentType.MOVIE, "수정된 제목", "수정된 설명", List.of("드라마")
       );
-      MultipartFile thumbnail = mock(MultipartFile.class);
 
       given(contentRepository.findById(id)).willReturn(Optional.of(existing));
       given(contentRepository.save(any(Content.class))).willReturn(existing);
 
-      ContentResponse response = contentService.updateContent(id, request, thumbnail);
+      ContentResponse response = contentService.updateContent(id, request, null);
 
       assertThat(response).isNotNull();
       ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
       then(contentRepository).should().save(captor.capture());
       assertThat(captor.getValue().getTitle()).isEqualTo("수정된 제목");
+
+      then(eventPublisher).should().publishEvent(new ContentSearchSyncRequestedEvent(id));
+      then(searchContentPort).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("새 썸네일을 보내면 S3에 업로드되고, 그 URL로 갱신된다")
-    void success_newThumbnail_uploadsToS3() {
+    @DisplayName("새 썸네일 key를 보내면 그 값으로 갱신된다 (S3 업로드 자체는 컨트롤러 책임)")
+    void success_newThumbnailKey_updatesContent() {
       UUID id = UUID.randomUUID();
       Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
 
       ContentUpdateRequest request = new ContentUpdateRequest(
           ContentType.MOVIE, "수정된 제목", "수정된 설명", List.of("드라마")
       );
-      MultipartFile thumbnail = mock(MultipartFile.class);
-      given(thumbnail.isEmpty()).willReturn(false);
-      given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/new-thumb.jpg");
-      given(s3Service.extractKey("https://s3.example.com/new-thumb.jpg")).willReturn("new-thumb.jpg");
-      given(s3Service.getPresignedUrl("new-thumb.jpg")).willReturn("https://s3.example.com/new-thumb.jpg");
 
+      given(s3Service.getPresignedUrl("new-thumb.jpg")).willReturn("https://s3.example.com/new-thumb.jpg");
       given(contentRepository.findById(id)).willReturn(Optional.of(existing));
       given(contentRepository.save(any(Content.class)))
           .willAnswer(invocation -> invocation.getArgument(0));
 
-      ContentResponse response = contentService.updateContent(id, request, thumbnail);
+      ContentResponse response = contentService.updateContent(id, request, "new-thumb.jpg");
 
       assertThat(response.thumbnailUrl()).isEqualTo("https://s3.example.com/new-thumb.jpg");
-      then(s3Service).should().upload(thumbnail);
     }
 
     @Test
-    @DisplayName("썸네일을 안 보내면 S3 업로드 없이 기존 썸네일이 유지된다")
-    void success_noThumbnail_keepsExisting() {
+    @DisplayName("새 썸네일 key가 없으면(null) 기존 썸네일이 유지된다")
+    void success_noThumbnailKey_keepsExisting() {
       UUID id = UUID.randomUUID();
       Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
 
@@ -203,7 +198,7 @@ class ContentServiceTest {
       ContentResponse response = contentService.updateContent(id, request, null);
 
       assertThat(response.thumbnailUrl()).isEqualTo(existing.getThumbnailUrl());
-      then(s3Service).should(org.mockito.Mockito.never()).upload(any());
+      then(s3Service).shouldHaveNoInteractions();
     }
 
     @Test
@@ -215,12 +210,11 @@ class ContentServiceTest {
       ContentUpdateRequest request = new ContentUpdateRequest(
           ContentType.TV_SERIES, "수정된 제목", "수정된 설명", List.of("드라마")
       );
-      MultipartFile thumbnail = mock(MultipartFile.class);
 
       given(contentRepository.findById(id)).willReturn(Optional.of(existing));
       given(contentRepository.save(any(Content.class))).willReturn(existing);
 
-      contentService.updateContent(id, request, thumbnail);
+      contentService.updateContent(id, request, null);
 
       ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
       then(contentRepository).should().save(captor.capture());
@@ -240,12 +234,12 @@ class ContentServiceTest {
       given(contentRepository.findById(id)).willReturn(Optional.of(existing));
 
       assertThatThrownBy(() ->
-          contentService.updateContent(id, request, mock(MultipartFile.class)))
+          contentService.updateContent(id, request, null))
           .isInstanceOf(MoplException.class)
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
               .isEqualTo(ErrorCode.CONTENT_TYPE_NOT_EDITABLE));
 
-      then(contentRepository).should(org.mockito.Mockito.never()).save(any());
+      then(contentRepository).should(never()).save(any());
     }
 
     @Test
@@ -259,7 +253,7 @@ class ContentServiceTest {
       );
 
       assertThatThrownBy(() ->
-          contentService.updateContent(id, request, mock(MultipartFile.class)))
+          contentService.updateContent(id, request, null))
           .isInstanceOf(MoplException.class)
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
               .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
@@ -272,7 +266,7 @@ class ContentServiceTest {
   class DeleteContent {
 
     @Test
-    @DisplayName("정상 삭제 - deleteById 호출")
+    @DisplayName("정상 삭제 - deleteById 호출, 검색 색인 삭제는 커밋 후 비동기 이벤트로 위임")
     void success() {
 
       UUID id = UUID.randomUUID();
@@ -282,6 +276,7 @@ class ContentServiceTest {
 
       then(contentRepository).should().deleteById(id);
       then(eventPublisher).should().publishEvent(new ContentDeletedEvent(id));
+      then(searchContentPort).shouldHaveNoInteractions();
     }
 
     @Test
@@ -569,6 +564,56 @@ class ContentServiceTest {
               .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
 
       then(contentRepository).shouldHaveNoMoreInteractions();
+    }
+  }
+
+  @Nested
+  @DisplayName("검색 색인 반영 이벤트 처리 - handleContentSearchSyncRequested()")
+  class HandleContentSearchSyncRequested {
+
+    @Test
+    @DisplayName("정상 처리 - 콘텐츠를 다시 조회해서 검색 색인에 저장한다")
+    void success() {
+      UUID id = UUID.randomUUID();
+      Content content = makeContent(id, ContentType.MOVIE, "tmdb-001");
+      ContentSearchSyncRequestedEvent event = new ContentSearchSyncRequestedEvent(id);
+
+      given(contentRepository.findById(id)).willReturn(Optional.of(content));
+
+      contentService.handleContentSearchSyncRequested(event);
+
+      then(searchContentPort).should().save(content);
+    }
+
+    @Test
+    @DisplayName("이미 삭제된 콘텐츠 - CONTENT_NOT_FOUND 예외, 색인 호출 없음")
+    void fail_notFound() {
+      UUID id = UUID.randomUUID();
+      ContentSearchSyncRequestedEvent event = new ContentSearchSyncRequestedEvent(id);
+
+      given(contentRepository.findById(id)).willReturn(Optional.empty());
+
+      assertThatThrownBy(() -> contentService.handleContentSearchSyncRequested(event))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
+
+      then(searchContentPort).shouldHaveNoInteractions();
+    }
+  }
+
+  @Nested
+  @DisplayName("검색 색인 삭제 이벤트 처리 - handleContentDeleted()")
+  class HandleContentDeleted {
+
+    @Test
+    @DisplayName("정상 처리 - 검색 색인에서 삭제한다")
+    void success() {
+      UUID id = UUID.randomUUID();
+
+      contentService.handleContentDeleted(new ContentDeletedEvent(id));
+
+      then(searchContentPort).should().delete(id);
     }
   }
 }

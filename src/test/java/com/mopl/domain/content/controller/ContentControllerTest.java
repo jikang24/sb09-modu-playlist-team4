@@ -9,6 +9,7 @@ import com.mopl.domain.content.service.ContentUseCase;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.mock;
 class ContentControllerTest {
 
     private ContentUseCase contentUseCase;
+    private S3Service s3Service;
     private ContentController contentController;
 
     private ContentResponse sampleResponse;
@@ -41,7 +43,8 @@ class ContentControllerTest {
     @BeforeEach
     void setUp() {
         contentUseCase = mock(ContentUseCase.class);
-        contentController = new ContentController(contentUseCase);
+        s3Service = mock(S3Service.class);
+        contentController = new ContentController(contentUseCase, s3Service);
 
         sampleResponse = new ContentResponse(
             UUID.randomUUID(), ContentType.MOVIE,
@@ -55,20 +58,22 @@ class ContentControllerTest {
     class CreateContent {
 
         @Test
-        @DisplayName("정상 등록 - 201 반환")
+        @DisplayName("정상 등록 - S3 업로드 후 그 key로 등록 요청, 201 반환")
         void success() {
             ContentCreateRequest request = new ContentCreateRequest(
                 ContentType.MOVIE, "제목", "설명", List.of());
             MultipartFile thumbnail = mock(MultipartFile.class);
 
-            given(contentUseCase.createContent(request, thumbnail)).willReturn(sampleResponse);
+            given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/thumb.jpg");
+            given(s3Service.extractKey("https://s3.example.com/thumb.jpg")).willReturn("thumb.jpg");
+            given(contentUseCase.createContent(request, "thumb.jpg")).willReturn(sampleResponse);
 
             ResponseEntity<ContentResponse> response =
                 contentController.createContent(request, thumbnail);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
             assertThat(response.getBody()).isEqualTo(sampleResponse);
-            then(contentUseCase).should().createContent(request, thumbnail);
+            then(contentUseCase).should().createContent(request, "thumb.jpg");
         }
 
         @Test
@@ -78,7 +83,9 @@ class ContentControllerTest {
                 ContentType.MOVIE, "제목", "설명", List.of());
             MultipartFile thumbnail = mock(MultipartFile.class);
 
-            given(contentUseCase.createContent(request, thumbnail))
+            given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/thumb.jpg");
+            given(s3Service.extractKey("https://s3.example.com/thumb.jpg")).willReturn("thumb.jpg");
+            given(contentUseCase.createContent(request, "thumb.jpg"))
                 .willThrow(new MoplException(ErrorCode.INVALID_INPUT));
 
             assertThatThrownBy(() -> contentController.createContent(request, thumbnail))
@@ -93,14 +100,17 @@ class ContentControllerTest {
     class UpdateContent {
 
         @Test
-        @DisplayName("정상 수정 - 200 반환")
+        @DisplayName("정상 수정 - 새 썸네일이 있으면 S3 업로드 후 그 key로 수정 요청, 200 반환")
         void success() {
             UUID id = sampleResponse.id();
             ContentUpdateRequest request =
                 new ContentUpdateRequest(ContentType.MOVIE, "새 제목", "새 설명", List.of());
             MultipartFile thumbnail = mock(MultipartFile.class);
+            given(thumbnail.isEmpty()).willReturn(false);
 
-            given(contentUseCase.updateContent(id, request, thumbnail)).willReturn(sampleResponse);
+            given(s3Service.upload(thumbnail)).willReturn("https://s3.example.com/new-thumb.jpg");
+            given(s3Service.extractKey("https://s3.example.com/new-thumb.jpg")).willReturn("new-thumb.jpg");
+            given(contentUseCase.updateContent(id, request, "new-thumb.jpg")).willReturn(sampleResponse);
 
             ResponseEntity<ContentResponse> response =
                 contentController.updateContent(id, request, thumbnail);
@@ -110,7 +120,7 @@ class ContentControllerTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 콘텐츠 수정 - MoplException 전파")
+        @DisplayName("존재하지 않는 콘텐츠 수정 - MoplException 전파, 썸네일 없으면 S3 호출도 없음")
         void fail_notFound() {
             UUID id = UUID.randomUUID();
             ContentUpdateRequest request =
@@ -123,6 +133,8 @@ class ContentControllerTest {
                 .isInstanceOf(MoplException.class)
                 .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
                     .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
+
+            then(s3Service).shouldHaveNoInteractions();
         }
     }
 
