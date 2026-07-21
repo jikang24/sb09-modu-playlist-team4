@@ -22,8 +22,7 @@ public class RedisNotificationPublisher {
       String json = objectMapper.writeValueAsString(notification);
       redisTemplate.convertAndSend(RedisConfig.NOTIFICATION_CHANNEL, json);
     } catch (JsonProcessingException e) {
-      throw new IllegalStateException(
-          "알림 SSE fanout 직렬화 실패: notificationId=" + notification.id(), e);
+      log.error("알림 SSE fanout 발행 실패: notificationId={}", notification.id(), e);
     }
   }
 }

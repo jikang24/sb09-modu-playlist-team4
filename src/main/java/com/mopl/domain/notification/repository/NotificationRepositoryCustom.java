@@ -9,5 +9,5 @@ public interface NotificationRepositoryCustom {
 
   List<Notification> findUnreadByReceiverWithCursor(UUID receiverId, NotificationSearchRequest request);
 
-  List<Notification> findByReceiverIdAfter(UUID receiverId, UUID lastNotificationId);
+  List<Notification> findByReceiverIdAfter(UUID receiverId, UUID lastNotificationId, int limit);
 }
