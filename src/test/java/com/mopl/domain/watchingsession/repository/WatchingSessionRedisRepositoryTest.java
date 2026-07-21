@@ -199,6 +199,40 @@ class WatchingSessionRedisRepositoryTest {
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
               .isEqualTo(ErrorCode.WATCHING_SESSION_NOT_FOUND));
     }
+
+    @Test
+    @DisplayName("역인덱스는 있지만 세션 원본이 이미 지워졌으면 WATCHING_SESSION_NOT_FOUND 예외 (TTL 등으로 인한 불일치 방어)")
+    void fail_staleIndex() {
+      UUID watcherId = UUID.randomUUID();
+      UUID sessionId = UUID.randomUUID();
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(sessionId.toString());
+      given(hashOperations.entries(sessionKey(sessionId))).willReturn(Map.of());
+
+      assertThatThrownBy(() -> repository.leave(watcherId))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.WATCHING_SESSION_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("세션 Hash에 contentId 필드가 없으면 ZSet 정리는 건너뛰고 나머지 키만 정리한다")
+    void success_missingContentIdSkipsZSetCleanup() {
+      UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      UUID sessionId = UUID.randomUUID();
+      Instant createdAt = Instant.now();
+
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(sessionId.toString());
+      given(hashOperations.entries(sessionKey(sessionId)))
+          .willReturn(sessionFields(watcherId, contentId, createdAt));
+      given(hashOperations.get(sessionKey(sessionId), "contentId")).willReturn(null);
+
+      repository.leave(watcherId);
+
+      then(zSetOperations).should(never()).remove(anyString(), anyString());
+      then(redisTemplate).should().delete(sessionKey(sessionId));
+      then(redisTemplate).should().delete(watcherKey(watcherId));
+    }
   }
 
   @Nested
@@ -253,6 +287,21 @@ class WatchingSessionRedisRepositoryTest {
       Optional<WatchingSession> result = repository.leaveIfCurrent(watcherId, sessionId);
 
       assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("sessionId는 일치하지만 세션 원본이 이미 지워졌으면 아무 것도 지우지 않고 빈 값을 반환한다")
+    void empty_whenSessionAlreadyGone() {
+      UUID watcherId = UUID.randomUUID();
+      UUID sessionId = UUID.randomUUID();
+
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(sessionId.toString());
+      given(hashOperations.entries(sessionKey(sessionId))).willReturn(Map.of());
+
+      Optional<WatchingSession> result = repository.leaveIfCurrent(watcherId, sessionId);
+
+      assertThat(result).isEmpty();
+      then(redisTemplate).should(never()).delete(anyString());
     }
   }
 
@@ -413,6 +462,18 @@ class WatchingSessionRedisRepositoryTest {
           new WatchingSessionSearchRequest(contentId, null, null, 5, "createdAt", "DESCENDING");
 
       given(zSetOperations.reverseRangeWithScores(contentKey(contentId), 0, 5)).willReturn(Set.of());
+
+      assertThat(repository.findByContentId(request)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("ZSet 자체가 없어서 조회 결과가 null이면 빈 리스트를 반환한다")
+    void nullResult() {
+      UUID contentId = UUID.randomUUID();
+      WatchingSessionSearchRequest request =
+          new WatchingSessionSearchRequest(contentId, null, null, 5, "createdAt", "DESCENDING");
+
+      given(zSetOperations.reverseRangeWithScores(contentKey(contentId), 0, 5)).willReturn(null);
 
       assertThat(repository.findByContentId(request)).isEmpty();
     }
