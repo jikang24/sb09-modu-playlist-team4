@@ -625,4 +625,44 @@ class ContentRepositoryImplTest {
 
         assertThat(contentRepository.countByCondition(req)).isZero();
     }
+
+    @Test
+    @DisplayName("[applyRatingDelta] 리뷰 없던 콘텐츠에 첫 리뷰가 반영된다")
+    void applyRatingDelta_firstReview() {
+        contentRepository.applyRatingDelta(movie1.getId(), new BigDecimal("4.5"), 1);
+        em.flush();
+        em.clear();
+
+        Content updated = contentRepository.findById(movie1.getId()).orElseThrow();
+        assertThat(updated.getAverageRating()).isEqualByComparingTo(new BigDecimal("4.5"));
+        assertThat(updated.getReviewCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("[applyRatingDelta] 순차 적용된 delta들이 누적되어 정확한 평균을 계산한다 (동시성 안전성의 핵심)")
+    void applyRatingDelta_accumulatesCorrectly() {
+        // 두 번의 원자적 UPDATE가 서로의 결과를 덮어쓰지 않고 누적되는지 검증
+        // (기존 방식은 절대값을 재계산해 덮어써서 lost-update가 발생했음)
+        contentRepository.applyRatingDelta(movie1.getId(), new BigDecimal("4.0"), 1);
+        contentRepository.applyRatingDelta(movie1.getId(), new BigDecimal("2.0"), 1);
+        em.flush();
+        em.clear();
+
+        Content updated = contentRepository.findById(movie1.getId()).orElseThrow();
+        assertThat(updated.getAverageRating()).isEqualByComparingTo(new BigDecimal("3.0"));
+        assertThat(updated.getReviewCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("[applyRatingDelta] 마지막 리뷰가 삭제되면 평균이 0으로 초기화된다 (0으로 나누기 방지)")
+    void applyRatingDelta_resetsToZeroWhenLastReviewRemoved() {
+        contentRepository.applyRatingDelta(movie1.getId(), new BigDecimal("4.0"), 1);
+        contentRepository.applyRatingDelta(movie1.getId(), new BigDecimal("-4.0"), -1);
+        em.flush();
+        em.clear();
+
+        Content updated = contentRepository.findById(movie1.getId()).orElseThrow();
+        assertThat(updated.getAverageRating()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(updated.getReviewCount()).isZero();
+    }
 }

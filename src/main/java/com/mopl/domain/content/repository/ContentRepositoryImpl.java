@@ -172,6 +172,12 @@ public class ContentRepositoryImpl implements ContentRepository {
   }
 
   @Override
+  @CacheEvict(value = "content", key = "#contentId")
+  public void applyRatingDelta(UUID contentId, BigDecimal ratingDelta, int countDelta) {
+    jpaRepository.applyRatingDelta(contentId, ratingDelta, countDelta);
+  }
+
+  @Override
   public boolean existsById(UUID id) {
     return jpaRepository.existsById(id);
   }

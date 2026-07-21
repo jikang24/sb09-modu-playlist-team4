@@ -2,9 +2,9 @@ package com.mopl.domain.content.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 
 import com.mopl.domain.content.adapter.port.SearchContentPort;
 import com.mopl.domain.content.domain.Content;
@@ -55,23 +55,41 @@ class ReviewRatingUpdatedEventListenerTest {
   }
 
   @Test
-  @DisplayName("정상 처리 - 평점/리뷰수 갱신 후 저장")
+  @DisplayName("정상 처리 - delta만큼 원자적으로 갱신하고, 반영된 최신값을 검색 인덱스에 동기화한다")
   void success() {
     UUID id = UUID.randomUUID();
+    BigDecimal ratingDelta = new BigDecimal("4.50");
 
     Content content = makeContent(id);
 
-    ReviewRatingUpdatedEvent event =
-        new ReviewRatingUpdatedEvent(id, new BigDecimal("4.50"), 15);
+    ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(id, ratingDelta, 1);
 
     given(contentRepository.findById(id)).willReturn(Optional.of(content));
-    given(contentRepository.save(any(Content.class))).willReturn(content);
 
     listener.handleReviewRatingUpdated(event);
 
+    then(contentRepository).should().applyRatingDelta(id, ratingDelta, 1);
     then(contentRepository).should().findById(id);
-    then(contentRepository).should().save(any(Content.class));
     then(searchContentPort).should().save(content);
+  }
+
+  @Test
+  @DisplayName("검색 색인 반영 중 예외가 나도 조용히 무시되고 전파되지 않는다")
+  void success_searchSyncFailureSwallowed() {
+    UUID id = UUID.randomUUID();
+    BigDecimal ratingDelta = new BigDecimal("4.50");
+
+    Content content = makeContent(id);
+
+    ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(id, ratingDelta, 1);
+
+    given(contentRepository.findById(id)).willReturn(Optional.of(content));
+    willThrow(new RuntimeException("opensearch down"))
+        .given(searchContentPort).save(content);
+
+    listener.handleReviewRatingUpdated(event);
+
+    then(contentRepository).should().applyRatingDelta(id, ratingDelta, 1);
   }
 
   @Test

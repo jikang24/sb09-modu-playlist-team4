@@ -100,13 +100,6 @@ public class Content {
     this.updatedAt = Instant.now();
   }
 
-  /** 평점/리뷰 수 갱신 (Review 모듈 이벤트 수신 시) */
-  public void updateRatingStats(BigDecimal newAverageRating, int newReviewCount) {
-    this.averageRating = newAverageRating;
-    this.reviewCount = newReviewCount;
-    this.updatedAt = Instant.now();
-  }
-
   /** 관리자가 직접 등록한 콘텐츠인지 (외부 API로 수집된 콘텐츠가 아닌지) */
   public boolean isManuallyCreated() {
     return externalId.startsWith(MANUAL_EXTERNAL_ID_PREFIX);

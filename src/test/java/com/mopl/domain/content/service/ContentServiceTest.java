@@ -10,7 +10,6 @@ import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
 import com.mopl.global.event.ContentDeletedEvent;
-import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
