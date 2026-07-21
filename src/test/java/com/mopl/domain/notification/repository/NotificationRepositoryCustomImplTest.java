@@ -133,7 +133,7 @@ class NotificationRepositoryCustomImplTest {
     Notification second = saveNotification(receiverId, NotificationType.FOLLOW, base.plusSeconds(1), false);
 
     List<Notification> result =
-        notificationRepository.findByReceiverIdAfter(receiverId, first.getId());
+        notificationRepository.findByReceiverIdAfter(receiverId, first.getId(), 200);
 
     assertThat(result).extracting(Notification::getId).containsExactly(second.getId());
   }
@@ -142,7 +142,7 @@ class NotificationRepositoryCustomImplTest {
   @DisplayName("성공: 존재하지 않는 lastNotificationId면 빈 목록을 반환한다")
   void findByReceiverIdAfter_unknownLastId() {
     List<Notification> result =
-        notificationRepository.findByReceiverIdAfter(receiverId, UUID.randomUUID());
+        notificationRepository.findByReceiverIdAfter(receiverId, UUID.randomUUID(), 200);
 
     assertThat(result).isEmpty();
   }
