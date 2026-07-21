@@ -28,15 +28,9 @@ public class OutboxEvent {
   @Column(name = "aggregate_id", nullable = false)
   private UUID aggregateId;
 
-  /**
-   * 이벤트의 의미(어떤 일이 일어났는지). 예: "NOTIFICATION_REQUESTED"
-   */
   @Column(name = "event_type", nullable = false, length = 100)
   private String eventType;
 
-  /**
-   * 실제로 발행될 카프카 토픽명. eventType과 값이 같을 수도 있지만 의미상 분리해서 관리한다.
-   */
   @Column(name = "topic", nullable = false, length = 150)
   private String topic;
 
@@ -56,6 +50,9 @@ public class OutboxEvent {
   @Column(name = "created_at", nullable = false)
   private LocalDateTime createdAt;
 
+  @Column(name = "claimed_at")
+  private LocalDateTime claimedAt;
+
   @Column(name = "published_at")
   private LocalDateTime publishedAt;
 
@@ -74,15 +71,24 @@ public class OutboxEvent {
     this.createdAt = LocalDateTime.now();
   }
 
+  public void markClaimed() {
+    this.status = OutboxStatus.PROCESSING;
+    this.claimedAt = LocalDateTime.now();
+  }
+
   public void markPublished() {
     this.status = OutboxStatus.PUBLISHED;
     this.publishedAt = LocalDateTime.now();
   }
 
+  /**
+   * 발행 실패 처리.
+   * 재시도 여력이 남아 있으면(PROCESSING 상태로 클레임된 채 멈춰있지 않도록) PENDING으로 되돌려
+   * 다음 relay 사이클에서 다시 클레임될 수 있게 한다.
+   * 재시도 횟수를 다 소진했으면 FAILED로 확정한다.
+   */
   public void markFailed(int maxRetry) {
     this.retryCount++;
-    if (this.retryCount >= maxRetry) {
-      this.status = OutboxStatus.FAILED;
-    }
+    this.status = (this.retryCount >= maxRetry) ? OutboxStatus.FAILED : OutboxStatus.PENDING;
   }
 }

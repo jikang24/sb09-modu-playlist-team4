@@ -29,6 +29,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     "redis.listener.enabled=false",
     "outbox.relay.fixed-delay-ms=200",
     "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
+    "MAIL_USERNAME=test@test.com",
+    "MAIL_PASSWORD=test"
 
 })
 class OutboxRelayIntegrationTest {

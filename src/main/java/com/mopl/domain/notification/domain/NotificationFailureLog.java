@@ -3,8 +3,6 @@ package com.mopl.domain.notification.domain;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -18,47 +16,52 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import com.mopl.global.event.NotificationRequestedEvent;
 
 @Entity
-@Table(name = "notifications")
+@Table(name = "notification_failure_logs")
 @Getter
 @Builder
 @EntityListeners(AuditingEntityListener.class)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Notification {
+public class NotificationFailureLog {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
   @Column(columnDefinition = "uuid", updatable = false, nullable = false)
   private UUID id;
 
-  @Column(name = "event_id", nullable = false, unique = true, columnDefinition = "uuid")
+  @Column(columnDefinition = "uuid")
   private UUID eventId;
 
-  @Column(nullable = false, columnDefinition = "uuid")
+  @Column(columnDefinition = "uuid")
   private UUID receiverId;
 
-  @Enumerated(EnumType.STRING)
-  @Column(nullable = false, length = 50)
-  private NotificationType type;
+  @Column(length = 50)
+  private String type;
 
-  @Column(nullable = false, length = 100)
+  @Column(columnDefinition = "text")
   private String title;
 
-  @Column(nullable = false, columnDefinition = "text")
+  @Column(columnDefinition = "text")
   private String content;
 
-  @Column(nullable = false)
-  @Builder.Default
-  private boolean isRead = false;
+  @Column(columnDefinition = "text")
+  private String errorMessage;
 
   @CreatedDate
-  @Column(nullable = false, updatable = false,
-      columnDefinition = "timestamp with time zone")
-  private Instant createdAt;
+  @Column(nullable = false, updatable = false, columnDefinition = "timestamp with time zone")
+  private Instant occurredAt;
 
-  public void read() {
-    this.isRead = true;
+  public static NotificationFailureLog of(NotificationRequestedEvent event, String errorMessage) {
+    return NotificationFailureLog.builder()
+        .eventId(event.eventId())
+        .receiverId(event.receiverId())
+        .type(event.type())
+        .title(event.title())
+        .content(event.content())
+        .errorMessage(errorMessage)
+        .build();
   }
 }

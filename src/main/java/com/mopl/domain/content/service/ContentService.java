@@ -185,17 +185,6 @@ public class ContentService implements ContentUseCase {
     );
   }
 
-  @EventListener
-  @Transactional
-  public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
-    Content content = findContentOrThrow(event.contentId());
-    content.updateRatingStats(event.averageRating(), event.reviewCount());
-    Content saved = contentRepository.save(content);
-
-    searchContentPort.save(saved);
-    log.info("[Content] 평점 갱신 - id: {}", event.contentId());
-  }
-
   private Content findContentOrThrow(UUID id) {
     return contentRepository.findById(id)
         .orElseThrow(() -> new MoplException(ErrorCode.CONTENT_NOT_FOUND));
