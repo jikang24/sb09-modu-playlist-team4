@@ -12,7 +12,6 @@ import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
 import com.mopl.global.event.ContentDeletedEvent;
-import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -20,7 +19,6 @@ import com.mopl.infra.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -183,19 +181,6 @@ public class ContentService implements ContentUseCase {
         hasNext, totalCount,
         request.sortBy(), request.sortDirection()
     );
-  }
-
-  @EventListener
-  @Transactional
-  public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
-    // 절대값을 덮어쓰지 않고 DB에서 원자적으로 증감시켜, 동시에 여러 리뷰가
-    // 생성/삭제돼도 lost-update 없이 정확한 값이 나오게 한다.
-    contentRepository.applyRatingDelta(event.contentId(), event.ratingDelta(), event.countDelta());
-
-    // applyRatingDelta가 캐시를 evict했으므로, 검색 인덱스 동기화를 위해 반영된 최신값을 다시 조회
-    Content updated = findContentOrThrow(event.contentId());
-    searchContentPort.save(updated);
-    log.info("[Content] 평점 갱신 - id: {}", event.contentId());
   }
 
   private Content findContentOrThrow(UUID id) {

@@ -10,7 +10,6 @@ import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
 import com.mopl.global.event.ContentDeletedEvent;
-import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -529,46 +528,6 @@ class ContentServiceTest {
       // then
       assertThat(response.sortBy()).isEqualTo("title");
       assertThat(response.sortDirection()).isEqualTo("ASCENDING");
-    }
-  }
-
-  @Nested
-  @DisplayName("평점 갱신 이벤트 처리 - handleReviewRatingUpdated()")
-  class HandleReviewRatingUpdated {
-
-    @Test
-    @DisplayName("정상 처리 - delta만큼 원자적으로 갱신하고, 반영된 최신값을 검색 인덱스에 동기화한다")
-    void success() {
-      UUID id = UUID.randomUUID();
-      BigDecimal ratingDelta = new BigDecimal("4.50");
-      Content updated = makeContent(id, ContentType.MOVIE, "tmdb-001");
-      ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(id, ratingDelta, 1);
-
-      given(contentRepository.findById(id)).willReturn(Optional.of(updated));
-
-      contentService.handleReviewRatingUpdated(event);
-
-      then(contentRepository).should().applyRatingDelta(id, ratingDelta, 1);
-      then(contentRepository).should().findById(id);
-      then(searchContentPort).should().save(updated);
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 콘텐츠 - CONTENT_NOT_FOUND 예외")
-    void fail_notFound() {
-      UUID id = UUID.randomUUID();
-      BigDecimal ratingDelta = new BigDecimal("3.00");
-      ReviewRatingUpdatedEvent event = new ReviewRatingUpdatedEvent(id, ratingDelta, 1);
-
-      given(contentRepository.findById(id)).willReturn(Optional.empty());
-
-      assertThatThrownBy(() -> contentService.handleReviewRatingUpdated(event))
-          .isInstanceOf(MoplException.class)
-          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
-              .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
-
-      then(contentRepository).should().applyRatingDelta(id, ratingDelta, 1);
-      then(searchContentPort).shouldHaveNoInteractions();
     }
   }
 }
