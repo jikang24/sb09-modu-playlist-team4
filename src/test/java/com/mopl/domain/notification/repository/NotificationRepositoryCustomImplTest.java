@@ -45,6 +45,7 @@ class NotificationRepositoryCustomImplTest {
       boolean isRead
   ) {
     Notification notification = Notification.builder()
+        .eventId(UUID.randomUUID())
         .receiverId(receiverId)
         .type(type)
         .title("title")
