@@ -12,6 +12,7 @@ import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
 import com.mopl.global.event.ContentDeletedEvent;
+import com.mopl.global.event.ContentSearchSyncRequestedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
@@ -19,9 +20,12 @@ import com.mopl.infra.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.List;
 import java.util.Map;
@@ -51,9 +55,7 @@ public class ContentService implements ContentUseCase {
 
   @Override
   @Transactional
-  public ContentResponse createContent(ContentCreateRequest request, MultipartFile thumbnail) {
-
-    String thumbnailKey = s3Service.extractKey(s3Service.upload(thumbnail));
+  public ContentResponse createContent(ContentCreateRequest request, String thumbnailKey) {
 
     // 관리자가 직접 등록하는 콘텐츠는 TMDB 등 외부 연동 ID가 없으므로 서버에서 고유값 생성
     String externalId = Content.MANUAL_EXTERNAL_ID_PREFIX + UUID.randomUUID();
@@ -70,7 +72,8 @@ public class ContentService implements ContentUseCase {
 
     Content saved = contentRepository.save(content);
 
-    searchContentPort.save(saved);
+    // 검색 색인 반영은 커밋 후 비동기로 - OpenSearch 지연/장애가 콘텐츠 등록 트랜잭션을 붙잡지 않도록
+    eventPublisher.publishEvent(new ContentSearchSyncRequestedEvent(saved.getId()));
 
     log.info("[Content] 등록 완료 - id: {}, type: {}", saved.getId(), saved.getType());
     return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()),
@@ -80,19 +83,16 @@ public class ContentService implements ContentUseCase {
   @Override
   @Transactional
   public ContentResponse updateContent(UUID id, ContentUpdateRequest request,
-      MultipartFile thumbnail) {
+      String newThumbnailKey) {
     Content content = findContentOrThrow(id);
 
-    String thumbnailKey = content.getThumbnailUrl();
-    if (thumbnail != null && !thumbnail.isEmpty()) {
-      thumbnailKey = s3Service.extractKey(s3Service.upload(thumbnail));
-    }
+    String thumbnailKey = (newThumbnailKey != null) ? newThumbnailKey : content.getThumbnailUrl();
 
     // 순수 도메인 메서드로 상태 변경
     content.update(request.type(), request.title(), request.description(), thumbnailKey, request.tags());
 
     Content saved = contentRepository.save(content);
-    searchContentPort.save(saved);
+    eventPublisher.publishEvent(new ContentSearchSyncRequestedEvent(saved.getId()));
     log.info("[Content] 수정 완료 - id: {}", id);
     return ContentResponse.from(saved, loadWatcherCountPort.countByContentId(saved.getId()),
         resolveThumbnailUrl(saved.getThumbnailUrl()));
@@ -105,8 +105,8 @@ public class ContentService implements ContentUseCase {
       throw new MoplException(ErrorCode.CONTENT_NOT_FOUND);
     }
     contentRepository.deleteById(id);
-    searchContentPort.delete(id);
-    // 모듈 간 REF - FK 없이 contentId만 참조하는 review/playlist 쪽 고아 데이터 정리용
+    // 모듈 간 REF - FK 없이 contentId만 참조하는 review/playlist 쪽 고아 데이터 정리용.
+    // 검색 색인 삭제(handleContentDeleted)도 같은 이벤트를 커밋 후 비동기로 구독해서 처리.
     eventPublisher.publishEvent(new ContentDeletedEvent(id));
     log.info("[Content] 삭제 완료 - id: {}", id);
   }
@@ -181,6 +181,30 @@ public class ContentService implements ContentUseCase {
         hasNext, totalCount,
         request.sortBy(), request.sortDirection()
     );
+  }
+
+  /**
+   * 콘텐츠 등록/수정 커밋 후 검색 색인에 반영. {@link #createContent}, {@link #updateContent} 참고.
+   */
+  @Async
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+  public void handleContentSearchSyncRequested(ContentSearchSyncRequestedEvent event) {
+    Content content = findContentOrThrow(event.contentId());
+    searchContentPort.save(content);
+    log.info("[Content] 검색 색인 반영 - id: {}", event.contentId());
+  }
+
+  /**
+   * 콘텐츠 삭제 커밋 후 검색 색인에서도 제거. {@link #deleteContent} 참고.
+   * DB 조회가 필요 없어 트랜잭션 자체를 열지 않는다.
+   */
+  @Async
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
+  public void handleContentDeleted(ContentDeletedEvent event) {
+    searchContentPort.delete(event.contentId());
+    log.info("[Content] 검색 색인 삭제 - id: {}", event.contentId());
   }
 
   private Content findContentOrThrow(UUID id) {
