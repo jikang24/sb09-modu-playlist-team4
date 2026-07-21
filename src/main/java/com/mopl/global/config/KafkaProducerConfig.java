@@ -32,6 +32,9 @@ public class KafkaProducerConfig {
   @Primary
   public ProducerFactory<Object, Object> producerFactory() {
     Map<String, Object> props = kafkaProperties.buildProducerProperties(null);
+
+    System.err.println("### producer props = " + props);
+
     return new DefaultKafkaProducerFactory<>(props);
   }
 
