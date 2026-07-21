@@ -23,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -187,10 +188,12 @@ public class ContentService implements ContentUseCase {
    * 리뷰 작성/수정/삭제로 평점이 바뀌었을 때 콘텐츠 통계를 갱신하고 검색 색인에 반영.
    * @Async + AFTER_COMMIT: 리뷰 쪽 트랜잭션이 커밋된 후 별도 스레드에서 처리 -
    * OpenSearch 장애/지연이 리뷰 작성 트랜잭션을 롤백시키지 않도록 분리.
+   * AFTER_COMMIT 시점엔 원본 트랜잭션이 이미 끝났으므로, 참여할 게 아니라 REQUIRES_NEW로
+   * 새 트랜잭션을 열어야 한다 (기본 REQUIRED는 Spring이 기동 시점에 막는다).
    */
   @Async
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
     Content content = findContentOrThrow(event.contentId());
     content.updateRatingStats(event.averageRating(), event.reviewCount());
@@ -205,6 +208,7 @@ public class ContentService implements ContentUseCase {
    */
   @Async
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
   public void handleContentSearchSyncRequested(ContentSearchSyncRequestedEvent event) {
     Content content = findContentOrThrow(event.contentId());
     searchContentPort.save(content);
@@ -213,9 +217,11 @@ public class ContentService implements ContentUseCase {
 
   /**
    * 콘텐츠 삭제 커밋 후 검색 색인에서도 제거. {@link #deleteContent} 참고.
+   * DB 조회가 필요 없어 트랜잭션 자체를 열지 않는다.
    */
   @Async
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public void handleContentDeleted(ContentDeletedEvent event) {
     searchContentPort.delete(event.contentId());
     log.info("[Content] 검색 색인 삭제 - id: {}", event.contentId());
