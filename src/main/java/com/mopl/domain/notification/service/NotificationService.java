@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public interface NotificationService {
 
-  NotificationDto send(UUID receiverId, NotificationType type, String title, String content);
+  NotificationDto send(UUID eventId, UUID receiverId, NotificationType type, String title, String content);
 
   CursorPageResponse<NotificationDto> findMyNotifications(NotificationSearchRequest request);
 

@@ -209,6 +209,7 @@ CREATE TABLE IF NOT EXISTS direct_messages (
 
 CREATE TABLE IF NOT EXISTS notifications (
     id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id        UUID        NOT NULL UNIQUE,
     -- [모듈 간 REF] user 모듈의 users.id 참조 — FK 없음
     -- 알림에 필요한 텍스트는 이벤트 발행 시 미리 담아서 저장
     -- → user/content 모듈 재조회 불필요
@@ -219,6 +220,17 @@ CREATE TABLE IF NOT EXISTS notifications (
     is_read         BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMP   NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS notification_failure_logs (
+                                                         id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id        UUID,
+    receiver_id     UUID,
+    type            VARCHAR(50),
+    title           TEXT,
+    content         TEXT,
+    error_message   TEXT,
+    occurred_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    );
 
 -- ================================================================
 -- watching_session 은 DB 테이블 없음
@@ -313,6 +325,8 @@ CREATE TABLE IF NOT EXISTS outbox_event (
     retry_count INT NOT NULL DEFAULT 0,
 
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    claimed_at TIMESTAMP NULL,
 
     published_at TIMESTAMP NULL
     );

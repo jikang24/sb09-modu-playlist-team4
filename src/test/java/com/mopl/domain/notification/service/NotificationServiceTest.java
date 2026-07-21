@@ -6,7 +6,7 @@ import com.mopl.domain.notification.dto.NotificationDto;
 import com.mopl.domain.notification.dto.NotificationSearchRequest;
 import com.mopl.domain.notification.dto.NotificationSortBy;
 import com.mopl.domain.notification.repository.NotificationRepository;
-import com.mopl.domain.notification.sse.SseNotificationSender;
+import com.mopl.infra.redis.RedisNotificationPublisher;
 import com.mopl.global.dto.SortDirection;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import com.mopl.domain.notification.support.CurrentUserProvider;
 
@@ -38,7 +39,7 @@ class NotificationServiceTest {
   private NotificationRepository notificationRepository;
 
   @Mock
-  private SseNotificationSender sseNotificationSender;
+  private RedisNotificationPublisher redisNotificationPublisher;
 
   private NotificationServiceImpl notificationService;
 
@@ -52,7 +53,7 @@ class NotificationServiceTest {
   void setUp() {
     notificationService = new NotificationServiceImpl(
         notificationRepository,
-        sseNotificationSender,
+        redisNotificationPublisher,
         currentUserProvider
     );
     userId = UUID.randomUUID();
@@ -67,6 +68,7 @@ class NotificationServiceTest {
   private Notification notification(UUID id, UUID receiverId, Instant createdAt) {
     return Notification.builder()
         .id(id)
+        .eventId(UUID.randomUUID())
         .receiverId(receiverId)
         .type(NotificationType.FOLLOW)
         .title("새 팔로워")
@@ -80,18 +82,36 @@ class NotificationServiceTest {
   class Send {
 
     @Test
-    @DisplayName("성공: 알림을 저장하고 SSE로 전송한다")
+    @DisplayName("성공: 알림을 저장하고 Redis fanout으로 전송한다")
     void send_success() {
       UUID receiverId = UUID.randomUUID();
+      UUID eventId = UUID.randomUUID();
       Notification saved = notification(UUID.randomUUID(), receiverId, Instant.now());
+      given(notificationRepository.findByEventId(eventId)).willReturn(Optional.empty());
       given(notificationRepository.save(any(Notification.class))).willReturn(saved);
 
       NotificationDto result = notificationService.send(
-          receiverId, NotificationType.FOLLOW, "제목", "내용");
+          eventId, receiverId, NotificationType.FOLLOW, "제목", "내용");
 
       assertThat(result.receiverId()).isEqualTo(receiverId);
       assertThat(result.title()).isEqualTo("새 팔로워");
-      verify(sseNotificationSender).send(eq(receiverId), any(NotificationDto.class));
+      verify(redisNotificationPublisher).publish(any(NotificationDto.class));
+    }
+
+    @Test
+    @DisplayName("성공: 동일 eventId 재전달 시 중복 저장 없이 기존 알림을 반환한다")
+    void send_deduplicatesByEventId() {
+      UUID eventId = UUID.randomUUID();
+      UUID receiverId = UUID.randomUUID();
+      Notification existing = notification(UUID.randomUUID(), receiverId, Instant.now());
+      given(notificationRepository.findByEventId(eventId)).willReturn(Optional.of(existing));
+
+      NotificationDto result = notificationService.send(
+          eventId, receiverId, NotificationType.FOLLOW, "제목", "내용");
+
+      assertThat(result.id()).isEqualTo(existing.getId());
+      verify(notificationRepository, never()).save(any());
+      verify(redisNotificationPublisher).publish(any(NotificationDto.class));
     }
   }
 
