@@ -20,9 +20,11 @@ import com.mopl.infra.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -185,7 +187,13 @@ public class ContentService implements ContentUseCase {
     );
   }
 
-  @EventListener
+  /**
+   * 리뷰 작성/수정/삭제로 평점이 바뀌었을 때 콘텐츠 통계를 갱신하고 검색 색인에 반영.
+   * @Async + AFTER_COMMIT: 리뷰 쪽 트랜잭션이 커밋된 후 별도 스레드에서 처리 -
+   * OpenSearch 장애/지연이 리뷰 작성 트랜잭션을 롤백시키지 않도록 분리.
+   */
+  @Async
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   @Transactional
   public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
     Content content = findContentOrThrow(event.contentId());
