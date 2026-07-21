@@ -18,9 +18,10 @@ import com.mopl.global.response.CursorPageResponse;
 import com.mopl.infra.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -180,14 +181,18 @@ public class ContentService implements ContentUseCase {
     );
   }
 
-  @EventListener
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   @Transactional
   public void handleReviewRatingUpdated(ReviewRatingUpdatedEvent event) {
     Content content = findContentOrThrow(event.contentId());
     content.updateRatingStats(event.averageRating(), event.reviewCount());
     Content saved = contentRepository.save(content);
 
-    searchContentPort.save(saved);
+    try {
+      searchContentPort.save(saved);
+    } catch (Exception e) {
+      log.error("[Content] OpenSearch 평점 갱신 실패 - id: {}", event.contentId(), e);
+    }
     log.info("[Content] 평점 갱신 - id: {}", event.contentId());
   }
 
