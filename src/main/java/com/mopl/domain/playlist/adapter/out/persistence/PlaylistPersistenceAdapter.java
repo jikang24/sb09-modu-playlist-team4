@@ -127,6 +127,15 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
   }
 
   @Override
+  @Transactional
+  public void removeContentFromAllPlaylists(UUID contentId) {
+    // 어느 플레이리스트가 영향받는지 미리 알 수 없어 "playlist" 캐시를 콕 집어 evict하진 않는다.
+    // findSummariesByIds가 존재하지 않는 contentId는 이미 조용히 걸러내므로(PlaylistService의
+    // null 필터링), 캐시 TTL이 지날 때까지는 화면에서만 지연되어 사라지고 깨지진 않는다.
+    playlistJpaRepository.deleteByContentId(contentId);
+  }
+
+  @Override
   public Map<UUID, Boolean> isSubscribedBulk(List<UUID> playlistIds, UUID subscriberId) {
     List<UUID> subscribedPlaylistIds = subscriptionJpaRepository.findSubscribedPlaylistIds(
         playlistIds, subscriberId);

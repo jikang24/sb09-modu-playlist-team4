@@ -42,9 +42,10 @@ class ReviewTest {
     }
 
     @Test
-    @DisplayName("경계값 - 평점 0과 5는 정상 생성된다")
+    @DisplayName("경계값 - 평점 0.5와 5는 정상 생성된다")
     void success_boundaryRating() {
-      assertThat(makeReview(BigDecimal.ZERO).getRating()).isEqualByComparingTo(BigDecimal.ZERO);
+      assertThat(makeReview(BigDecimal.valueOf(0.5)).getRating())
+          .isEqualByComparingTo(BigDecimal.valueOf(0.5));
       assertThat(makeReview(BigDecimal.valueOf(5)).getRating())
           .isEqualByComparingTo(BigDecimal.valueOf(5));
     }
@@ -80,8 +81,17 @@ class ReviewTest {
     }
 
     @Test
-    @DisplayName("rating이 0 미만이면 예외 발생")
-    void fail_ratingBelowZero() {
+    @DisplayName("rating이 0.5 미만이면 예외 발생 (DB CHECK 제약과 동일 범위)")
+    void fail_ratingBelowMin() {
+      assertThatThrownBy(() -> makeReview(BigDecimal.valueOf(0.4)))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.INVALID_INPUT));
+    }
+
+    @Test
+    @DisplayName("rating이 음수이면 예외 발생")
+    void fail_ratingNegative() {
       assertThatThrownBy(() -> makeReview(BigDecimal.valueOf(-0.1)))
           .isInstanceOf(MoplException.class)
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())

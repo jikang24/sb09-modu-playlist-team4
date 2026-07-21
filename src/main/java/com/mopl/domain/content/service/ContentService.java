@@ -11,12 +11,16 @@ import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.config.PlaceholderImageController;
+import com.mopl.global.event.ContentDeletedEvent;
+import com.mopl.global.event.ReviewRatingUpdatedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.CursorPageResponse;
 import com.mopl.infra.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,6 +45,7 @@ public class ContentService implements ContentUseCase {
   private final LoadWatcherCountPort loadWatcherCountPort;
   private final S3Service s3Service;
   private final SearchContentPort searchContentPort;
+  private final ApplicationEventPublisher eventPublisher;
 
   // ──────────────────────────────────────────────
   // 관리자 전용
@@ -103,6 +108,8 @@ public class ContentService implements ContentUseCase {
     }
     contentRepository.deleteById(id);
     searchContentPort.delete(id);
+    // 모듈 간 REF - FK 없이 contentId만 참조하는 review/playlist 쪽 고아 데이터 정리용
+    eventPublisher.publishEvent(new ContentDeletedEvent(id));
     log.info("[Content] 삭제 완료 - id: {}", id);
   }
 
