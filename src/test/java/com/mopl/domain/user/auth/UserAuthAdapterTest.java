@@ -3,7 +3,9 @@ package com.mopl.domain.user.auth;
 import com.mopl.domain.user.domain.User;
 import com.mopl.domain.user.dto.Role;
 import com.mopl.domain.user.repository.UserRepository;
+import com.mopl.domain.user.service.ProfileImageUrlResolver;
 import com.mopl.global.auth.UserAuthInfo;
+import com.mopl.infra.s3.S3Service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,9 @@ class UserAuthAdapterTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private S3Service s3Service;
+
     private UserAuthAdapter adapter;
 
     private UUID userId;
@@ -32,7 +37,7 @@ class UserAuthAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new UserAuthAdapter(userRepository);
+        adapter = new UserAuthAdapter(userRepository, new ProfileImageUrlResolver(s3Service));
         userId = UUID.randomUUID();
         user = User.builder()
                 .id(userId)
