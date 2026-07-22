@@ -175,8 +175,9 @@ class AuthServiceTest {
         String newAccessToken = "new_access_token";
         String newRefreshToken = "new_refresh_token";
 
-        when(authTokenService.findUserIdByRefreshToken(refreshToken))
-                .thenReturn(Optional.of(testUserId));
+        when(jwtProvider.parse(refreshToken))
+                .thenReturn(JwtClaims.builder().userId(testUserId).build());
+        when(authTokenService.isValidRefreshToken(testUserId, refreshToken)).thenReturn(true);
         when(userAuthPort.findById(testUserId)).thenReturn(Optional.of(testUser));
         when(jwtProvider.generateAccessToken(testUserId, "test@email.com", "USER"))
                 .thenReturn(newAccessToken);
@@ -197,8 +198,7 @@ class AuthServiceTest {
         assertEquals(newRefreshToken, result.refreshToken());
         assertEquals(Duration.ofDays(7), result.refreshTokenTtl());
 
-        verify(authTokenService).findUserIdByRefreshToken(refreshToken);
-        verify(authTokenService).deleteRefreshToken(refreshToken);
+        verify(authTokenService).isValidRefreshToken(testUserId, refreshToken);
         verify(authTokenService).saveRefreshToken(testUserId, newRefreshToken, Duration.ofDays(7));
         verify(authTokenService).saveAccessJti(testUserId, "new-access-jti", accessExpiry);
         verify(userAuthPort).findById(testUserId);
@@ -208,24 +208,26 @@ class AuthServiceTest {
     @DisplayName("실패: 유효하지 않은 리프레시 토큰으로 예외가 발생한다")
     void refresh_RefreshTokenNotFound() {
         String refreshToken = "invalid_token";
-        when(authTokenService.findUserIdByRefreshToken(refreshToken))
-                .thenReturn(Optional.empty());
+        when(jwtProvider.parse(refreshToken))
+                .thenReturn(JwtClaims.builder().userId(testUserId).build());
+        when(authTokenService.isValidRefreshToken(testUserId, refreshToken)).thenReturn(false);
 
         MoplException exception = assertThrows(MoplException.class, () -> {
             authService.refresh(refreshToken);
         });
 
         assertEquals(ErrorCode.REFRESH_TOKEN_NOT_FOUND, exception.getErrorCode());
-        verify(authTokenService).findUserIdByRefreshToken(refreshToken);
-        verify(authTokenService, never()).deleteRefreshToken(anyString());
+        verify(authTokenService).isValidRefreshToken(testUserId, refreshToken);
+        verify(authTokenService, never()).saveRefreshToken(any(), anyString(), any());
     }
 
     @Test
     @DisplayName("실패: 존재하지 않는 사용자로 토큰 재발급을 시도하면 예외가 발생한다")
     void refresh_UserNotFound() {
         String refreshToken = "refresh_token_123";
-        when(authTokenService.findUserIdByRefreshToken(refreshToken))
-                .thenReturn(Optional.of(testUserId));
+        when(jwtProvider.parse(refreshToken))
+                .thenReturn(JwtClaims.builder().userId(testUserId).build());
+        when(authTokenService.isValidRefreshToken(testUserId, refreshToken)).thenReturn(true);
         when(userAuthPort.findById(testUserId)).thenReturn(Optional.empty());
 
         MoplException exception = assertThrows(MoplException.class, () -> {
@@ -250,8 +252,9 @@ class AuthServiceTest {
                 true
         );
 
-        when(authTokenService.findUserIdByRefreshToken(refreshToken))
-                .thenReturn(Optional.of(testUserId));
+        when(jwtProvider.parse(refreshToken))
+                .thenReturn(JwtClaims.builder().userId(testUserId).build());
+        when(authTokenService.isValidRefreshToken(testUserId, refreshToken)).thenReturn(true);
         when(userAuthPort.findById(testUserId)).thenReturn(Optional.of(lockedUser));
 
         MoplException exception = assertThrows(MoplException.class, () -> {
@@ -259,33 +262,7 @@ class AuthServiceTest {
         });
 
         assertEquals(ErrorCode.ACCOUNT_LOCKED, exception.getErrorCode());
-        verify(authTokenService, never()).deleteRefreshToken(anyString());
-    }
-
-    @Test
-    @DisplayName("성공: 이전 토큰을 삭제한 후 새 토큰을 발급한다")
-    void refresh_TokenDeletedBeforeIssuing() {
-        String refreshToken = "refresh_token_123";
-        String newAccessToken = "new_access_token";
-        String newRefreshToken = "new_refresh_token";
-
-        when(authTokenService.findUserIdByRefreshToken(refreshToken))
-                .thenReturn(Optional.of(testUserId));
-        when(userAuthPort.findById(testUserId)).thenReturn(Optional.of(testUser));
-        when(jwtProvider.generateAccessToken(testUserId, "test@email.com", "USER"))
-                .thenReturn(newAccessToken);
-        when(jwtProvider.generateRefreshToken(testUserId, "test@email.com", "USER"))
-                .thenReturn(newRefreshToken);
-        when(jwtProvider.calculateTtl(newRefreshToken)).thenReturn(Duration.ofDays(7));
-        when(jwtProvider.parse(newAccessToken))
-                .thenReturn(JwtClaims.builder().tokenId("new-access-jti").build());
-        when(jwtProvider.getExpiration(newAccessToken)).thenReturn(Instant.now().plus(Duration.ofMinutes(30)));
-
-        RefreshResult result = authService.refresh(refreshToken);
-
-        verify(authTokenService).findUserIdByRefreshToken(refreshToken);
-        verify(authTokenService).deleteRefreshToken(refreshToken);
-        verify(authTokenService).saveRefreshToken(testUserId, newRefreshToken, Duration.ofDays(7));
+        verify(authTokenService, never()).saveRefreshToken(any(), anyString(), any());
     }
 
     @Test
@@ -295,8 +272,9 @@ class AuthServiceTest {
         String newAccessToken = "new_access_token_xyz";
         String newRefreshToken = "new_refresh_token_xyz";
 
-        when(authTokenService.findUserIdByRefreshToken(refreshToken))
-                .thenReturn(Optional.of(testUserId));
+        when(jwtProvider.parse(refreshToken))
+                .thenReturn(JwtClaims.builder().userId(testUserId).build());
+        when(authTokenService.isValidRefreshToken(testUserId, refreshToken)).thenReturn(true);
         when(userAuthPort.findById(testUserId)).thenReturn(Optional.of(testUser));
         when(jwtProvider.generateAccessToken(testUserId, "test@email.com", "USER"))
                 .thenReturn(newAccessToken);
@@ -321,8 +299,9 @@ class AuthServiceTest {
         String newAccessToken = "new_access_token";
         String newRefreshToken = "new_refresh_token";
 
-        when(authTokenService.findUserIdByRefreshToken(refreshToken))
-                .thenReturn(Optional.of(testUserId));
+        when(jwtProvider.parse(refreshToken))
+                .thenReturn(JwtClaims.builder().userId(testUserId).build());
+        when(authTokenService.isValidRefreshToken(testUserId, refreshToken)).thenReturn(true);
         when(userAuthPort.findById(testUserId)).thenReturn(Optional.of(testUser));
         when(jwtProvider.generateAccessToken(testUserId, "test@email.com", "USER"))
                 .thenReturn(newAccessToken);
