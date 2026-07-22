@@ -1,15 +1,23 @@
 package com.mopl.global.config;
 
+import java.time.Duration;
+
 import com.mopl.infra.redis.RedisMessageSubscriber;
 import com.mopl.infra.redis.RedisNotificationSubscriber;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 
@@ -23,18 +31,38 @@ public class RedisConfig {
   public static final String NOTIFICATION_CHANNEL = "sse:notifications";
 
   @Bean
+  public RedisConnectionFactory listenerRedisConnectionFactory(
+      RedisProperties redisProperties,
+      @Value("${redis.listener.timeout:3000ms}") Duration listenerTimeout) {
+
+    RedisStandaloneConfiguration standaloneConfig =
+        new RedisStandaloneConfiguration(redisProperties.getHost(), redisProperties.getPort());
+    if (redisProperties.getPassword() != null) {
+      standaloneConfig.setPassword(redisProperties.getPassword());
+    }
+
+    LettuceClientConfiguration.LettuceClientConfigurationBuilder clientConfigBuilder =
+        LettuceClientConfiguration.builder().commandTimeout(listenerTimeout);
+    if (redisProperties.getSsl() != null && redisProperties.getSsl().isEnabled()) {
+      clientConfigBuilder.useSsl();
+    }
+
+    return new LettuceConnectionFactory(standaloneConfig, clientConfigBuilder.build());
+  }
+
+  @Bean
   @ConditionalOnProperty(
       name = "redis.listener.enabled",
       havingValue = "true",
       matchIfMissing = true
   )
   public RedisMessageListenerContainer redisMessageListenerContainer(
-      RedisConnectionFactory connectionFactory,
+      @Qualifier("listenerRedisConnectionFactory") RedisConnectionFactory listenerRedisConnectionFactory,
       RedisMessageSubscriber subscriber,
       RedisNotificationSubscriber notificationSubscriber) {
 
     RedisMessageListenerContainer container = new RedisMessageListenerContainer();
-    container.setConnectionFactory(connectionFactory);
+    container.setConnectionFactory(listenerRedisConnectionFactory);
     container.addMessageListener(subscriber, new ChannelTopic(DM_CHANNEL));
     container.addMessageListener(subscriber, new ChannelTopic(CONTENT_CHAT_CHANNEL));
     container.addMessageListener(subscriber, new ChannelTopic(WATCHING_SESSION_CHANNEL));
