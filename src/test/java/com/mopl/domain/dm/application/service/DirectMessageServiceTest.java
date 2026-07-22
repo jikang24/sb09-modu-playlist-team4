@@ -122,17 +122,20 @@ class DirectMessageServiceTest {
   }
 
   @Test
-  @DisplayName("DM 읽음 처리 실패 - 발신자가 읽음 처리 시도")
-  void read_fail_sender_cannot_read() {
+  @DisplayName("DM 읽음 처리 - 발신자 본인이 호출하면 예외 없이 조용히 무시(no-op)")
+  void read_sender_self_call_is_noop() {
+    // 프론트가 웹소켓으로 들어오는 모든 메시지(본인이 보낸 것 포함)에 대해 읽음 처리 API를
+    // 호출하기 때문에, 발신자 본인의 호출은 에러가 아니라 아무 동작 없이 넘어가야 한다.
 
     UUID directMessageId = UUID.randomUUID();
     DirectMessage directMessage = DirectMessage.create(conversationId, senderId, receiverId, "안녕");
     given(loadDirectMessagePort.findById(directMessageId)).willReturn(Optional.of(directMessage));
 
 
-    assertThatThrownBy(() ->
-        directMessageService.read(conversationId, directMessageId, senderId))
-        .isInstanceOf(MoplException.class);
+    directMessageService.read(conversationId, directMessageId, senderId);
+
+
+    assertThat(directMessage.isRead()).isFalse();
     then(saveDirectMessagePort).should(never()).save(any());
   }
 

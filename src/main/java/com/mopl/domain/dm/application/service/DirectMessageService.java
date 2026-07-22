@@ -73,16 +73,23 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
         log.error("directMessage not found");
         return new MoplException(ErrorCode.DIRECT_MESSAGE_NOT_FOUND);
       });
-      // 요청 경로의 conversationId가 실제 이 메시지가 속한 대화와 일치하는지,
-      // 그리고 호출자가 이 메시지의 수신자 본인인지 명시적으로 검증한다.
-      // (이전엔 "발신자가 아니면 통과"만 확인해서, 대화 참여자가 아닌 제3자도
-      // directMessageId만 알면 남의 메시지를 읽음 처리할 수 있었다 - IDOR)
+      // 요청 경로의 conversationId가 실제 이 메시지가 속한 대화와 일치하는지 검증한다.
+      // (이게 안 맞으면 대화 참여자가 아닌 제3자가 directMessageId만 알고 엉뚱한
+      // conversationId로 접근하려는 경우일 수 있다 - IDOR)
       if (!directMessage.getConversationId().equals(conversationId)) {
         log.warn("directMessage {} does not belong to conversation {}", directMessageId, conversationId);
         throw new MoplException(ErrorCode.FORBIDDEN_ACCESS);
       }
+      // 프론트는 웹소켓 구독(/sub/conversations/{id}/direct-messages)으로 들어오는 메시지마다
+      // 무조건 읽음 처리를 호출한다. 이 구독은 발신자 본인 화면에도 실시간 반영을 위해
+      // 걸려있어서, 내가 보낸 메시지에 대해서도 내 클라이언트가 이 API를 호출한다.
+      // 발신자 본인의 호출은 위험한 접근이 아니라 의미 없는 호출일 뿐이므로 조용히 no-op 처리하고,
+      // 대화 참여자도 아닌(수신자도 발신자도 아닌) 진짜 제3자만 막는다.
+      if (directMessage.isSender(myId)) {
+        return;
+      }
       if (!directMessage.getReceiverId().equals(myId)) {
-        log.warn("user {} is not the receiver of directMessage {}", myId, directMessageId);
+        log.warn("user {} is neither sender nor receiver of directMessage {}", myId, directMessageId);
         throw new MoplException(ErrorCode.FORBIDDEN_ACCESS);
       }
       directMessage.markAsRead();
