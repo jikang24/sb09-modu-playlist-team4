@@ -68,7 +68,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl(userRepository, userMapper, passwordEncoder, eventPublisher, socialAccountRepository, s3Service);
+        userService = new UserServiceImpl(userRepository, userMapper, passwordEncoder, eventPublisher, socialAccountRepository, s3Service, new ProfileImageUrlResolver(s3Service));
 
         userId = UUID.randomUUID();
         user = User.builder()

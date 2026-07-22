@@ -39,20 +39,14 @@ public class UserServiceImpl implements UserService {
     private final ApplicationEventPublisher eventPublisher;
     private final SocialAccountRepository socialAccountRepository;
     private final S3Service s3Service;
+    private final ProfileImageUrlResolver profileImageUrlResolver;
 
-    // profileImageUrl에 저장된 값을 응답용 URL로 변환
-    // 값에 스킴("://")이 없으면 우리가 업로드해 저장한 S3 key이므로 presigned URL로 치환하고,
-    // 스킴이 있으면(소셜 로그인 프로필 이미지 등 외부 URL) 그대로 반환한다.
     private UserDto toDto(User user) {
         return resolveImageUrl(userMapper.toDto(user));
     }
 
     private UserDto resolveImageUrl(UserDto dto) {
-        String stored = dto.profileImageUrl();
-        if (stored == null || stored.isBlank() || stored.contains("://")) {
-            return dto;
-        }
-        String presignedUrl = s3Service.getPresignedUrl(stored);
+        String presignedUrl = profileImageUrlResolver.resolve(dto.profileImageUrl());
         return new UserDto(dto.id(), dto.createdAt(), dto.email(), dto.name(), presignedUrl, dto.role(), dto.locked());
     }
 
