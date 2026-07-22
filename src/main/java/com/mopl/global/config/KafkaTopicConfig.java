@@ -21,7 +21,7 @@ public class KafkaTopicConfig {
   public NewTopic notificationRequestedDlt() {
     return TopicBuilder.name(NotificationTopics.NOTIFICATION_REQUESTED + ".DLT")
         .partitions(3)
-        .replicas(1)
+        .replicas(3)
         .build();
   }
 }
