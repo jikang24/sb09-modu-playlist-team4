@@ -5,6 +5,7 @@ import com.mopl.domain.content.adapter.port.SearchContentPort;
 import com.mopl.domain.content.adapter.port.SearchContentResult;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentSortField;
+import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.dto.ContentCreateRequest;
 import com.mopl.domain.content.dto.ContentResponse;
 import com.mopl.domain.content.dto.ContentSearchRequest;
@@ -87,9 +88,11 @@ public class ContentService implements ContentUseCase {
     Content content = findContentOrThrow(id);
 
     String thumbnailKey = (newThumbnailKey != null) ? newThumbnailKey : content.getThumbnailUrl();
+    // 프론트가 유형 수정 UI를 막고 있어 안 보내는 게 정상 케이스 - 안 보내면 기존 유형 유지
+    ContentType type = (request.type() != null) ? request.type() : content.getType();
 
     // 순수 도메인 메서드로 상태 변경
-    content.update(request.type(), request.title(), request.description(), thumbnailKey, request.tags());
+    content.update(type, request.title(), request.description(), thumbnailKey, request.tags());
 
     Content saved = contentRepository.save(content);
     eventPublisher.publishEvent(new ContentSearchSyncRequestedEvent(saved.getId()));

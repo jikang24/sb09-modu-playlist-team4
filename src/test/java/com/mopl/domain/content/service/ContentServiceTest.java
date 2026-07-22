@@ -201,6 +201,26 @@ class ContentServiceTest {
     }
 
     @Test
+    @DisplayName("유형을 안 보내면(null) 기존 유형이 유지되고 예외가 나지 않는다 (프론트가 유형 수정 UI를 막고 있어 안 보내는 게 정상 케이스)")
+    void success_noType_keepsExistingType() {
+      UUID id = UUID.randomUUID();
+      Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
+
+      ContentUpdateRequest request = new ContentUpdateRequest(
+          null, "수정된 제목", "수정된 설명", List.of("드라마")
+      );
+
+      given(contentRepository.findById(id)).willReturn(Optional.of(existing));
+      given(contentRepository.save(any(Content.class))).willReturn(existing);
+
+      contentService.updateContent(id, request, null);
+
+      ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+      then(contentRepository).should().save(captor.capture());
+      assertThat(captor.getValue().getType()).isEqualTo(ContentType.MOVIE);
+    }
+
+    @Test
     @DisplayName("관리자가 직접 등록한 콘텐츠는 유형도 변경 가능")
     void success_manuallyCreatedContent_typeChanges() {
       UUID id = UUID.randomUUID();
