@@ -16,7 +16,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -139,7 +138,7 @@ class JwtAuthenticationFilterTest {
                 .userId(userId).email("woody@mopl.io").role("USER").tokenId("new-jti").build();
 
         when(jwtProvider.parse("refresh-token-value")).thenReturn(refreshClaims);
-        when(authTokenService.findUserIdByRefreshToken("refresh-token-value")).thenReturn(Optional.of(userId));
+        when(authTokenService.isValidRefreshToken(userId, "refresh-token-value")).thenReturn(true);
         when(jwtProvider.generateAccessToken(userId, "woody@mopl.io", "USER")).thenReturn("new-access-token");
         when(jwtProvider.generateRefreshToken(userId, "woody@mopl.io", "USER")).thenReturn("new-refresh-token");
         when(jwtProvider.calculateTtl("new-refresh-token")).thenReturn(Duration.ofDays(7));
@@ -158,7 +157,6 @@ class JwtAuthenticationFilterTest {
         JwtClaims principal = (JwtClaims) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         assertThat(principal.getTokenId()).isEqualTo("new-jti");
         assertThat(response.getHeader("Set-Cookie")).contains("REFRESH_TOKEN=new-refresh-token");
-        verify(authTokenService).deleteRefreshToken("refresh-token-value");
         verify(authTokenService).saveRefreshToken(userId, "new-refresh-token", Duration.ofDays(7));
     }
 
@@ -179,8 +177,9 @@ class JwtAuthenticationFilterTest {
     @Test
     @DisplayName("실패: SSE 요청이고 refresh 토큰이 이미 폐기되었으면 재발급하지 않는다")
     void sseRequest_revokedRefreshToken_doesNotRefresh() throws Exception {
-        when(jwtProvider.parse("revoked-refresh-token")).thenReturn(claimsOf(UUID.randomUUID()));
-        when(authTokenService.findUserIdByRefreshToken("revoked-refresh-token")).thenReturn(Optional.empty());
+        UUID userId = UUID.randomUUID();
+        when(jwtProvider.parse("revoked-refresh-token")).thenReturn(claimsOf(userId));
+        when(authTokenService.isValidRefreshToken(userId, "revoked-refresh-token")).thenReturn(false);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRequestURI("/api/sse/notifications");
@@ -191,7 +190,7 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, chain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
-        verify(authTokenService, never()).deleteRefreshToken(anyString());
+        verify(authTokenService, never()).saveRefreshToken(any(), anyString(), any());
     }
 
     @Test
@@ -206,6 +205,6 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, chain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
-        verify(authTokenService, never()).findUserIdByRefreshToken(anyString());
+        verify(authTokenService, never()).isValidRefreshToken(any(), anyString());
     }
 }

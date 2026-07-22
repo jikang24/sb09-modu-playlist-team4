@@ -1,11 +1,9 @@
 package com.mopl.global.jwt;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -17,7 +15,6 @@ import com.mopl.global.exception.MoplException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +27,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.data.redis.core.script.RedisScript;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RedisAuthTokenService 테스트")
@@ -56,10 +52,6 @@ class RedisAuthTokenServiceTest {
 
   private String refreshUserKey(UUID userId) {
     return "auth:refresh:user:" + userId;
-  }
-
-  private String refreshTokenKey(String refreshToken) {
-    return "auth:refresh:token:" + refreshToken;
   }
 
   private String accessJtiKey(UUID userId) {
@@ -117,96 +109,50 @@ class RedisAuthTokenServiceTest {
   class RefreshToken {
 
     @Test
-    @DisplayName("성공: 저장한 리프레시 토큰으로 userId를 조회한다")
-    void findUserIdByRefreshToken_found() {
+    @DisplayName("성공: 저장된 토큰과 일치하면 유효한 것으로 판단한다")
+    void isValidRefreshToken_matches_returnsTrue() {
       UUID userId = UUID.randomUUID();
-      given(valueOperations.get(refreshTokenKey("refresh-token-1"))).willReturn(userId.toString());
+      given(valueOperations.get(refreshUserKey(userId))).willReturn("refresh-token-1");
 
-      Optional<UUID> result = service.findUserIdByRefreshToken("refresh-token-1");
-
-      assertThat(result).contains(userId);
+      assertThat(service.isValidRefreshToken(userId, "refresh-token-1")).isTrue();
     }
 
     @Test
-    @DisplayName("실패: 존재하지 않는 리프레시 토큰이면 빈 값을 반환한다")
-    void findUserIdByRefreshToken_notFound() {
-      given(valueOperations.get(refreshTokenKey("unknown-token"))).willReturn(null);
-
-      assertThat(service.findUserIdByRefreshToken("unknown-token")).isEmpty();
-    }
-
-    @Test
-    @DisplayName("성공: 조회-삭제-저장을 하나의 Redis 스크립트로 원자 실행한다")
-    void saveRefreshToken_executesAtomicScript() {
+    @DisplayName("실패: 저장된 토큰과 다르면 유효하지 않은 것으로 판단한다")
+    void isValidRefreshToken_mismatch_returnsFalse() {
       UUID userId = UUID.randomUUID();
-      given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
-          .willReturn(0L);
+      given(valueOperations.get(refreshUserKey(userId))).willReturn("other-token");
 
-      service.saveRefreshToken(userId, "new-token", Duration.ofDays(7));
-
-      then(redisTemplate).should().execute(
-          any(RedisScript.class),
-          eq(List.of(refreshUserKey(userId), refreshTokenKey("new-token"))),
-          eq("new-token"), eq(userId.toString()), eq(String.valueOf(Duration.ofDays(7).toSeconds())),
-          eq("auth:refresh:token:"));
-      then(valueOperations).should(never()).set(any(String.class), any(String.class), any(Duration.class));
-      then(redisTemplate).should(never()).delete(any(String.class));
+      assertThat(service.isValidRefreshToken(userId, "refresh-token-1")).isFalse();
     }
 
     @Test
-    @DisplayName("성공: 기존 토큰이 삭제됐음을 스크립트가 알려주면 그 사실을 로그로 남긴다")
-    void saveRefreshToken_replacesOldToken_logsRemoval() {
-      UUID userId = UUID.randomUUID();
-      given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
-          .willReturn(1L);
-
-      assertThatCode(() -> service.saveRefreshToken(userId, "new-token", Duration.ofDays(7)))
-          .doesNotThrowAnyException();
-    }
-
-    @Test
-    @DisplayName("성공: 토큰으로 조회되면 토큰-유저 매핑을 모두 삭제한다")
-    void deleteRefreshToken_found() {
-      UUID userId = UUID.randomUUID();
-      given(valueOperations.get(refreshTokenKey("token-to-delete"))).willReturn(userId.toString());
-
-      service.deleteRefreshToken("token-to-delete");
-
-      then(redisTemplate).should().delete(refreshTokenKey("token-to-delete"));
-      then(redisTemplate).should().delete(refreshUserKey(userId));
-    }
-
-    @Test
-    @DisplayName("성공: 존재하지 않는 토큰을 삭제해도 아무 키도 지우지 않는다")
-    void deleteRefreshToken_notFound_noDelete() {
-      given(valueOperations.get(refreshTokenKey("nonexistent-token"))).willReturn(null);
-
-      service.deleteRefreshToken("nonexistent-token");
-
-      then(redisTemplate).should(never()).delete(any(String.class));
-    }
-
-    @Test
-    @DisplayName("성공: userId로 조회되면 유저-토큰 매핑을 모두 삭제한다")
-    void deleteRefreshTokenByUserId_found() {
-      UUID userId = UUID.randomUUID();
-      given(valueOperations.get(refreshUserKey(userId))).willReturn("token-1");
-
-      service.deleteRefreshTokenByUserId(userId);
-
-      then(redisTemplate).should().delete(refreshUserKey(userId));
-      then(redisTemplate).should().delete(refreshTokenKey("token-1"));
-    }
-
-    @Test
-    @DisplayName("성공: 등록된 적 없는 userId로 삭제해도 아무 키도 지우지 않는다")
-    void deleteRefreshTokenByUserId_notFound_noDelete() {
+    @DisplayName("실패: 저장된 토큰이 없으면 유효하지 않은 것으로 판단한다")
+    void isValidRefreshToken_missing_returnsFalse() {
       UUID userId = UUID.randomUUID();
       given(valueOperations.get(refreshUserKey(userId))).willReturn(null);
 
+      assertThat(service.isValidRefreshToken(userId, "refresh-token-1")).isFalse();
+    }
+
+    @Test
+    @DisplayName("성공: 유저별 리프레시 토큰 키 하나에 TTL과 함께 저장한다")
+    void saveRefreshToken_setsWithTtl() {
+      UUID userId = UUID.randomUUID();
+
+      service.saveRefreshToken(userId, "new-token", Duration.ofDays(7));
+
+      then(valueOperations).should().set(refreshUserKey(userId), "new-token", Duration.ofDays(7));
+    }
+
+    @Test
+    @DisplayName("성공: userId로 리프레시 토큰 키를 삭제한다")
+    void deleteRefreshTokenByUserId_deletesKey() {
+      UUID userId = UUID.randomUUID();
+
       service.deleteRefreshTokenByUserId(userId);
 
-      then(redisTemplate).should(never()).delete(any(String.class));
+      then(redisTemplate).should().delete(refreshUserKey(userId));
     }
   }
 
@@ -279,14 +225,12 @@ class RedisAuthTokenServiceTest {
       UUID userId = UUID.randomUUID();
       given(valueOperations.get(accessJtiKey(userId))).willReturn("access-jti-1");
       given(redisTemplate.getExpire(accessJtiKey(userId))).willReturn(1800L);
-      given(valueOperations.get(refreshUserKey(userId))).willReturn("refresh-token-1");
 
       service.forceLogoutByUserId(userId);
 
       then(valueOperations).should().set(eq(blacklistKey("access-jti-1")), eq("1"), any(Duration.class));
       then(redisTemplate).should().delete(accessJtiKey(userId));
       then(redisTemplate).should().delete(refreshUserKey(userId));
-      then(redisTemplate).should().delete(refreshTokenKey("refresh-token-1"));
     }
 
     @Test
@@ -295,7 +239,6 @@ class RedisAuthTokenServiceTest {
       UUID userId = UUID.randomUUID();
       given(valueOperations.get(accessJtiKey(userId))).willReturn("access-jti-1");
       given(redisTemplate.getExpire(accessJtiKey(userId))).willReturn(-1L);
-      given(valueOperations.get(refreshUserKey(userId))).willReturn(null);
 
       service.forceLogoutByUserId(userId);
 
@@ -308,7 +251,6 @@ class RedisAuthTokenServiceTest {
     void forceLogoutByUserId_withoutAccessToken_skipsBlacklist() {
       UUID userId = UUID.randomUUID();
       given(valueOperations.get(accessJtiKey(userId))).willReturn(null);
-      given(valueOperations.get(refreshUserKey(userId))).willReturn(null);
 
       service.forceLogoutByUserId(userId);
 

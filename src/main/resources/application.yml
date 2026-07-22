@@ -39,7 +39,7 @@ spring:
             user-name-attribute: id
   data:
     redis:
-      timeout: 3000ms
+      timeout: 500ms
 mopl:
   jwt:
     secret: ${JWT_SECRET}
