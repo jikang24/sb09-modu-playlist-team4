@@ -62,23 +62,36 @@ public class DirectMessagePersistenceAdapter implements SaveDirectMessagePort,
   public CursorPageResponse<DirectMessage> findList(UUID conversationId,
       DirectMessageSearchCondition condition) {
     QDirectMessageJpaEntity dm = QDirectMessageJpaEntity.directMessageJpaEntity;
+    boolean ascending = condition.sortDirection().equals(SortDirection.ASCENDING);
+
     BooleanBuilder builder = new BooleanBuilder();
     builder.and(dm.conversationId.eq(conversationId));
     if(!condition.isFirstPage()){
       Instant cursorTime = Instant.parse(condition.cursor());
-      if(condition.sortDirection().equals(SortDirection.ASCENDING)){
+      if (condition.idAfter() != null) {
+        // 같은 밀리초에 여러 메시지가 저장될 수 있어 createdAt만으로는 페이지 경계에서
+        // 동시각 메시지가 누락/중복될 수 있다 - id로 동시각 타이브레이크
+        BooleanBuilder cursorBuilder = new BooleanBuilder();
+        if (ascending) {
+          cursorBuilder.or(dm.createdAt.gt(cursorTime));
+          cursorBuilder.or(dm.createdAt.eq(cursorTime).and(dm.id.gt(condition.idAfter())));
+        } else {
+          cursorBuilder.or(dm.createdAt.lt(cursorTime));
+          cursorBuilder.or(dm.createdAt.eq(cursorTime).and(dm.id.lt(condition.idAfter())));
+        }
+        builder.and(cursorBuilder);
+      } else if (ascending) {
         builder.and(dm.createdAt.gt(cursorTime));
-      }else {
+      } else {
         builder.and(dm.createdAt.lt(cursorTime));
       }
     }
 
-    var orderSpecifier = condition.sortDirection().equals(SortDirection.ASCENDING) ? dm.createdAt.asc() : dm.createdAt.desc();
-
     List<DirectMessageJpaEntity> results = queryFactory
         .selectFrom(dm)
         .where(builder)
-        .orderBy(orderSpecifier)
+        .orderBy(ascending ? dm.createdAt.asc() : dm.createdAt.desc(),
+            ascending ? dm.id.asc() : dm.id.desc())
         .limit(condition.limit()+1)
         .fetch();
     boolean hasNext = results.size() > condition.limit();

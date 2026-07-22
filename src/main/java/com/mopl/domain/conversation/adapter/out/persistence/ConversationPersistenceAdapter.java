@@ -82,23 +82,34 @@ public class ConversationPersistenceAdapter implements SaveConversationPort, Loa
       builder.and(keywordBuilder);
     }
 
+    boolean ascending = condition.sortDirection() == SortDirection.ASCENDING;
+
     if (!condition.hasFirstPage()) {
       Instant cursorTime = Instant.parse(condition.cursor());
-      if (condition.sortDirection() == SortDirection.ASCENDING) {
+      if (condition.idAfter() != null) {
+        // 같은 밀리초에 여러 대화가 생성될 수 있어 createdAt만으로는 페이지 경계에서
+        // 동시각 데이터가 누락/중복될 수 있다 - id로 동시각 타이브레이크
+        BooleanBuilder cursorBuilder = new BooleanBuilder();
+        if (ascending) {
+          cursorBuilder.or(c.createdAt.gt(cursorTime));
+          cursorBuilder.or(c.createdAt.eq(cursorTime).and(c.id.gt(condition.idAfter())));
+        } else {
+          cursorBuilder.or(c.createdAt.lt(cursorTime));
+          cursorBuilder.or(c.createdAt.eq(cursorTime).and(c.id.lt(condition.idAfter())));
+        }
+        builder.and(cursorBuilder);
+      } else if (ascending) {
         builder.and(c.createdAt.gt(cursorTime));
       } else {
         builder.and(c.createdAt.lt(cursorTime));
       }
     }
 
-    var orderSpecifier = condition.sortDirection() == SortDirection.ASCENDING
-        ? c.createdAt.asc()
-        : c.createdAt.desc();
-
     List<ConversationJpaEntity> results = queryFactory
         .selectFrom(c)
         .where(builder)
-        .orderBy(orderSpecifier)
+        .orderBy(ascending ? c.createdAt.asc() : c.createdAt.desc(),
+            ascending ? c.id.asc() : c.id.desc())
         .limit(condition.limit() + 1)
         .fetch();
 
