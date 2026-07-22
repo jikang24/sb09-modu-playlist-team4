@@ -312,4 +312,33 @@ class ConversationPersistenceAdapterTest {
     assertThat(result.data()).hasSize(10);
     assertThat(result.hasNext()).isTrue();
   }
+
+  @Test
+  @DisplayName("동시각(같은 createdAt) 대화도 id 타이브레이크로 누락/중복 없이 페이징된다")
+  void findList_sameCreatedAt_tieBreaksById() {
+
+    UUID me = UUID.randomUUID();
+    Instant sameInstant = Instant.parse("2026-01-01T00:00:00Z");
+    UUID smallerId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    UUID largerId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+    adapter.save(new Conversation(smallerId, me, UUID.randomUUID(), sameInstant));
+    adapter.save(new Conversation(largerId, me, UUID.randomUUID(), sameInstant));
+
+    // 첫 번째 대화(smallerId)까지 읽은 상태로 다음 페이지를 요청하면,
+    // 같은 시각의 두 번째 대화(largerId)가 누락되지 않고 정확히 조회돼야 한다.
+    ConversationSearchCondition condition = new ConversationSearchCondition(
+        null,
+        sameInstant.toString(),
+        smallerId,
+        10,
+        "createdAt",
+        SortDirection.ASCENDING
+    );
+
+    CursorPageResponse<Conversation> result = adapter.findList(me, condition);
+
+    assertThat(result.data()).hasSize(1);
+    assertThat(result.data().get(0).getId()).isEqualTo(largerId);
+  }
 }
