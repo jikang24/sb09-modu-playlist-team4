@@ -39,7 +39,7 @@ public class AwsS3Service implements S3Service {
     @Value("${cloud.aws.region.static}")
     private String region;
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif");
     private static final Duration PRESIGN_DURATION = Duration.ofHours(2);
 
 

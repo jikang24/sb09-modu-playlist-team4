@@ -23,7 +23,7 @@ import java.util.UUID;
 @Profile({"local","dev"})
 public class LocalS3Service implements S3Service {
     private static final Path UPLOAD_DIR = Paths.get(System.getProperty("user.dir"), "uploads");
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif");
 
     @Override
     public String upload(MultipartFile file) {

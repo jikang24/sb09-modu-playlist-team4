@@ -79,8 +79,7 @@ public class SecurityConfig {
     // 공통 정적 리소스 경로
     private static final String[] PUBLIC_RESOURCES = {
             "/", "/index.html", "/favicon.ico", "/static/**", "/assets/**",
-            "/*.js", "/*.css", "/*.png", "/*.svg", "/*.jpg", "/*.jpeg", "/*.gif", "/*.webp",
-            "/uploads/**" };
+            "/*.js", "/*.css", "/*.png", "/*.svg", "/*.jpg", "/*.jpeg", "/*.gif", "/uploads/**" };
 
     // 공통 오픈 API 경로
     private static final String[] PUBLIC_APIS = {
