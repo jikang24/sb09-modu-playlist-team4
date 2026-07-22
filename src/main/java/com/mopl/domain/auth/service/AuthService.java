@@ -65,7 +65,8 @@ public class AuthService implements AuthUseCase {
 
     @Override
     public RefreshResult refresh(String refreshToken) {
-        UUID userId = findUserIdByRefreshToken(refreshToken);
+        UUID userId = jwtProvider.parse(refreshToken).getUserId();
+        ensureRefreshTokenValid(userId, refreshToken);
 
         UserAuthInfo user = userAuthPort.findById(userId)
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
@@ -80,7 +81,6 @@ public class AuthService implements AuthUseCase {
         JwtClaims accessClaims = jwtProvider.parse(newAccessToken);
 
         try {
-            authTokenService.deleteRefreshToken(refreshToken);
             authTokenService.saveRefreshToken(user.id(), newRefreshToken, refreshTtl);
             authTokenService.saveAccessJti(user.id(), accessClaims.getTokenId(), jwtProvider.getExpiration(newAccessToken));
         } catch (Exception e) {
@@ -93,10 +93,11 @@ public class AuthService implements AuthUseCase {
         return new RefreshResult(jwtDto, newRefreshToken, refreshTtl);
     }
 
-    private UUID findUserIdByRefreshToken(String refreshToken) {
+    private void ensureRefreshTokenValid(UUID userId, String refreshToken) {
         try {
-            return authTokenService.findUserIdByRefreshToken(refreshToken)
-                    .orElseThrow(() -> new MoplException(ErrorCode.REFRESH_TOKEN_NOT_FOUND));
+            if (!authTokenService.isValidRefreshToken(userId, refreshToken)) {
+                throw new MoplException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
+            }
         } catch (MoplException e) {
             throw e;
         } catch (Exception e) {

@@ -14,9 +14,7 @@ public interface AuthTokenService {
     // 리프레시 토큰 로직
     void saveRefreshToken(UUID userId, String refreshToken, Duration ttl);
 
-    Optional<UUID> findUserIdByRefreshToken(String refreshToken);
-
-    void deleteRefreshToken(String refreshToken);
+    boolean isValidRefreshToken(UUID userId, String refreshToken);
 
     void deleteRefreshTokenByUserId(UUID userId);
 

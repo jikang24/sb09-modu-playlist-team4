@@ -75,12 +75,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             JwtClaims refreshClaims = jwtProvider.parse(refreshToken);
 
-            if (authTokenService.findUserIdByRefreshToken(refreshToken).isEmpty()) {
+            if (!authTokenService.isValidRefreshToken(refreshClaims.getUserId(), refreshToken)) {
                 log.debug("SSE silent refresh 불가 - 이미 폐기된 refresh token (강제 로그아웃 등)");
                 return;
             }
-
-            authTokenService.deleteRefreshToken(refreshToken);
 
             String newAccessToken = jwtProvider.generateAccessToken(
                     refreshClaims.getUserId(), refreshClaims.getEmail(), refreshClaims.getRole());
