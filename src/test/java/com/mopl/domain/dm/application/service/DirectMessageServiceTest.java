@@ -91,34 +91,35 @@ class DirectMessageServiceTest {
   }
 
   @Test
-  @DisplayName("DM 읽음 처리 성공")
+  @DisplayName("DM 읽음 처리 성공 - 이 메시지 시각까지의 안 읽은 메시지를 전부 벌크 읽음 처리한다")
   void read_success() {
-    
+
     UUID directMessageId = UUID.randomUUID();
     DirectMessage directMessage = DirectMessage.create(conversationId, senderId, receiverId, "안녕");
     given(loadDirectMessagePort.findById(directMessageId)).willReturn(Optional.of(directMessage));
-    given(saveDirectMessagePort.save(any(DirectMessage.class))).willReturn(directMessage);
 
-    
+
     directMessageService.read(conversationId, directMessageId, receiverId);
 
-    
-    assertThat(directMessage.isRead()).isTrue();
-    then(saveDirectMessagePort).should().save(directMessage);
+
+    then(saveDirectMessagePort).should()
+        .markAllAsReadUpTo(conversationId, receiverId, directMessage.getCreatedAt());
+    then(saveDirectMessagePort).should(never()).save(any());
   }
 
   @Test
   @DisplayName("DM 읽음 처리 실패 - 존재하지 않는 DM")
   void read_fail_not_found() {
-    
+
     UUID directMessageId = UUID.randomUUID();
     given(loadDirectMessagePort.findById(directMessageId)).willReturn(Optional.empty());
 
-    
+
     assertThatThrownBy(() ->
         directMessageService.read(conversationId, directMessageId, receiverId))
         .isInstanceOf(MoplException.class);
     then(saveDirectMessagePort).should(never()).save(any());
+    then(saveDirectMessagePort).should(never()).markAllAsReadUpTo(any(), any(), any());
   }
 
   @Test
@@ -137,6 +138,7 @@ class DirectMessageServiceTest {
 
     assertThat(directMessage.isRead()).isFalse();
     then(saveDirectMessagePort).should(never()).save(any());
+    then(saveDirectMessagePort).should(never()).markAllAsReadUpTo(any(), any(), any());
   }
 
   @Test
@@ -153,6 +155,7 @@ class DirectMessageServiceTest {
         directMessageService.read(conversationId, directMessageId, strangerId))
         .isInstanceOf(MoplException.class);
     then(saveDirectMessagePort).should(never()).save(any());
+    then(saveDirectMessagePort).should(never()).markAllAsReadUpTo(any(), any(), any());
   }
 
   @Test
@@ -169,6 +172,7 @@ class DirectMessageServiceTest {
         directMessageService.read(otherConversationId, directMessageId, receiverId))
         .isInstanceOf(MoplException.class);
     then(saveDirectMessagePort).should(never()).save(any());
+    then(saveDirectMessagePort).should(never()).markAllAsReadUpTo(any(), any(), any());
   }
 
   @Test

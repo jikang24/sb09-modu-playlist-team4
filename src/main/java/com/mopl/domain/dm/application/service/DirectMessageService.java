@@ -92,8 +92,12 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
         log.warn("user {} is neither sender nor receiver of directMessage {}", myId, directMessageId);
         throw new MoplException(ErrorCode.FORBIDDEN_ACCESS);
       }
-      directMessage.markAsRead();
-      saveDirectMessagePort.save(directMessage);
+      // 프론트는 방을 열 때 "가장 최근 메시지" 하나에 대해서만 이 API를 호출한다.
+      // 그 사이 쌓인, 아직 read=false인 이전 메시지들이 이 메시지 하나만 처리하고 나면
+      // 영원히 안 읽은 채로 남아 목록 화면에서 다시 안읽음 표시가 뜨는 문제가 있었다.
+      // 그래서 단건 갱신 대신, 이 메시지 시각까지 나(수신자)한테 온 안 읽은 메시지를
+      // 전부 한 번에 읽음 처리한다.
+      saveDirectMessagePort.markAllAsReadUpTo(conversationId, myId, directMessage.getCreatedAt());
   }
 
   @Override
