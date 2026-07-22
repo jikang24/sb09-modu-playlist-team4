@@ -1,5 +1,6 @@
 package com.mopl.domain.content.adapter.out.opensearch.document;
 
+import com.mopl.domain.content.adapter.out.opensearch.util.ChosungUtils;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
 import java.math.BigDecimal;
@@ -22,6 +23,8 @@ public class ContentDocument {
 
   private String title;
 
+  private String titleChosung;
+
   private String description;
 
   private List<String> tags;
@@ -40,6 +43,7 @@ public class ContentDocument {
     return ContentDocument.builder()
         .id(content.getId())
         .title(content.getTitle())
+        .titleChosung(ChosungUtils.extract(content.getTitle()))
         .description(content.getDescription())
         .tags(content.getTags())
         .type(content.getType())

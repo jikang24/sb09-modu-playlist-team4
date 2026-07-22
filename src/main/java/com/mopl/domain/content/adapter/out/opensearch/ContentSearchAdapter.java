@@ -1,6 +1,7 @@
 package com.mopl.domain.content.adapter.out.opensearch;
 
 import com.mopl.domain.content.adapter.out.opensearch.document.ContentDocument;
+import com.mopl.domain.content.adapter.out.opensearch.util.ChosungUtils;
 import com.mopl.domain.content.adapter.port.SearchContentPort;
 import com.mopl.domain.content.adapter.port.SearchContentResult;
 import com.mopl.domain.content.domain.Content;
@@ -11,12 +12,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.SortOrder;
+import org.opensearch.client.opensearch._types.query_dsl.TextQueryType;
 import org.opensearch.client.opensearch.core.DeleteRequest;
 import org.opensearch.client.opensearch.core.IndexRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
+import org.opensearch.client.opensearch.core.search.Hit;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -80,6 +84,7 @@ public class ContentSearchAdapter implements SearchContentPort {
       boolean isAscending = "ASCENDING".equalsIgnoreCase(request.sortDirection());
       SortOrder sortOrder = isAscending ? SortOrder.Asc : SortOrder.Desc;
       String openSearchSortField = toOpenSearchField(sortField);
+      boolean isChosungQuery = ChosungUtils.isChosungOnly(keyword);
 
       SearchResponse<ContentDocument> response =
           client.search(s -> s
@@ -87,12 +92,45 @@ public class ContentSearchAdapter implements SearchContentPort {
                   .size(request.limit() + 1) // DB(findAllByIdsWithCondition)와 동일하게 hasNext 판단용 limit+1개
                   .query(q -> q
                       .bool(b -> {
+
                         b.must(m -> m
-                            .multiMatch(mm -> mm
-                                .query(keyword)
-                                .fields("title", "description", "tags")
-                            )
+                            .bool(inner -> {
+
+                              // 초성 검색어("ㅂㄹㅍㅋ")는 titleChosung 필드로만 매칭
+                              if (isChosungQuery) {
+                                inner.should(sh -> sh.match(mt -> mt
+                                    .field("titleChosung")
+                                    .query(FieldValue.of(keyword))
+                                ));
+                                return inner;
+                              }
+
+                              // 1) 부분 포함 검색 (n-gram)
+                              inner.should(sh -> sh.multiMatch(mm -> mm
+                                  .query(keyword)
+                                  .fields("title.ngram^2", "description", "tags")
+                                  .type(TextQueryType.Phrase)
+                              ));
+
+                              // 2) 자동완성 (edge-ngram, prefix)
+                              inner.should(sh -> sh.match(mt -> mt
+                                  .field("title.edge")
+                                  .query(FieldValue.of(keyword))
+                              ));
+
+                              // 3) 오타 허용 (fuzzy)
+                              inner.should(sh -> sh.match(mt -> mt
+                                  .field("title")
+                                  .query(FieldValue.of(keyword))
+                                  .fuzziness("AUTO")
+                              ));
+
+                              inner.minimumShouldMatch("1");
+
+                              return inner;
+                            })
                         );
+
                         if (request.typeEqual() != null) {
                           b.filter(f -> f.term(t -> t
                               .field("type")
@@ -125,27 +163,23 @@ public class ContentSearchAdapter implements SearchContentPort {
           response.hits()
               .hits()
               .stream()
-              .map(hit -> UUID.fromString(hit.id()))
+              .map(Hit::id)
+              .filter(Objects::nonNull)
+              .map(UUID::fromString)
               .toList();
-      log.info("UUID 개수 = {}", ids.size());
+
       long totalCount =
           response.hits().total() == null
               ? ids.size()
               : response.hits().total().value();
 
-      return new SearchContentResult(
-          ids,
-          totalCount
-      );
+      return new SearchContentResult(ids, totalCount);
 
     } catch (Exception e) {
 
       log.error("OpenSearch 검색 실패. keyword={}", keyword, e);
 
-      return new SearchContentResult(
-          List.of(),
-          0
-      );
+      return new SearchContentResult(List.of(), 0);
 
     }
   }

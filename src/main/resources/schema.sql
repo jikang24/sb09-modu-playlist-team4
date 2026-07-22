@@ -308,7 +308,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_receiver_is_read
 
 -- outbox
 CREATE TABLE IF NOT EXISTS outbox_event (
-                                            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     aggregate_type VARCHAR(100) NOT NULL,
     aggregate_id UUID NOT NULL,
