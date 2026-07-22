@@ -236,6 +236,18 @@ class UserServiceTest {
         }
 
         @Test
+        @DisplayName("성공: 권한 변경 이벤트가 나가면 알림 리스너가 알림 요청 이벤트로 바꿔 보낸다")
+        void updateRole_success_notificationPath_isCoveredByListenerTest() {
+            UserRoleUpdateRequest request = new UserRoleUpdateRequest(Role.ADMIN);
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
+            given(userMapper.toDto(user)).willReturn(userDto);
+
+            userService.updateRole(userId, request);
+
+            verify(eventPublisher).publishEvent(any(UserRoleChangedEvent.class));
+        }
+
+        @Test
         @DisplayName("실패: 존재하지 않는 사용자면 USER_NOT_FOUND 예외가 발생하고 이벤트가 발행되지 않는다")
         void updateRole_fail_notFound() {
             given(userRepository.findById(userId)).willReturn(Optional.empty());

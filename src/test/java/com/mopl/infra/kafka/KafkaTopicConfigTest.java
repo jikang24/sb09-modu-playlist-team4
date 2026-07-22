@@ -5,6 +5,7 @@ import com.mopl.global.event.NotificationTopics;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -15,6 +16,7 @@ class KafkaTopicConfigTest {
   @DisplayName("성공: notification-requested 토픽을 생성한다")
   void notificationRequestedTopic() {
     KafkaTopicConfig config = new KafkaTopicConfig();
+    ReflectionTestUtils.setField(config, "replicationFactor", (short) 3);
 
     NewTopic topic = config.notificationRequestedTopic();
 

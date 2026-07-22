@@ -26,7 +26,7 @@ public class MoplOAuth2LoginSuccessHandler implements AuthenticationSuccessHandl
     private final AuthTokenIssuer authTokenIssuer;
     private final UserAuthPort userAuthPort;
 
-    @Value("${app.frontend.base-url}")
+    @Value("${app.frontend.base-url:http://localhost:8080}")
     private String frontendBaseUrl;
 
     @Override

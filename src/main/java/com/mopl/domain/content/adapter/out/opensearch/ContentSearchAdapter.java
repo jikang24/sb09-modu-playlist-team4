@@ -51,6 +51,7 @@ public class ContentSearchAdapter implements SearchContentPort {
     } catch (Exception e) {
 
       log.error("OpenSearch 저장 실패. id={}", content.getId(), e);
+      throw new IllegalStateException("OpenSearch content save failed: id=" + content.getId(), e);
 
     }
   }
@@ -71,6 +72,7 @@ public class ContentSearchAdapter implements SearchContentPort {
     } catch (Exception e) {
 
       log.error("OpenSearch 삭제 실패. id={}", id, e);
+      throw new IllegalStateException("OpenSearch content delete failed: id=" + id, e);
 
     }
   }

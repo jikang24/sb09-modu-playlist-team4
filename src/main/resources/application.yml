@@ -1,4 +1,10 @@
 spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
   application:
     name: mopl
   profiles:
@@ -71,3 +77,8 @@ opensearch:
   uri: ${OPENSEARCH_URI:https://localhost:9200}
   username: ${OPENSEARCH_USERNAME:}
   password: ${OPENSEARCH_PASSWORD:}
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE

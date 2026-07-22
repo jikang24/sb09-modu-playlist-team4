@@ -5,19 +5,23 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "outbox_event")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OutboxEvent {
+public class OutboxEvent implements Persistable<UUID> {
 
   @Id
   private UUID id;
@@ -56,6 +60,9 @@ public class OutboxEvent {
   @Column(name = "published_at")
   private LocalDateTime publishedAt;
 
+  @Transient
+  private boolean isNew = true;
+
   @Builder
   public OutboxEvent(UUID id, String aggregateType, UUID aggregateId, String eventType,
       String topic, String messageKey, String payload, OutboxStatus status) {
@@ -71,6 +78,17 @@ public class OutboxEvent {
     this.createdAt = LocalDateTime.now();
   }
 
+  @Override
+  public boolean isNew() {
+    return isNew;
+  }
+
+  @PostLoad
+  @PostPersist
+  void markNotNew() {
+    this.isNew = false;
+  }
+
   public void markClaimed() {
     this.status = OutboxStatus.PROCESSING;
     this.claimedAt = LocalDateTime.now();
@@ -81,12 +99,6 @@ public class OutboxEvent {
     this.publishedAt = LocalDateTime.now();
   }
 
-  /**
-   * 발행 실패 처리.
-   * 재시도 여력이 남아 있으면(PROCESSING 상태로 클레임된 채 멈춰있지 않도록) PENDING으로 되돌려
-   * 다음 relay 사이클에서 다시 클레임될 수 있게 한다.
-   * 재시도 횟수를 다 소진했으면 FAILED로 확정한다.
-   */
   public void markFailed(int maxRetry) {
     this.retryCount++;
     this.status = (this.retryCount >= maxRetry) ? OutboxStatus.FAILED : OutboxStatus.PENDING;

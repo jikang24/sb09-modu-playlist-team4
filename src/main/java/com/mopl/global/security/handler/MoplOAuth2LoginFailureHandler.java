@@ -18,7 +18,7 @@ public class MoplOAuth2LoginFailureHandler implements AuthenticationFailureHandl
 
     private static final String DEFAULT_ERROR_CODE = "OAUTH2_LOGIN_FAILED";
 
-    @Value("${app.frontend.base-url}")
+    @Value("${app.frontend.base-url:http://localhost:8080}")
     private String frontendBaseUrl;
 
     @Override

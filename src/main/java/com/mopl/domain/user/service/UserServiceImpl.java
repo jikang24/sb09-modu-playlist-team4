@@ -17,6 +17,7 @@ import com.mopl.global.response.CursorPageResponse;
 import com.mopl.infra.s3.S3Service;
 import java.util.Collection;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -122,19 +124,40 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserDto updateRole(UUID userId, UserRoleUpdateRequest request) {
+
+        log.info("===== updateRole 시작 =====");
+
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
+            .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
         Role oldRole = user.getRole();
+
         if (oldRole == Role.ADMIN && request.role() != Role.ADMIN
-                && !userRepository.existsByRoleAndIdNot(Role.ADMIN, userId)) {
+            && !userRepository.existsByRoleAndIdNot(Role.ADMIN, userId)) {
             throw new MoplException(ErrorCode.LAST_ADMIN_CANNOT_BE_CHANGED);
         }
 
         user.updateRole(request.role());
+
+        log.info("role 변경 완료 old={}, new={}", oldRole, request.role());
+
         if (oldRole != request.role()) {
-            eventPublisher.publishEvent(new UserRoleChangedEvent(user.getId(), oldRole, request.role()));
+
+            log.info("UserRoleChangedEvent 발행 직전");
+
+            eventPublisher.publishEvent(
+                new UserRoleChangedEvent(
+                    user.getId(),
+                    oldRole,
+                    request.role()
+                )
+            );
+
+            log.info("UserRoleChangedEvent 발행 완료");
         }
+
+        log.info("===== updateRole 종료 =====");
+
         return toDto(user);
     }
 

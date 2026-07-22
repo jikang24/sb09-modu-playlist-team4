@@ -2,6 +2,7 @@ package com.mopl.global.outbox;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OutboxClaimService {
 
   private final OutboxRepository outboxRepository;
@@ -22,6 +24,8 @@ public class OutboxClaimService {
       return List.of();
     }
     outboxRepository.markProcessing(ids);
-    return outboxRepository.findAllById(ids);
+    List<OutboxEvent> events = outboxRepository.findAllById(ids);
+    log.info("Outbox 선점 완료 - {}건", events.size());
+    return events;
   }
 }

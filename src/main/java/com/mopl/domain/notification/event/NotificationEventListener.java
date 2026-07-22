@@ -23,6 +23,8 @@ public class NotificationEventListener {
   )
   public void handle(NotificationRequestedEvent event) {
     try {
+      log.info("알림 요청 수신 - eventId={}, type={}, receiverId={}",
+          event.eventId(), event.type(), event.receiverId());
       notificationService.send(
           event.eventId(),
           event.receiverId(),
@@ -30,6 +32,8 @@ public class NotificationEventListener {
           event.title(),
           event.content()
       );
+      log.info("NotificationService.send 완료 - eventId={}, receiverId={}, type={}",
+          event.eventId(), event.receiverId(), event.type());
     } catch (IllegalArgumentException e) {
       // 복구 불가능한 데이터 오류 -> 재시도 의미 없음, 여기서 삼키고 종료 (에러 핸들러까지 안 감)
       log.warn("[{}] Unknown notification type: type={}, receiverId={}",
