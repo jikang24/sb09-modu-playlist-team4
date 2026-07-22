@@ -1,18 +1,17 @@
 package com.mopl.domain.content.event;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.never;
 
 import com.mopl.domain.content.adapter.port.SearchContentPort;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.domain.ContentType;
 import com.mopl.domain.content.repository.ContentRepository;
 import com.mopl.global.event.ReviewRatingUpdatedEvent;
-import com.mopl.global.exception.ErrorCode;
-import com.mopl.global.exception.MoplException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -93,8 +92,8 @@ class ReviewRatingUpdatedEventListenerTest {
   }
 
   @Test
-  @DisplayName("존재하지 않는 콘텐츠 - CONTENT_NOT_FOUND")
-  void fail_notFound() {
+  @DisplayName("존재하지 않는 콘텐츠 - 예외를 전파하지 않고 삼킨다 (@Async라 던져봐야 호출자에게 안 감 - 로그로 남기고 조용히 종료)")
+  void fail_notFound_swallowedNotPropagated() {
     UUID id = UUID.randomUUID();
 
     ReviewRatingUpdatedEvent event =
@@ -102,10 +101,8 @@ class ReviewRatingUpdatedEventListenerTest {
 
     given(contentRepository.findById(id)).willReturn(Optional.empty());
 
-    assertThatThrownBy(() -> listener.handleReviewRatingUpdated(event))
-        .isInstanceOf(MoplException.class)
-        .satisfies(e ->
-            assertThat(((MoplException) e).getErrorCode())
-                .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
+    assertThatCode(() -> listener.handleReviewRatingUpdated(event)).doesNotThrowAnyException();
+
+    then(searchContentPort).should(never()).save(any());
   }
 }
