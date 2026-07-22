@@ -18,6 +18,7 @@ src/test/resources/application-test.yml
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
+!src/main/resources/opensearch/*.json
 
 ### IntelliJ IDEA ###
 .idea

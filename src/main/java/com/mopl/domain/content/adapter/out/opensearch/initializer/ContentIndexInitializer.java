@@ -4,15 +4,20 @@ import com.mopl.domain.content.adapter.port.SearchContentPort;
 import com.mopl.domain.content.domain.Content;
 import com.mopl.domain.content.repository.ContentRepository;
 import jakarta.annotation.PostConstruct;
+import jakarta.json.stream.JsonParser;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.client.json.JsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.mapping.TypeMapping;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
+import org.opensearch.client.opensearch.indices.IndexSettings;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-
-
-import java.util.List;
 
 @Slf4j
 @Component
@@ -25,6 +30,9 @@ import java.util.List;
 public class ContentIndexInitializer {
 
   private static final String INDEX = "contents";
+
+  private static final String SETTINGS_PATH = "opensearch/contents-settings.json";
+  private static final String MAPPINGS_PATH = "opensearch/contents-mappings.json";
 
   private final OpenSearchClient client;
   private final ContentRepository contentRepository;
@@ -41,27 +49,20 @@ public class ContentIndexInitializer {
 
       if (!exists) {
 
-        CreateIndexRequest request = new CreateIndexRequest.Builder()
+        JsonpMapper mapper = client._transport().jsonpMapper();
+
+        IndexSettings settings = parse(mapper, SETTINGS_PATH, IndexSettings._DESERIALIZER);
+        TypeMapping mappings = parse(mapper, MAPPINGS_PATH, TypeMapping._DESERIALIZER);
+
+        CreateIndexRequest request = CreateIndexRequest.of(b -> b
             .index(INDEX)
-            .mappings(m -> m
-                .properties("id", p -> p.keyword(k -> k))
-                .properties("title", p -> p.text(t -> t))
-                .properties("description", p -> p.text(t -> t))
-                .properties("tags", p -> p.text(t -> t
-                    .fields("keyword", f -> f.keyword(k -> k))
-                ))
-                .properties("type", p -> p.keyword(k -> k))
-                .properties("averageRating", p -> p.double_(d -> d))
-                .properties("reviewCount", p -> p.integer(i -> i))
-                .properties("createdAt", p -> p.date(d -> d))
-            )
-            .build();
+            .settings(settings)
+            .mappings(mappings));
 
         client.indices().create(request);
 
         log.info("OpenSearch index '{}' created.", INDEX);
 
-        // 인덱스가 새로 만들어졌을 때만 초기 데이터 적재
         List<Content> contents = contentRepository.findAll();
 
         for (Content content : contents) {
@@ -76,7 +77,21 @@ public class ContentIndexInitializer {
       }
 
     } catch (Exception e) {
+
       log.error("Failed to initialize OpenSearch index.", e);
+
+    }
+  }
+
+  private <T> T parse(
+      JsonpMapper mapper,
+      String resourcePath,
+      org.opensearch.client.json.JsonpDeserializer<T> deserializer) throws IOException {
+
+    try (InputStream is = new ClassPathResource(resourcePath).getInputStream();
+        JsonParser parser = mapper.jsonProvider().createParser(is)) {
+
+      return deserializer.deserialize(parser, mapper);
     }
   }
 }

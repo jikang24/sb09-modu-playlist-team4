@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "id": { "type": "keyword" },
+    "title": {
+      "type": "text",
+      "analyzer": "standard_lower",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "ngram_analyzer",
+          "search_analyzer": "ngram_analyzer"
+        },
+        "edge": {
+          "type": "text",
+          "analyzer": "edge_ngram_analyzer",
+          "search_analyzer": "standard_lower"
+        }
+      }
+    },
+    "titleChosung": {
+      "type": "text",
+      "analyzer": "edge_ngram_analyzer",
+      "search_analyzer": "standard_lower"
+    },
+    "description": {
+      "type": "text",
+      "analyzer": "ngram_analyzer",
+      "search_analyzer": "ngram_analyzer"
+    },
+    "tags": {
+      "type": "text",
+      "analyzer": "ngram_analyzer",
+      "search_analyzer": "ngram_analyzer",
+      "fields": {
+        "keyword": { "type": "keyword" }
+      }
+    },
+    "type": { "type": "keyword" },
+    "averageRating": { "type": "double" },
+    "reviewCount": { "type": "integer" },
+    "createdAt": { "type": "date" }
+  }
+}
