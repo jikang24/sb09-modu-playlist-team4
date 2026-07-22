@@ -24,6 +24,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -51,6 +52,14 @@ class ReviewRatingUpdatedIntegrationTest {
           .withDatabaseName("mopl")
           .withUsername("postgres")
           .withPassword("postgres");
+
+  // ContentRepositoryImpl의 @Cacheable/@CacheEvict("content")가 실제 Redis를 필요로 함 -
+  // 로컬엔 우연히 다른 용도의 Redis가 떠 있어서 안 걸렸지만 CI엔 없어서 실패했음 (RedisConnectionFailureException)
+  @Container
+  @ServiceConnection
+  static GenericContainer<?> redis =
+      new GenericContainer<>("redis:7-alpine")
+          .withExposedPorts(6379);
 
   @Autowired
   private ReviewService reviewService;
