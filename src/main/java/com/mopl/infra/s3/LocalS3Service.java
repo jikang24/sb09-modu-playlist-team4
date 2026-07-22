@@ -7,11 +7,15 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -19,16 +23,18 @@ import java.util.UUID;
 @Profile({"local","dev"})
 public class LocalS3Service implements S3Service {
     private static final Path UPLOAD_DIR = Paths.get(System.getProperty("user.dir"), "uploads");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png");
 
     @Override
     public String upload(MultipartFile file) {
         if (file == null || file.isEmpty()) return null;
+
+        String ext = extractExtension(file.getOriginalFilename());
+        validateImageContent(file);
+
         try {
             Files.createDirectories(UPLOAD_DIR);
-            String originalFilename = file.getOriginalFilename();
-            String ext = (originalFilename != null && originalFilename.contains("."))
-                    ? originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
-            String fileName = UUID.randomUUID() + ext;
+            String fileName = UUID.randomUUID() + "." + ext;
             Files.copy(file.getInputStream(), UPLOAD_DIR.resolve(fileName),
                     StandardCopyOption.REPLACE_EXISTING);
             log.info("[로컬] 파일 저장: {}", fileName);
@@ -37,6 +43,30 @@ public class LocalS3Service implements S3Service {
         } catch (IOException e) {
             log.error("[로컬] 파일 저장 실패", e);
             throw new MoplException(ErrorCode.LOCAL_FILE_SAVE_FAILED);
+        }
+    }
+
+    // 허용 확장자 검증 후 확장자 반환
+    private String extractExtension(String originalFilename) {
+        if (originalFilename == null || !originalFilename.contains(".")) {
+            throw new MoplException(ErrorCode.INVALID_FILE_EXTENSION);
+        }
+        String ext = originalFilename.substring(originalFilename.lastIndexOf('.') + 1).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.contains(ext)) {
+            throw new MoplException(ErrorCode.INVALID_FILE_EXTENSION);
+        }
+        return ext;
+    }
+
+    // ImageIO로 실제 바이트 디코딩 시도 — null이면 이미지가 아닌 파일
+    private void validateImageContent(MultipartFile file) {
+        try (InputStream is = file.getInputStream()) {
+            BufferedImage image = ImageIO.read(is);
+            if (image == null) {
+                throw new MoplException(ErrorCode.INVALID_IMAGE_FILE);
+            }
+        } catch (IOException e) {
+            throw new MoplException(ErrorCode.INVALID_IMAGE_FILE);
         }
     }
 

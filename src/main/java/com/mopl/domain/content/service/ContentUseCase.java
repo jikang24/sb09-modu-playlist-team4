@@ -10,15 +10,14 @@ import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.global.response.CursorPageResponse;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.web.multipart.MultipartFile;
 
 public interface ContentUseCase {
 
-  /** 콘텐츠 등록 (관리자 전용) */
-  ContentResponse createContent(ContentCreateRequest request, MultipartFile thumbnailUrl);
+  /** 콘텐츠 등록 (관리자 전용) - thumbnailKey는 컨트롤러에서 이미 S3 업로드를 마친 결과 */
+  ContentResponse createContent(ContentCreateRequest request, String thumbnailKey);
 
-  /** 콘텐츠 수정 (관리자 전용) */
-  ContentResponse updateContent(UUID id, ContentUpdateRequest request, MultipartFile thumbnail);
+  /** 콘텐츠 수정 (관리자 전용) - newThumbnailKey가 null이면 기존 썸네일 유지 */
+  ContentResponse updateContent(UUID id, ContentUpdateRequest request, String newThumbnailKey);
 
   /** 콘텐츠 삭제 (관리자 전용) */
   void deleteContent(UUID id);

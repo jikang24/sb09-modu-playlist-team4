@@ -26,4 +26,10 @@ public interface WatchingSessionRepository {
   List<WatchingSession> findByContentId(WatchingSessionSearchRequest request);
 
   long countByContentId(UUID contentId);
+
+  /**
+   * disconnect 이벤트 유실 등으로 세션(Hash)은 TTL로 소멸했지만 콘텐츠 인덱스(ZSet)엔
+   * 남아있는 고아 멤버를 정리한다. 정리 배치에서 주기적으로 호출. 제거한 멤버 수를 반환.
+   */
+  long cleanupOrphanSessions();
 }

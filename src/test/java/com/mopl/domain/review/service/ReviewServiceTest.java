@@ -71,8 +71,6 @@ class ReviewServiceTest {
 
       given(reviewRepository.existsByContentIdAndUserId(contentId, userId)).willReturn(false);
       given(loadUserPort.getUserSummary(userId)).willReturn(author);
-      given(reviewRepository.aggregateRatingStats(contentId))
-          .willReturn(java.util.Collections.singletonList(new Object[]{4.5, 2L}));
 
       UUID reviewId = reviewService.createReview(contentId, userId, BigDecimal.valueOf(4.5), "좋아요");
 
@@ -83,8 +81,8 @@ class ReviewServiceTest {
           ArgumentCaptor.forClass(ReviewRatingUpdatedEvent.class);
       then(eventPublisher).should().publishEvent(captor.capture());
       assertThat(captor.getValue().contentId()).isEqualTo(contentId);
-      assertThat(captor.getValue().averageRating()).isEqualByComparingTo(BigDecimal.valueOf(4.5));
-      assertThat(captor.getValue().reviewCount()).isEqualTo(2);
+      assertThat(captor.getValue().ratingDelta()).isEqualByComparingTo(BigDecimal.valueOf(4.5));
+      assertThat(captor.getValue().countDelta()).isEqualTo(1);
     }
 
     @Test
@@ -151,21 +149,25 @@ class ReviewServiceTest {
   class UpdateReview {
 
     @Test
-    @DisplayName("정상 수정 - 소유자면 수정되고 평점 갱신 이벤트를 발행한다")
+    @DisplayName("정상 수정 - 소유자면 수정되고 평점 변화량(delta)만큼 갱신 이벤트를 발행한다")
     void success() {
       UUID userId = UUID.randomUUID();
       UUID contentId = UUID.randomUUID();
       Review review = makeReview(contentId, userId, BigDecimal.valueOf(3));
 
       given(reviewRepository.findById(review.getId())).willReturn(Optional.of(review));
-      given(reviewRepository.aggregateRatingStats(contentId))
-          .willReturn(java.util.Collections.singletonList(new Object[]{4.0, 1L}));
 
       reviewService.updateReview(review.getId(), userId, BigDecimal.valueOf(4.5), "수정된 리뷰");
 
       assertThat(review.getRating()).isEqualByComparingTo(BigDecimal.valueOf(4.5));
       assertThat(review.getText()).isEqualTo("수정된 리뷰");
-      then(eventPublisher).should().publishEvent(any(ReviewRatingUpdatedEvent.class));
+
+      ArgumentCaptor<ReviewRatingUpdatedEvent> captor =
+          ArgumentCaptor.forClass(ReviewRatingUpdatedEvent.class);
+      then(eventPublisher).should().publishEvent(captor.capture());
+      assertThat(captor.getValue().contentId()).isEqualTo(contentId);
+      assertThat(captor.getValue().ratingDelta()).isEqualByComparingTo(BigDecimal.valueOf(1.5)); // 4.5 - 3
+      assertThat(captor.getValue().countDelta()).isZero();
     }
 
     @Test
@@ -207,15 +209,13 @@ class ReviewServiceTest {
   class DeleteReview {
 
     @Test
-    @DisplayName("정상 삭제 - 소유자면 삭제되고 평점 갱신 이벤트를 발행한다")
+    @DisplayName("정상 삭제 - 소유자면 삭제되고 삭제된 rating만큼 음수 delta로 갱신 이벤트를 발행한다")
     void success() {
       UUID userId = UUID.randomUUID();
       UUID contentId = UUID.randomUUID();
       Review review = makeReview(contentId, userId, BigDecimal.valueOf(3));
 
       given(reviewRepository.findById(review.getId())).willReturn(Optional.of(review));
-      given(reviewRepository.aggregateRatingStats(contentId))
-          .willReturn(java.util.Collections.singletonList(new Object[]{null, 0L}));
 
       reviewService.deleteReview(review.getId(), userId);
 
@@ -225,8 +225,8 @@ class ReviewServiceTest {
           ArgumentCaptor.forClass(ReviewRatingUpdatedEvent.class);
       then(eventPublisher).should().publishEvent(captor.capture());
       assertThat(captor.getValue().contentId()).isEqualTo(contentId);
-      assertThat(captor.getValue().averageRating()).isEqualByComparingTo(BigDecimal.ZERO);
-      assertThat(captor.getValue().reviewCount()).isZero();
+      assertThat(captor.getValue().ratingDelta()).isEqualByComparingTo(BigDecimal.valueOf(-3));
+      assertThat(captor.getValue().countDelta()).isEqualTo(-1);
     }
 
     @Test

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.mopl.infra.redis.RedisMessageSubscriber;
+import com.mopl.infra.redis.RedisNotificationSubscriber;
 import java.lang.reflect.Field;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,11 +21,17 @@ class RedisConfigTest {
     // given
     RedisConfig redisConfig = new RedisConfig();
     RedisConnectionFactory connectionFactory = mock(RedisConnectionFactory.class);
+
     RedisMessageSubscriber subscriber = mock(RedisMessageSubscriber.class);
+    RedisNotificationSubscriber notificationSubscriber =
+        mock(RedisNotificationSubscriber.class);
 
     // when
     RedisMessageListenerContainer container =
-        redisConfig.redisMessageListenerContainer(connectionFactory, subscriber);
+        redisConfig.redisMessageListenerContainer(
+            connectionFactory,
+            subscriber,
+            notificationSubscriber);
 
     // then
     assertThat(container).isNotNull();

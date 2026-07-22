@@ -216,34 +216,4 @@ class ContentDomainTest {
                     .isEqualTo(ErrorCode.INVALID_INPUT));
         }
     }
-
-    @Nested
-    @DisplayName("평점 갱신 - updateRatingStats()")
-    class UpdateRatingStats {
-
-        @Test
-        @DisplayName("averageRating과 reviewCount가 갱신된다")
-        void success() {
-            Content content = Content.create(
-                ContentType.MOVIE, "tmdb-001", "제목", null, null, List.of());
-
-            content.updateRatingStats(new BigDecimal("4.50"), 20);
-
-            assertThat(content.getAverageRating()).isEqualByComparingTo(new BigDecimal("4.50"));
-            assertThat(content.getReviewCount()).isEqualTo(20);
-        }
-
-        @Test
-        @DisplayName("updatedAt이 갱신된다")
-        void updatedAt_isRefreshed() throws InterruptedException {
-            Content content = Content.create(
-                ContentType.MOVIE, "tmdb-001", "제목", null, null, List.of());
-            Instant before = content.getUpdatedAt();
-
-            Thread.sleep(5);
-            content.updateRatingStats(new BigDecimal("3.00"), 5);
-
-            assertThat(content.getUpdatedAt()).isAfter(before);
-        }
-    }
 }

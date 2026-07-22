@@ -70,7 +70,7 @@ class SseEmitterRegistryTest {
       Notification last = notification(lastEventId, base);
       Notification replayed = notification(UUID.randomUUID(), base.plusSeconds(1));
 
-      given(notificationRepository.findByReceiverIdAfter(userId, lastEventId))
+      given(notificationRepository.findByReceiverIdAfter(userId, lastEventId, 201))
           .willReturn(List.of(replayed));
 
       SseEmitter emitter = registry.connect(userId, lastEventId);
@@ -82,7 +82,7 @@ class SseEmitterRegistryTest {
     @DisplayName("성공: lastEventId에 해당하는 알림이 없으면 빈 replay 후 연결한다")
     void connect_withUnknownLastEventId() {
       UUID lastEventId = UUID.randomUUID();
-      given(notificationRepository.findByReceiverIdAfter(userId, lastEventId))
+      given(notificationRepository.findByReceiverIdAfter(userId, lastEventId, 201))
           .willReturn(List.of());
 
       SseEmitter emitter = registry.connect(userId, lastEventId);

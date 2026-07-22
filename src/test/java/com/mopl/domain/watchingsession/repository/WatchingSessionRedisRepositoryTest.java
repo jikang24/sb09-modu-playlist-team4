@@ -3,6 +3,7 @@ package com.mopl.domain.watchingsession.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +16,7 @@ import com.mopl.domain.watchingsession.domain.WatchingSession;
 import com.mopl.domain.watchingsession.dto.WatchingSessionSearchRequest;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -30,13 +32,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.DefaultTypedTuple;
 import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("WatchingSessionRedisRepository 테스트")
 class WatchingSessionRedisRepositoryTest {
+
+  private static final Duration SESSION_TTL = Duration.ofHours(12);
+  private static final String CONTENT_INDEX_SET_KEY = "watching:content:index";
 
   @Mock
   private StringRedisTemplate redisTemplate;
@@ -50,6 +57,9 @@ class WatchingSessionRedisRepositoryTest {
   @Mock
   private ValueOperations<String, String> valueOperations;
 
+  @Mock
+  private SetOperations<String, String> setOperations;
+
   private WatchingSessionRedisRepository repository;
 
   @BeforeEach
@@ -57,6 +67,10 @@ class WatchingSessionRedisRepositoryTest {
     lenient().when(redisTemplate.opsForHash()).thenReturn(hashOperations);
     lenient().when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
     lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    lenient().when(redisTemplate.opsForSet()).thenReturn(setOperations);
+    // enter/leave가 watcherId 기준 락을 먼저 잡으므로, 기본적으로 항상 락 획득에 성공한다고 가정
+    lenient().when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+        .thenReturn(true);
     repository = new WatchingSessionRedisRepository(redisTemplate);
   }
 
@@ -70,6 +84,10 @@ class WatchingSessionRedisRepositoryTest {
 
   private String contentKey(UUID contentId) {
     return "watching:content:" + contentId + ":sessions";
+  }
+
+  private String lockKey(UUID watcherId) {
+    return "watching:lock:watcher:" + watcherId;
   }
 
   private Map<Object, Object> sessionFields(UUID watcherId, UUID contentId, Instant createdAt) {
@@ -95,10 +113,43 @@ class WatchingSessionRedisRepositoryTest {
       assertThat(session.watcherId()).isEqualTo(watcherId);
       assertThat(session.contentId()).isEqualTo(contentId);
       then(hashOperations).should().putAll(eq(sessionKey(session.id())), anyMap());
+      then(redisTemplate).should().expire(sessionKey(session.id()), SESSION_TTL);
       then(zSetOperations).should().add(
           eq(contentKey(contentId)), eq(session.id().toString()),
           eq((double) session.createdAt().toEpochMilli()));
-      then(valueOperations).should().set(watcherKey(watcherId), session.id().toString());
+      then(valueOperations).should().set(watcherKey(watcherId), session.id().toString(), SESSION_TTL);
+      then(setOperations).should().add(CONTENT_INDEX_SET_KEY, contentId.toString());
+    }
+
+    @Test
+    @DisplayName("watcherId 기준 락을 잡고, 끝나면 해제한다")
+    void acquiresAndReleasesWatcherLock() {
+      UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(null);
+
+      repository.enter(watcherId, contentId);
+
+      then(valueOperations).should()
+          .setIfAbsent(eq(lockKey(watcherId)), anyString(), eq(Duration.ofSeconds(5)));
+      then(redisTemplate).should()
+          .execute(any(RedisScript.class), eq(List.of(lockKey(watcherId))), anyString());
+    }
+
+    @Test
+    @DisplayName("락 획득에 계속 실패하면 WATCHING_SESSION_LOCK_TIMEOUT 예외를 던진다")
+    void fail_lockTimeout() {
+      UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      given(valueOperations.setIfAbsent(eq(lockKey(watcherId)), anyString(), any(Duration.class)))
+          .willReturn(false);
+
+      assertThatThrownBy(() -> repository.enter(watcherId, contentId))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.WATCHING_SESSION_LOCK_TIMEOUT));
+
+      then(hashOperations).should(never()).putAll(anyString(), anyMap());
     }
 
     @Test
@@ -118,7 +169,7 @@ class WatchingSessionRedisRepositoryTest {
       then(redisTemplate).should().delete(sessionKey(oldSessionId));
       then(redisTemplate).should().delete(watcherKey(watcherId));
       then(hashOperations).should().putAll(eq(sessionKey(session.id())), anyMap());
-      then(valueOperations).should().set(watcherKey(watcherId), session.id().toString());
+      then(valueOperations).should().set(watcherKey(watcherId), session.id().toString(), SESSION_TTL);
     }
   }
 
@@ -158,6 +209,40 @@ class WatchingSessionRedisRepositoryTest {
           .isInstanceOf(MoplException.class)
           .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
               .isEqualTo(ErrorCode.WATCHING_SESSION_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("역인덱스는 있지만 세션 원본이 이미 지워졌으면 WATCHING_SESSION_NOT_FOUND 예외 (TTL 등으로 인한 불일치 방어)")
+    void fail_staleIndex() {
+      UUID watcherId = UUID.randomUUID();
+      UUID sessionId = UUID.randomUUID();
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(sessionId.toString());
+      given(hashOperations.entries(sessionKey(sessionId))).willReturn(Map.of());
+
+      assertThatThrownBy(() -> repository.leave(watcherId))
+          .isInstanceOf(MoplException.class)
+          .satisfies(e -> assertThat(((MoplException) e).getErrorCode())
+              .isEqualTo(ErrorCode.WATCHING_SESSION_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("세션 Hash에 contentId 필드가 없으면 ZSet 정리는 건너뛰고 나머지 키만 정리한다")
+    void success_missingContentIdSkipsZSetCleanup() {
+      UUID watcherId = UUID.randomUUID();
+      UUID contentId = UUID.randomUUID();
+      UUID sessionId = UUID.randomUUID();
+      Instant createdAt = Instant.now();
+
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(sessionId.toString());
+      given(hashOperations.entries(sessionKey(sessionId)))
+          .willReturn(sessionFields(watcherId, contentId, createdAt));
+      given(hashOperations.get(sessionKey(sessionId), "contentId")).willReturn(null);
+
+      repository.leave(watcherId);
+
+      then(zSetOperations).should(never()).remove(anyString(), anyString());
+      then(redisTemplate).should().delete(sessionKey(sessionId));
+      then(redisTemplate).should().delete(watcherKey(watcherId));
     }
   }
 
@@ -213,6 +298,21 @@ class WatchingSessionRedisRepositoryTest {
       Optional<WatchingSession> result = repository.leaveIfCurrent(watcherId, sessionId);
 
       assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("sessionId는 일치하지만 세션 원본이 이미 지워졌으면 아무 것도 지우지 않고 빈 값을 반환한다")
+    void empty_whenSessionAlreadyGone() {
+      UUID watcherId = UUID.randomUUID();
+      UUID sessionId = UUID.randomUUID();
+
+      given(valueOperations.get(watcherKey(watcherId))).willReturn(sessionId.toString());
+      given(hashOperations.entries(sessionKey(sessionId))).willReturn(Map.of());
+
+      Optional<WatchingSession> result = repository.leaveIfCurrent(watcherId, sessionId);
+
+      assertThat(result).isEmpty();
+      then(redisTemplate).should(never()).delete(anyString());
     }
   }
 
@@ -378,6 +478,18 @@ class WatchingSessionRedisRepositoryTest {
     }
 
     @Test
+    @DisplayName("ZSet 자체가 없어서 조회 결과가 null이면 빈 리스트를 반환한다")
+    void nullResult() {
+      UUID contentId = UUID.randomUUID();
+      WatchingSessionSearchRequest request =
+          new WatchingSessionSearchRequest(contentId, null, null, 5, "createdAt", "DESCENDING");
+
+      given(zSetOperations.reverseRangeWithScores(contentKey(contentId), 0, 5)).willReturn(null);
+
+      assertThat(repository.findByContentId(request)).isEmpty();
+    }
+
+    @Test
     @DisplayName("ZSet엔 남아있는데 세션 원본이 지워진 항목은 결과에서 제외한다")
     void filtersOutStaleZSetEntries() {
       UUID contentId = UUID.randomUUID();
@@ -415,6 +527,60 @@ class WatchingSessionRedisRepositoryTest {
       given(zSetOperations.zCard(contentKey(contentId))).willReturn(null);
 
       assertThat(repository.countByContentId(contentId)).isZero();
+    }
+  }
+
+  @Nested
+  @DisplayName("고아 세션 정리 - cleanupOrphanSessions()")
+  class CleanupOrphanSessions {
+
+    @Test
+    @DisplayName("콘텐츠 인덱스가 비어있으면 아무 것도 하지 않고 0을 반환한다")
+    void empty_whenNoContentIndex() {
+      given(setOperations.members(CONTENT_INDEX_SET_KEY)).willReturn(Set.of());
+
+      assertThat(repository.cleanupOrphanSessions()).isZero();
+      then(zSetOperations).should(never()).range(anyString(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("세션 Hash가 TTL로 사라진 ZSet 고아 멤버만 제거하고, 살아있는 멤버는 건드리지 않는다")
+    void removesOnlyOrphanMembers() {
+      UUID contentId = UUID.randomUUID();
+      UUID liveSessionId = UUID.randomUUID();
+      UUID orphanSessionId = UUID.randomUUID();
+
+      given(setOperations.members(CONTENT_INDEX_SET_KEY)).willReturn(Set.of(contentId.toString()));
+      given(zSetOperations.range(contentKey(contentId), 0, -1))
+          .willReturn(Set.of(liveSessionId.toString(), orphanSessionId.toString()));
+      given(redisTemplate.hasKey(sessionKey(liveSessionId))).willReturn(true);
+      given(redisTemplate.hasKey(sessionKey(orphanSessionId))).willReturn(false);
+      given(zSetOperations.zCard(contentKey(contentId))).willReturn(1L);
+
+      long removed = repository.cleanupOrphanSessions();
+
+      assertThat(removed).isEqualTo(1);
+      then(zSetOperations).should().remove(contentKey(contentId), orphanSessionId.toString());
+      then(zSetOperations).should(never()).remove(contentKey(contentId), liveSessionId.toString());
+      then(setOperations).should(never()).remove(eq(CONTENT_INDEX_SET_KEY), anyString());
+    }
+
+    @Test
+    @DisplayName("정리 후 콘텐츠의 ZSet이 완전히 비면 콘텐츠 인덱스에서도 제거한다")
+    void removesEmptyContentFromIndex() {
+      UUID contentId = UUID.randomUUID();
+      UUID orphanSessionId = UUID.randomUUID();
+
+      given(setOperations.members(CONTENT_INDEX_SET_KEY)).willReturn(Set.of(contentId.toString()));
+      given(zSetOperations.range(contentKey(contentId), 0, -1))
+          .willReturn(Set.of(orphanSessionId.toString()));
+      given(redisTemplate.hasKey(sessionKey(orphanSessionId))).willReturn(false);
+      given(zSetOperations.zCard(contentKey(contentId))).willReturn(0L);
+
+      long removed = repository.cleanupOrphanSessions();
+
+      assertThat(removed).isEqualTo(1);
+      then(setOperations).should().remove(CONTENT_INDEX_SET_KEY, contentId.toString());
     }
   }
 }

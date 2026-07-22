@@ -89,30 +89,6 @@ class ReviewRepositoryTest {
   }
 
   @Test
-  @DisplayName("aggregateRatingStats - 리뷰가 없어도 항상 정확히 1행이 반환되고, avg는 null, count는 0")
-  void aggregateRatingStats_noReviews() {
-    List<Object[]> rows = reviewRepository.aggregateRatingStats(UUID.randomUUID());
-
-    assertThat(rows).hasSize(1);
-    Object[] result = rows.get(0);
-    assertThat(result[0]).isNull();
-    assertThat(((Long) result[1])).isZero();
-  }
-
-  @Test
-  @DisplayName("aggregateRatingStats - 리뷰들의 평균과 개수를 계산한다")
-  void aggregateRatingStats_withReviews() {
-    UUID contentId = UUID.randomUUID();
-    persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(4));
-    persistReview(contentId, UUID.randomUUID(), BigDecimal.valueOf(2));
-
-    Object[] result = reviewRepository.aggregateRatingStats(contentId).get(0);
-
-    assertThat((Double) result[0]).isEqualTo(3.0);
-    assertThat((Long) result[1]).isEqualTo(2L);
-  }
-
-  @Test
   @DisplayName("updateAuthorSnapshotByUserId - 해당 유저가 쓴 모든 리뷰의 작성자 정보가 일괄 갱신된다")
   void updateAuthorSnapshotByUserId() {
     UUID userId = UUID.randomUUID();

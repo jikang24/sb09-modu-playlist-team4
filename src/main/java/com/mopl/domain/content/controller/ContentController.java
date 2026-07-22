@@ -7,6 +7,7 @@ import com.mopl.domain.content.dto.ContentSearchRequest;
 import com.mopl.domain.content.dto.ContentUpdateRequest;
 import com.mopl.domain.content.service.ContentUseCase;
 import com.mopl.global.response.CursorPageResponse;
+import com.mopl.infra.s3.S3Service;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -42,6 +43,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ContentController {
 
   private final ContentUseCase contentUseCase;
+  private final S3Service s3Service;
 
   // ──────────────────────────────────────────────
   // 관리자 전용 API
@@ -69,7 +71,9 @@ public class ContentController {
       @RequestPart("request") @Valid ContentCreateRequest request,
       @RequestPart("thumbnail") MultipartFile thumbnail) {
 
-    ContentResponse response = contentUseCase.createContent(request, thumbnail);
+    // S3 업로드는 DB 트랜잭션 밖(컨트롤러)에서 수행 - 외부 스토리지 지연/장애가 콘텐츠 등록 트랜잭션을 붙잡지 않도록
+    String thumbnailKey = s3Service.extractKey(s3Service.upload(thumbnail));
+    ContentResponse response = contentUseCase.createContent(request, thumbnailKey);
     return ResponseEntity.status(201).body(response);
   }
 
@@ -97,7 +101,11 @@ public class ContentController {
       @RequestPart("request") @Valid ContentUpdateRequest request,
       @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail) {
 
-    ContentResponse response = contentUseCase.updateContent(id, request, thumbnail);
+    // 새 썸네일이 없으면 null 그대로 넘겨 기존 값 유지 - S3 업로드는 트랜잭션 밖(컨트롤러)에서 수행
+    String newThumbnailKey = (thumbnail != null && !thumbnail.isEmpty())
+        ? s3Service.extractKey(s3Service.upload(thumbnail))
+        : null;
+    ContentResponse response = contentUseCase.updateContent(id, request, newThumbnailKey);
     return ResponseEntity.ok(response);
   }
 

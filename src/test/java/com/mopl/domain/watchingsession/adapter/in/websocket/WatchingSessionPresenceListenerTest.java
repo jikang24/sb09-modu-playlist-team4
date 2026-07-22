@@ -134,6 +134,38 @@ class WatchingSessionPresenceListenerTest {
   }
 
   @Test
+  @DisplayName("같은 세션에서 watch 구독과 다른 구독(subscriptionId)을 해제하면 퇴장 처리하지 않는다")
+  void handleUnsubscribe_sameSessionDifferentSubscriptionId_doesNothing() {
+    StompHeaderAccessor subscribe = createAccessor(
+        StompCommand.SUBSCRIBE, "/sub/contents/" + contentId + "/watch", "session-1", "sub-watch", claims);
+    given(watchingSessionUseCase.enter(watcherId, contentId)).willReturn(dto(UUID.randomUUID()));
+    listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(subscribe)));
+
+    StompHeaderAccessor unsubscribeChat = createAccessor(
+        StompCommand.UNSUBSCRIBE, null, "session-1", "sub-chat", claims);
+
+    listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, toMessage(unsubscribeChat)));
+
+    then(watchingSessionUseCase).should(never()).leaveIfCurrent(any(), any());
+  }
+
+  @Test
+  @DisplayName("퇴장 처리 시점에 인증 정보(claims)가 없으면 퇴장 처리하지 않는다")
+  void handleUnsubscribe_noClaimsAtLeaveTime_doesNothing() {
+    StompHeaderAccessor subscribe = createAccessor(
+        StompCommand.SUBSCRIBE, "/sub/contents/" + contentId + "/watch", "session-1", "sub-1", claims);
+    given(watchingSessionUseCase.enter(watcherId, contentId)).willReturn(dto(UUID.randomUUID()));
+    listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(subscribe)));
+
+    StompHeaderAccessor unsubscribe = createAccessor(
+        StompCommand.UNSUBSCRIBE, null, "session-1", "sub-1", null);
+
+    listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, toMessage(unsubscribe)));
+
+    then(watchingSessionUseCase).should(never()).leaveIfCurrent(any(), any());
+  }
+
+  @Test
   @DisplayName("watch 구독 중이던 세션이 끊기면 자기 자신의 watchingSessionId로 조건부 퇴장을 요청한다")
   void handleDisconnect_wasWatching_leavesWithOwnSessionId() {
     UUID watchingSessionId = UUID.randomUUID();
@@ -210,5 +242,53 @@ class WatchingSessionPresenceListenerTest {
     // 탭A는 자기 자신의 세션(X)에 대해서만 조건부 퇴장을 요청해야 하고, 탭B의 세션(Y)은 절대 건드리면 안 된다
     then(watchingSessionUseCase).should().leaveIfCurrent(watcherId, watchingSessionIdX);
     then(watchingSessionUseCase).should(never()).leaveIfCurrent(watcherId, watchingSessionIdY);
+  }
+
+  @Test
+  @DisplayName("구독 목적지가 없으면(destination null) 입장 처리하지 않는다")
+  void handleSubscribe_noDestination_doesNothing() {
+    StompHeaderAccessor accessor = createAccessor(
+        StompCommand.SUBSCRIBE, null, "session-1", "sub-1", claims);
+
+    listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(accessor)));
+
+    then(watchingSessionUseCase).should(never()).enter(any(), any());
+  }
+
+  @Test
+  @DisplayName("목적지의 contentId가 UUID 형식이 아니면 입장 처리하지 않는다")
+  void handleSubscribe_malformedContentId_doesNothing() {
+    StompHeaderAccessor accessor = createAccessor(
+        StompCommand.SUBSCRIBE, "/sub/contents/not-a-uuid/watch", "session-1", "sub-1", claims);
+
+    listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(accessor)));
+
+    then(watchingSessionUseCase).should(never()).enter(any(), any());
+  }
+
+  @Test
+  @DisplayName("세션 속성 자체가 없으면(sessionAttributes null) 입장 처리하지 않는다")
+  void handleSubscribe_noSessionAttributes_doesNothing() {
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+    accessor.setSessionId("session-1");
+    accessor.setSubscriptionId("sub-1");
+    accessor.setDestination("/sub/contents/" + contentId + "/watch");
+
+    listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(accessor)));
+
+    then(watchingSessionUseCase).should(never()).enter(any(), any());
+  }
+
+  @Test
+  @DisplayName("입장 처리 중 예기치 못한 예외가 나도 조용히 무시되고 전파되지 않는다")
+  void handleSubscribe_unexpectedException_swallowed() {
+    StompHeaderAccessor accessor = createAccessor(
+        StompCommand.SUBSCRIBE, "/sub/contents/" + contentId + "/watch", "session-1", "sub-1", claims);
+    willThrow(new RuntimeException("redis down"))
+        .given(watchingSessionUseCase).enter(watcherId, contentId);
+
+    listener.handleSubscribe(new SessionSubscribeEvent(this, toMessage(accessor)));
+
+    then(watchingSessionUseCase).should().enter(watcherId, contentId);
   }
 }

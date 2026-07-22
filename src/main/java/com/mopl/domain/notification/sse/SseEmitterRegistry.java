@@ -5,15 +5,16 @@ import com.mopl.domain.notification.dto.NotificationDto;
 import com.mopl.domain.notification.repository.NotificationRepository;
 import com.mopl.global.dto.DirectMessageDto;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.springframework.scheduling.annotation.Scheduled;
 
 @Slf4j
 @Component
@@ -21,6 +22,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 public class SseEmitterRegistry implements SseNotificationSender {
 
   private static final long TIMEOUT_MILLIS = 30L * 60L * 1000L;
+  private static final int MAX_REPLAY_COUNT = 200;
+
   private final Map<UUID, Set<SseEmitter>> emitters = new ConcurrentHashMap<>();
   private final NotificationRepository notificationRepository;
 
@@ -108,7 +111,12 @@ public class SseEmitterRegistry implements SseNotificationSender {
   }
 
   private boolean replay(UUID userId, SseEmitter emitter, UUID lastEventId) {
-    for (Notification notification : notificationRepository.findByReceiverIdAfter(userId, lastEventId)) {
+    List<Notification> notifications =
+        notificationRepository.findByReceiverIdAfter(userId, lastEventId, MAX_REPLAY_COUNT + 1);
+    boolean truncated = notifications.size() > MAX_REPLAY_COUNT;
+    List<Notification> toSend = truncated ? notifications.subList(0, MAX_REPLAY_COUNT) : notifications;
+
+    for (Notification notification : toSend) {
       try {
         emitter.send(SseEmitter.event()
             .id(notification.getId().toString())
@@ -117,6 +125,18 @@ public class SseEmitterRegistry implements SseNotificationSender {
       } catch (IOException | IllegalStateException e) {
         log.debug("SSE replay failed: receiverId={}, notificationId={}", userId,
             notification.getId(), e);
+        remove(userId, emitter);
+        return false;
+      }
+    }
+
+    if (truncated) {
+      try {
+        emitter.send(SseEmitter.event()
+            .name("replay-truncated")
+            .data("미확인 알림이 %d건을 초과합니다. 새로고침해주세요.".formatted(MAX_REPLAY_COUNT)));
+      } catch (IOException | IllegalStateException e) {
+        log.debug("SSE replay-truncated notice failed: receiverId={}", userId, e);
         remove(userId, emitter);
         return false;
       }

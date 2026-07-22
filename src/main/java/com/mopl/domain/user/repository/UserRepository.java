@@ -16,4 +16,8 @@ public interface UserRepository extends JpaRepository<User, UUID>, UserRepositor
 
     boolean existsByRole(Role role);
 
+    boolean existsByRoleAndIdNot(Role role, UUID id);
+
+    boolean existsByRoleAndLockedFalseAndIdNot(Role role, UUID id);
+
 }

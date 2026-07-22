@@ -55,7 +55,7 @@ public class NotificationRepositoryCustomImpl implements NotificationRepositoryC
   }
 
   @Override
-  public List<Notification> findByReceiverIdAfter(UUID receiverId, UUID lastNotificationId) {
+  public List<Notification> findByReceiverIdAfter(UUID receiverId, UUID lastNotificationId, int limit) {
     QNotification notification = QNotification.notification;
 
     Notification lastNotification = queryFactory.selectFrom(notification)
@@ -73,6 +73,7 @@ public class NotificationRepositoryCustomImpl implements NotificationRepositoryC
                 .or(notification.createdAt.eq(lastNotification.getCreatedAt())
                     .and(notification.id.gt(lastNotification.getId())))))
         .orderBy(notification.createdAt.asc(), notification.id.asc())
+        .limit(limit)
         .fetch();
   }
 

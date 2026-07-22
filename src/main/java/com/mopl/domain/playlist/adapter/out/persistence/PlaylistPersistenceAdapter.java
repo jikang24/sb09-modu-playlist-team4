@@ -78,6 +78,11 @@ public class PlaylistPersistenceAdapter implements SavePlaylistPort, LoadPlaylis
   }
 
   @Override
+  public Optional<Playlist> findByIdForUpdate(UUID id) {
+    return playlistJpaRepository.findByIdForUpdate(id).map(mapper::toDomain);
+  }
+
+  @Override
   public List<Playlist> findAllByCondition(PlaylistSearchCondition condition) {
 
     List<PlaylistJpaEntity> playlists = playlistJpaRepository.findAllWithCursor(condition);

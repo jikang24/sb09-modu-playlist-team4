@@ -14,6 +14,7 @@ public enum ErrorCode {
     FORBIDDEN("접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     ACCOUNT_LOCKED("계정이 잠금 처리되었습니다.", HttpStatus.FORBIDDEN),
     INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED),
+    LAST_ADMIN_CANNOT_BE_CHANGED("마지막 관리자 계정의 권한을 변경하거나 잠글 수 없습니다.", HttpStatus.CONFLICT),
 
     //Content
     CONTENT_NOT_FOUND("콘텐츠를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -36,6 +37,7 @@ public enum ErrorCode {
 
     // WatchingSession 모듈
     WATCHING_SESSION_NOT_FOUND("현재 시청 중인 세션이 없습니다.", HttpStatus.NOT_FOUND),
+    WATCHING_SESSION_LOCK_TIMEOUT("잠시 후 다시 시도해주세요.", HttpStatus.CONFLICT),
 
 
     //Conversation 모듈
