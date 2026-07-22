@@ -55,8 +55,8 @@ public class OpenSearchConfig {
               httpClientBuilder.setConnectionManager(connectionManager);
 
               RequestConfig requestConfig = RequestConfig.custom()
-                  .setConnectTimeout(Timeout.ofSeconds(2))
-                  .setResponseTimeout(Timeout.ofSeconds(3))
+                  .setConnectTimeout(Timeout.ofSeconds(10))
+                  .setResponseTimeout(Timeout.ofSeconds(30))
                   .build();
 
               httpClientBuilder
