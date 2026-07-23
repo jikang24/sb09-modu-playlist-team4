@@ -90,9 +90,12 @@ public class ContentService implements ContentUseCase {
     String thumbnailKey = (newThumbnailKey != null) ? newThumbnailKey : content.getThumbnailUrl();
     // 프론트가 유형 수정 UI를 막고 있어 안 보내는 게 정상 케이스 - 안 보내면 기존 유형 유지
     ContentType type = (request.type() != null) ? request.type() : content.getType();
+    // 태그 입력을 안 건드리고 다른 필드만 저장하는 케이스가 있어, null이면 기존 태그 유지
+    // (null을 그대로 넘기면 Content.update()가 빈 리스트로 덮어써서 태그가 통째로 사라짐)
+    List<String> tags = (request.tags() != null) ? request.tags() : content.getTags();
 
     // 순수 도메인 메서드로 상태 변경
-    content.update(type, request.title(), request.description(), thumbnailKey, request.tags());
+    content.update(type, request.title(), request.description(), thumbnailKey, tags);
 
     Content saved = contentRepository.save(content);
     eventPublisher.publishEvent(new ContentSearchSyncRequestedEvent(saved.getId()));
