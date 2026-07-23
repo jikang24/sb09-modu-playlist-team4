@@ -7,6 +7,8 @@ import com.mopl.domain.dm.domain.DirectMessage;
 import com.mopl.global.config.QueryDslConfig;
 import com.mopl.global.dto.SortDirection;
 import com.mopl.global.response.CursorPageResponse;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +34,9 @@ class DirectMessagePersistenceAdapterTest {
 
   @Autowired
   private DirectMessageRepository repository;
+
+  @PersistenceContext
+  private EntityManager entityManager;
 
   @Test
   @DisplayName("메시지 저장 및 조회 성공")
@@ -264,6 +269,43 @@ class DirectMessagePersistenceAdapterTest {
     Set<UUID> result = adapter.findConversationIdsWithUnread(List.of(), UUID.randomUUID());
 
     assertThat(result).isEmpty();
+  }
+
+  @Test
+  @DisplayName("주어진 시각까지 내가 수신자인 안 읽은 메시지를 전부 읽음 처리한다")
+  void markAllAsReadUpTo_success() {
+
+    UUID conversationId = UUID.randomUUID();
+    UUID receiver = UUID.randomUUID();
+
+    DirectMessage older = adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversationId, UUID.randomUUID(), receiver,
+        "old-unread", Instant.parse("2026-01-01T00:00:00Z"), false
+    ));
+    DirectMessage latest = adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversationId, UUID.randomUUID(), receiver,
+        "latest-unread", Instant.parse("2026-01-02T00:00:00Z"), false
+    ));
+    // 이후에 온 메시지는 이번 읽음 처리 대상이 아니어야 한다
+    DirectMessage future = adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversationId, UUID.randomUUID(), receiver,
+        "future-unread", Instant.parse("2026-01-03T00:00:00Z"), false
+    ));
+    // 다른 사람이 수신자인 메시지는 건드리면 안 된다
+    DirectMessage otherReceiver = adapter.save(new DirectMessage(
+        UUID.randomUUID(), conversationId, UUID.randomUUID(), UUID.randomUUID(),
+        "not-mine", Instant.parse("2026-01-01T12:00:00Z"), false
+    ));
+
+    adapter.markAllAsReadUpTo(conversationId, receiver, latest.getCreatedAt());
+    // 벌크 UPDATE는 영속성 컨텍스트를 거치지 않아, 이미 로드돼 있던 엔티티들이
+    // 갱신된 값을 반영하도록 영속성 컨텍스트를 비우고 DB에서 다시 읽는다.
+    entityManager.clear();
+
+    assertThat(adapter.findById(older.getId()).orElseThrow().isRead()).isTrue();
+    assertThat(adapter.findById(latest.getId()).orElseThrow().isRead()).isTrue();
+    assertThat(adapter.findById(future.getId()).orElseThrow().isRead()).isFalse();
+    assertThat(adapter.findById(otherReceiver.getId()).orElseThrow().isRead()).isFalse();
   }
 
   @Test
