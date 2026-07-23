@@ -155,7 +155,7 @@ class ReviewServiceTest {
       UUID contentId = UUID.randomUUID();
       Review review = makeReview(contentId, userId, BigDecimal.valueOf(3));
 
-      given(reviewRepository.findById(review.getId())).willReturn(Optional.of(review));
+      given(reviewRepository.findByIdForUpdate(review.getId())).willReturn(Optional.of(review));
 
       reviewService.updateReview(review.getId(), userId, BigDecimal.valueOf(4.5), "수정된 리뷰");
 
@@ -174,7 +174,7 @@ class ReviewServiceTest {
     @DisplayName("존재하지 않는 리뷰 수정 - REVIEW_NOT_FOUND 예외")
     void fail_notFound() {
       UUID reviewId = UUID.randomUUID();
-      given(reviewRepository.findById(reviewId)).willReturn(Optional.empty());
+      given(reviewRepository.findByIdForUpdate(reviewId)).willReturn(Optional.empty());
 
       assertThatThrownBy(() ->
           reviewService.updateReview(reviewId, UUID.randomUUID(), BigDecimal.valueOf(4), "text"))
@@ -192,7 +192,7 @@ class ReviewServiceTest {
       UUID otherUserId = UUID.randomUUID();
       Review review = makeReview(UUID.randomUUID(), ownerId, BigDecimal.valueOf(3));
 
-      given(reviewRepository.findById(review.getId())).willReturn(Optional.of(review));
+      given(reviewRepository.findByIdForUpdate(review.getId())).willReturn(Optional.of(review));
 
       assertThatThrownBy(() ->
           reviewService.updateReview(review.getId(), otherUserId, BigDecimal.valueOf(4), "text"))
@@ -215,7 +215,7 @@ class ReviewServiceTest {
       UUID contentId = UUID.randomUUID();
       Review review = makeReview(contentId, userId, BigDecimal.valueOf(3));
 
-      given(reviewRepository.findById(review.getId())).willReturn(Optional.of(review));
+      given(reviewRepository.findByIdForUpdate(review.getId())).willReturn(Optional.of(review));
 
       reviewService.deleteReview(review.getId(), userId);
 
@@ -233,7 +233,7 @@ class ReviewServiceTest {
     @DisplayName("존재하지 않는 리뷰 삭제 - REVIEW_NOT_FOUND 예외")
     void fail_notFound() {
       UUID reviewId = UUID.randomUUID();
-      given(reviewRepository.findById(reviewId)).willReturn(Optional.empty());
+      given(reviewRepository.findByIdForUpdate(reviewId)).willReturn(Optional.empty());
 
       assertThatThrownBy(() -> reviewService.deleteReview(reviewId, UUID.randomUUID()))
           .isInstanceOf(MoplException.class)
@@ -250,7 +250,7 @@ class ReviewServiceTest {
       UUID otherUserId = UUID.randomUUID();
       Review review = makeReview(UUID.randomUUID(), ownerId, BigDecimal.valueOf(3));
 
-      given(reviewRepository.findById(review.getId())).willReturn(Optional.of(review));
+      given(reviewRepository.findByIdForUpdate(review.getId())).willReturn(Optional.of(review));
 
       assertThatThrownBy(() -> reviewService.deleteReview(review.getId(), otherUserId))
           .isInstanceOf(MoplException.class)
