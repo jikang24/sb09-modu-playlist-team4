@@ -1,43 +1,47 @@
 {
-  "properties": {
-    "id": { "type": "keyword" },
-    "title": {
-      "type": "text",
-      "analyzer": "standard_lower",
-      "fields": {
-        "ngram": {
-          "type": "text",
-          "analyzer": "ngram_analyzer",
-          "search_analyzer": "ngram_analyzer"
-        },
-        "edge": {
-          "type": "text",
-          "analyzer": "edge_ngram_analyzer",
-          "search_analyzer": "standard_lower"
-        }
+  "analysis": {
+    "tokenizer": {
+      "ngram_tokenizer": {
+        "type": "ngram",
+        "min_gram": 2,
+        "max_gram": 3,
+        "token_chars": [
+          "letter",
+          "digit"
+        ]
+      },
+      "edge_ngram_tokenizer": {
+        "type": "edge_ngram",
+        "min_gram": 1,
+        "max_gram": 20,
+        "token_chars": [
+          "letter",
+          "digit"
+        ]
       }
     },
-    "titleChosung": {
-      "type": "text",
-      "analyzer": "edge_ngram_analyzer",
-      "search_analyzer": "standard_lower"
-    },
-    "description": {
-      "type": "text",
-      "analyzer": "ngram_analyzer",
-      "search_analyzer": "ngram_analyzer"
-    },
-    "tags": {
-      "type": "text",
-      "analyzer": "ngram_analyzer",
-      "search_analyzer": "ngram_analyzer",
-      "fields": {
-        "keyword": { "type": "keyword" }
+    "analyzer": {
+      "standard_lower": {
+        "type": "custom",
+        "tokenizer": "standard",
+        "filter": [
+          "lowercase"
+        ]
+      },
+      "ngram_analyzer": {
+        "type": "custom",
+        "tokenizer": "ngram_tokenizer",
+        "filter": [
+          "lowercase"
+        ]
+      },
+      "edge_ngram_analyzer": {
+        "type": "custom",
+        "tokenizer": "edge_ngram_tokenizer",
+        "filter": [
+          "lowercase"
+        ]
       }
-    },
-    "type": { "type": "keyword" },
-    "averageRating": { "type": "double" },
-    "reviewCount": { "type": "integer" },
-    "createdAt": { "type": "date" }
+    }
   }
 }

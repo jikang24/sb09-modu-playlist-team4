@@ -130,6 +130,20 @@ public class DirectMessagePersistenceAdapter implements SaveDirectMessagePort,
   }
 
   @Override
+  public void markAllAsReadUpTo(UUID conversationId, UUID receiverId, Instant upToCreatedAt) {
+    QDirectMessageJpaEntity dm = QDirectMessageJpaEntity.directMessageJpaEntity;
+    queryFactory.update(dm)
+        .set(dm.read, true)
+        .where(
+            dm.conversationId.eq(conversationId),
+            dm.receiverId.eq(receiverId),
+            dm.read.eq(false),
+            dm.createdAt.loe(upToCreatedAt)
+        )
+        .execute();
+  }
+
+  @Override
   public List<UUID> findConversationIdsByContent(String keyword) {
     QDirectMessageJpaEntity dm = QDirectMessageJpaEntity.directMessageJpaEntity;
     return queryFactory.select(dm.conversationId)

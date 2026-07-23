@@ -2,6 +2,7 @@ package com.mopl.domain.user.auth;
 
 import com.mopl.domain.user.domain.User;
 import com.mopl.domain.user.repository.UserRepository;
+import com.mopl.domain.user.service.ProfileImageUrlResolver;
 import com.mopl.global.auth.UserAuthInfo;
 import com.mopl.global.auth.UserAuthPort;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.UUID;
 public class UserAuthAdapter implements UserAuthPort {
 
     private final UserRepository userRepository;
+    private final ProfileImageUrlResolver profileImageUrlResolver;
 
     @Override
     @Transactional(readOnly = true)
@@ -36,7 +38,7 @@ public class UserAuthAdapter implements UserAuthPort {
                 user.getEmail(),
                 user.getPassword(),
                 user.getName(),
-                user.getProfileImageUrl(),
+                profileImageUrlResolver.resolve(user.getProfileImageUrl()),
                 user.getRole(),
                 user.isLocked()
         );

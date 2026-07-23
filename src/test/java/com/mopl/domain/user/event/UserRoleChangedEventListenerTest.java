@@ -5,6 +5,7 @@ import com.mopl.domain.user.dto.Role;
 import com.mopl.global.event.NotificationEventPublisher;
 import com.mopl.global.event.NotificationRequestedEvent;
 import com.mopl.global.jwt.AuthTokenService;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,8 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -43,22 +42,28 @@ class UserRoleChangedEventListenerTest {
 
         listener.onRoleChanged(event);
 
-        ArgumentCaptor<NotificationRequestedEvent> captor = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+        ArgumentCaptor<NotificationRequestedEvent> captor =
+            ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+
         verify(notificationEventPublisher).publish(captor.capture());
 
         NotificationRequestedEvent published = captor.getValue();
+
         assertThat(published.receiverId()).isEqualTo(userId);
         assertThat(published.type()).isEqualTo(NotificationType.ROLE_CHANGED.name());
-        assertThat(published.content()).contains("USER").contains("ADMIN");
+        assertThat(published.title()).isEqualTo("내 권한이 변경되었어요.");
+        assertThat(published.content())
+            .contains("USER")
+            .contains("ADMIN");
     }
 
     @Test
-    @DisplayName("성공: 권한 변경 이벤트를 받으면 기존 세션을 강제 로그아웃시킨다")
-    void onRoleChanged_forcesLogout() {
+    @DisplayName("성공: AFTER_COMMIT 이후 기존 세션을 강제 로그아웃시킨다")
+    void logout_forcesLogout() {
         UUID userId = UUID.randomUUID();
         UserRoleChangedEvent event = new UserRoleChangedEvent(userId, Role.USER, Role.ADMIN);
 
-        listener.onRoleChanged(event);
+        listener.logout(event);
 
         verify(authTokenService).forceLogoutByUserId(userId);
     }
