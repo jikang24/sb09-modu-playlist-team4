@@ -123,10 +123,12 @@ class DirectMessageServiceTest {
   }
 
   @Test
-  @DisplayName("DM 읽음 처리 - 발신자 본인이 호출하면 예외 없이 조용히 무시(no-op)")
-  void read_sender_self_call_is_noop() {
-    // 프론트가 웹소켓으로 들어오는 모든 메시지(본인이 보낸 것 포함)에 대해 읽음 처리 API를
-    // 호출하기 때문에, 발신자 본인의 호출은 에러가 아니라 아무 동작 없이 넘어가야 한다.
+  @DisplayName("DM 읽음 처리 - 발신자 본인이 호출해도 에러 없이 벌크 읽음 처리가 실행된다")
+  void read_sender_self_call_still_marks_all_as_read() {
+    // 대화의 "가장 최근 메시지"를 내가 보낸 경우, 프론트는 그 메시지 ID로 읽음 처리를 호출한다.
+    // 발신자 본인 호출이라고 해서 그냥 no-op으로 끝내버리면, 그 이전에 쌓여있던 상대방의
+    // 안 읽은 메시지들이 영원히 안 읽은 채로 남는 회귀가 있었다 - 에러는 안 나되 벌크 읽음
+    // 처리는 반드시 실행되어야 한다.
 
     UUID directMessageId = UUID.randomUUID();
     DirectMessage directMessage = DirectMessage.create(conversationId, senderId, receiverId, "안녕");
@@ -136,9 +138,9 @@ class DirectMessageServiceTest {
     directMessageService.read(conversationId, directMessageId, senderId);
 
 
-    assertThat(directMessage.isRead()).isFalse();
+    then(saveDirectMessagePort).should()
+        .markAllAsReadUpTo(conversationId, senderId, directMessage.getCreatedAt());
     then(saveDirectMessagePort).should(never()).save(any());
-    then(saveDirectMessagePort).should(never()).markAllAsReadUpTo(any(), any(), any());
   }
 
   @Test

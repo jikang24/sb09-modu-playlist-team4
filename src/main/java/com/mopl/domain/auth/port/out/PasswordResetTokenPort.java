@@ -11,4 +11,7 @@ public interface PasswordResetTokenPort {
     void save(PasswordResetToken token);
 
     void deleteByUserId(UUID userId);
+
+    // 기존 토큰 삭제 + 신규 토큰 저장을 하나의 트랜잭션으로 원자적으로 처리
+    void replaceForUser(UUID userId, PasswordResetToken newToken);
 }

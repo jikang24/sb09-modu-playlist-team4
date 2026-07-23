@@ -201,6 +201,26 @@ class ContentServiceTest {
     }
 
     @Test
+    @DisplayName("태그를 안 보내면(null) 기존 태그가 유지된다 (태그 입력 UI를 안 건드리고 다른 필드만 저장하는 케이스)")
+    void success_noTags_keepsExistingTags() {
+      UUID id = UUID.randomUUID();
+      Content existing = makeContent(id, ContentType.MOVIE, "tmdb-001");
+
+      ContentUpdateRequest request = new ContentUpdateRequest(
+          ContentType.MOVIE, "수정된 제목", "수정된 설명", null
+      );
+
+      given(contentRepository.findById(id)).willReturn(Optional.of(existing));
+      given(contentRepository.save(any(Content.class))).willReturn(existing);
+
+      contentService.updateContent(id, request, null);
+
+      ArgumentCaptor<Content> captor = ArgumentCaptor.forClass(Content.class);
+      then(contentRepository).should().save(captor.capture());
+      assertThat(captor.getValue().getTags()).containsExactlyInAnyOrder("액션", "SF");
+    }
+
+    @Test
     @DisplayName("유형을 안 보내면(null) 기존 유형이 유지되고 예외가 나지 않는다 (프론트가 유형 수정 UI를 막고 있어 안 보내는 게 정상 케이스)")
     void success_noType_keepsExistingType() {
       UUID id = UUID.randomUUID();

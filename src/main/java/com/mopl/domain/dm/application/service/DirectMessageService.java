@@ -80,23 +80,22 @@ public class DirectMessageService implements CheckUnreadDirectMessageUseCase,
         log.warn("directMessage {} does not belong to conversation {}", directMessageId, conversationId);
         throw new MoplException(ErrorCode.FORBIDDEN_ACCESS);
       }
-      // 프론트는 웹소켓 구독(/sub/conversations/{id}/direct-messages)으로 들어오는 메시지마다
-      // 무조건 읽음 처리를 호출한다. 이 구독은 발신자 본인 화면에도 실시간 반영을 위해
-      // 걸려있어서, 내가 보낸 메시지에 대해서도 내 클라이언트가 이 API를 호출한다.
-      // 발신자 본인의 호출은 위험한 접근이 아니라 의미 없는 호출일 뿐이므로 조용히 no-op 처리하고,
-      // 대화 참여자도 아닌(수신자도 발신자도 아닌) 진짜 제3자만 막는다.
-      if (directMessage.isSender(myId)) {
-        return;
-      }
-      if (!directMessage.getReceiverId().equals(myId)) {
+      // 프론트는 웹소켓 구독(/sub/conversations/{id}/direct-messages)으로 들어오는 메시지마다,
+      // 그리고 방을 열 때 "가장 최근 메시지" 하나에 대해 무조건 읽음 처리를 호출한다.
+      // 이 구독은 발신자 본인 화면에도 실시간 반영을 위해 걸려있어서, 내가 보낸 메시지에
+      // 대해서도(혹은 대화의 가장 최근 메시지가 내가 보낸 것일 때도) 내 클라이언트가 이 API를 호출한다.
+      // 대화 참여자도 아닌(수신자도 발신자도 아닌) 진짜 제3자만 여기서 막는다.
+      boolean isSender = directMessage.isSender(myId);
+      boolean isReceiver = directMessage.getReceiverId().equals(myId);
+      if (!isSender && !isReceiver) {
         log.warn("user {} is neither sender nor receiver of directMessage {}", myId, directMessageId);
         throw new MoplException(ErrorCode.FORBIDDEN_ACCESS);
       }
-      // 프론트는 방을 열 때 "가장 최근 메시지" 하나에 대해서만 이 API를 호출한다.
-      // 그 사이 쌓인, 아직 read=false인 이전 메시지들이 이 메시지 하나만 처리하고 나면
-      // 영원히 안 읽은 채로 남아 목록 화면에서 다시 안읽음 표시가 뜨는 문제가 있었다.
-      // 그래서 단건 갱신 대신, 이 메시지 시각까지 나(수신자)한테 온 안 읽은 메시지를
-      // 전부 한 번에 읽음 처리한다.
+      // 프론트가 넘긴 메시지가 발신자 본인 것이든 수신자 본인 것이든 상관없이,
+      // 이 메시지 시각까지 나(myId)한테 온 안 읽은 메시지를 전부 한 번에 읽음 처리한다.
+      // (단건으로 이 메시지 하나만 처리하면, 대화가 내 메시지로 끝난 경우 그 이전에
+      // 쌓여있던 안 읽은 메시지들이 영원히 안 읽은 채로 남아 목록에 다시 안읽음 표시가 뜨는
+      // 문제가 있었다 - markAllAsReadUpTo는 receiverId=myId인 것만 골라 처리하므로 안전하다)
       saveDirectMessagePort.markAllAsReadUpTo(conversationId, myId, directMessage.getCreatedAt());
   }
 

@@ -63,7 +63,10 @@ public class ReviewService {
   }
 
   public void updateReview(UUID reviewId, UUID userId, BigDecimal rating, String text) {
-    Review review = reviewRepository.findById(reviewId)
+    // FOR UPDATE로 조회 - 동시 수정 요청(더블클릭/재전송)이 같은 previousRating을 보고
+    // 각자 delta를 계산하면 content 평점에 중복 반영되므로, 같은 리뷰 행에 대한 동시
+    // 수정을 트랜잭션 단위로 직렬화해 뒤 요청이 앞 요청의 최신 rating을 보게 한다.
+    Review review = reviewRepository.findByIdForUpdate(reviewId)
         .orElseThrow(() -> new MoplException(ErrorCode.REVIEW_NOT_FOUND));
     validateOwner(review, userId);
 
@@ -78,7 +81,9 @@ public class ReviewService {
   }
 
   public void deleteReview(UUID reviewId, UUID userId) {
-    Review review = reviewRepository.findById(reviewId)
+    // updateReview와 동시에 들어오면(수정 중인 review를 그대로 삭제) 잠금 없이 읽은
+    // rating이 최신 값이 아닐 수 있으므로, 동일하게 FOR UPDATE로 직렬화한다.
+    Review review = reviewRepository.findByIdForUpdate(reviewId)
         .orElseThrow(() -> new MoplException(ErrorCode.REVIEW_NOT_FOUND));
     validateOwner(review, userId);
 
