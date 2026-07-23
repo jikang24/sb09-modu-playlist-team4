@@ -31,6 +31,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,8 +95,7 @@ class AuthServiceTest {
         authService.resetPassword(request);
 
         verify(userAuthPort).findByEmail("test@email.com");
-        verify(passwordResetTokenPort).deleteByUserId(testUserId);
-        verify(passwordResetTokenPort).save(any(PasswordResetToken.class));
+        verify(passwordResetTokenPort).replaceForUser(eq(testUserId), any(PasswordResetToken.class));
 
         ArgumentCaptor<TempPasswordIssuedEvent> eventCaptor = ArgumentCaptor.forClass(TempPasswordIssuedEvent.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
@@ -116,7 +116,7 @@ class AuthServiceTest {
         });
 
         assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
-        verify(passwordResetTokenPort, never()).save(any());
+        verify(passwordResetTokenPort, never()).replaceForUser(any(), any());
         verify(eventPublisher, never()).publishEvent(any());
     }
 
@@ -148,7 +148,7 @@ class AuthServiceTest {
 
         authService.resetPassword(request);
 
-        verify(passwordResetTokenPort).deleteByUserId(testUserId);
+        verify(passwordResetTokenPort).replaceForUser(eq(testUserId), any(PasswordResetToken.class));
     }
 
     @Test
@@ -161,7 +161,7 @@ class AuthServiceTest {
         authService.resetPassword(request);
 
         ArgumentCaptor<PasswordResetToken> tokenCaptor = ArgumentCaptor.forClass(PasswordResetToken.class);
-        verify(passwordResetTokenPort).save(tokenCaptor.capture());
+        verify(passwordResetTokenPort).replaceForUser(eq(testUserId), tokenCaptor.capture());
 
         PasswordResetToken savedToken = tokenCaptor.getValue();
         assertNotNull(savedToken.getExpiresAt());

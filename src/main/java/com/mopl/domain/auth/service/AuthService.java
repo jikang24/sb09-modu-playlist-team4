@@ -24,7 +24,6 @@ import org.passay.PasswordGenerator;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -44,20 +43,17 @@ public class AuthService implements AuthUseCase {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
 
-    @Transactional
     @Override
     public void resetPassword(ResetPasswordRequest request) {
         UserAuthInfo user = userAuthPort.findByEmail(request.email())
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
         String tempPassword = generateTempPassword();
-        passwordResetTokenPort.deleteByUserId(user.id());
-
         PasswordResetToken token = PasswordResetToken.create(
                 user.id(),
                 passwordEncoder.encode(tempPassword),
                 Instant.now().plus(TEMP_PASSWORD_TTL));
-        passwordResetTokenPort.save(token);
+        passwordResetTokenPort.replaceForUser(user.id(), token);
 
         eventPublisher.publishEvent(new TempPasswordIssuedEvent(
                 user.id(), user.email(), tempPassword));

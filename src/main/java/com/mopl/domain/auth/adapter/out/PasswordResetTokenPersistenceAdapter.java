@@ -4,6 +4,7 @@ import com.mopl.domain.auth.domain.PasswordResetToken;
 import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -30,5 +31,12 @@ class PasswordResetTokenPersistenceAdapter implements PasswordResetTokenPort  {
     @Override
     public void deleteByUserId(UUID userId) {
         jpaRepository.deleteByUserId(userId);
+    }
+
+    @Override
+    @Transactional
+    public void replaceForUser(UUID userId, PasswordResetToken newToken) {
+        jpaRepository.deleteByUserId(userId);
+        jpaRepository.save(entityMapper.toJpaEntity(newToken));
     }
 }
