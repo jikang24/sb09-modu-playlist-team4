@@ -30,7 +30,16 @@ public class RedisConfig {
   public static final String WATCHING_SESSION_CHANNEL = "websocket:watching-session";
   public static final String NOTIFICATION_CHANNEL = "sse:notifications";
 
+  // redisMessageListenerContainer 전용 빈 - 컨테이너가 비활성화되면(redis.listener.enabled=false)
+  // 아무도 쓰지 않는데도 @ConditionalOnProperty 없이 두면 컨텍스트 기동 시 무조건 생성/연결 시도돼서,
+  // 리스너를 꺼둔 테스트에서도 이 커넥션 팩토리가 (RedisProperties 그대로, 즉 테스트컨테이너 주소를
+  // 못 받은 채로) 연결을 시도하다 실패했다 - 컨테이너와 동일한 조건으로 묶는다.
   @Bean
+  @ConditionalOnProperty(
+      name = "redis.listener.enabled",
+      havingValue = "true",
+      matchIfMissing = true
+  )
   public RedisConnectionFactory listenerRedisConnectionFactory(
       RedisProperties redisProperties,
       @Value("${redis.listener.timeout:3000ms}") Duration listenerTimeout) {
