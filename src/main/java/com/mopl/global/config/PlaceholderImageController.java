@@ -1,5 +1,6 @@
 package com.mopl.global.config;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.springframework.http.CacheControl;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  * JSON 404(application/json)를 응답해 <img> 태그가 깨져 보이므로, 이 경로만 컨트롤러로 먼저
  * 가로채 인라인 SVG를 200으로 내려준다. (정적 자산 배포 파이프라인에 대한 의존 없음)
  */
+@Tag(name = "이미지")
 @RestController
 public class PlaceholderImageController {
 

@@ -36,7 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
  *  *    - "request" 파트: JSON (ContentCreateRequest)
  *  *    - "thumbnail" 파트: 이미지 파일 (S3 업로드)
  */
-@Tag(name = "콘텐츠")
+@Tag(name = "콘텐츠 관리")
 @RestController
 @RequestMapping("/api/contents")
 @RequiredArgsConstructor
