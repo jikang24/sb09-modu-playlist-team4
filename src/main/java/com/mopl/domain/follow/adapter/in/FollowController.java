@@ -40,7 +40,7 @@ public class FollowController {
     private final GetFollowedByMeUseCase getFollowedByMeUseCase;
     private final GetFollowerCountUseCase getFollowerCountUseCase;
 
-    @Operation(summary = "팔로우")
+    @Operation(summary = "팔로우 관리")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "성공"),
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),

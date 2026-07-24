@@ -3,6 +3,8 @@ package com.mopl.domain.batch.controller;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "배치 관리")
 @Slf4j
 @RestController
 @RequestMapping("/api/admin/batch")
@@ -24,6 +27,7 @@ public class BatchController {
   private final JobLauncher jobLauncher;
   private final Job contentSyncJob;
 
+  @Operation(summary = "[어드민] 콘텐츠 수집 배치 수동 실행", description = "외부 API(TMDB 등)에서 콘텐츠를 수집하는 배치 Job을 즉시 실행합니다.")
   @PostMapping("/content-sync")
   @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<ApiResponse<String>> runContentSyncJob() {
