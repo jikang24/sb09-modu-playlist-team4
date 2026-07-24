@@ -1,15 +1,12 @@
 package com.mopl.domain.auth.service;
 
-import com.mopl.domain.auth.domain.PasswordResetToken;
 import com.mopl.domain.auth.dto.JwtDto;
 import com.mopl.domain.auth.dto.RefreshResult;
 import com.mopl.domain.auth.dto.ResetPasswordRequest;
 import com.mopl.domain.auth.port.in.AuthUseCase;
-import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
 import com.mopl.domain.user.dto.UserDto;
 import com.mopl.global.auth.UserAuthInfo;
 import com.mopl.global.auth.UserAuthPort;
-import com.mopl.global.event.TempPasswordIssuedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.AuthTokenService;
@@ -21,13 +18,9 @@ import org.passay.CharacterData;
 import org.passay.CharacterRule;
 import org.passay.EnglishCharacterData;
 import org.passay.PasswordGenerator;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -35,30 +28,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService implements AuthUseCase {
 
-    private static final Duration TEMP_PASSWORD_TTL = Duration.ofMinutes(3);
-
     private final UserAuthPort userAuthPort;
-    private final PasswordResetTokenPort passwordResetTokenPort;
+    private final PasswordResetWriteService passwordResetWriteService;
     private final AuthTokenService authTokenService;
     private final JwtProvider jwtProvider;
-    private final PasswordEncoder passwordEncoder;
-    private final ApplicationEventPublisher eventPublisher;
 
     @Override
-    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         UserAuthInfo user = userAuthPort.findByEmail(request.email())
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
 
         String tempPassword = generateTempPassword();
-        PasswordResetToken token = PasswordResetToken.create(
-                user.id(),
-                passwordEncoder.encode(tempPassword),
-                Instant.now().plus(TEMP_PASSWORD_TTL));
-        passwordResetTokenPort.replaceForUser(user.id(), token);
-
-        eventPublisher.publishEvent(new TempPasswordIssuedEvent(
-                user.id(), user.email(), tempPassword));
+        passwordResetWriteService.resetPassword(user.id(), user.email(), tempPassword);
     }
 
     @Override
