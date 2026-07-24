@@ -23,6 +23,7 @@ public class MoplAccessDeniedHandler implements AccessDeniedHandler {
                        AccessDeniedException e) throws IOException {
         response.setStatus(HttpStatus.FORBIDDEN.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().write(
                 objectMapper.writeValueAsString(
                         new ErrorResponse("FORBIDDEN", "권한이 없습니다.")));
