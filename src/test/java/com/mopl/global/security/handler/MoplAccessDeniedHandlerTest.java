@@ -41,6 +41,7 @@ class MoplAccessDeniedHandlerTest {
         handler.handle(request, response, new AccessDeniedException(null));
 
         assertThat(response.getStatus()).isEqualTo(403);
-        assertThat(response.getContentType()).isEqualTo("application/json");
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");
     }
 }

@@ -96,7 +96,7 @@ class UserControllerTest {
         @Test
         @DisplayName("성공: 올바른 정보로 가입한다")
         void register_success() throws Exception {
-            UserCreateRequest request = new UserCreateRequest("woody", "woody@mopl.io", "mopl1!");
+            UserCreateRequest request = new UserCreateRequest("woody", "woody@mopl.io", "mopl1!23");
             given(userService.register(any())).willReturn(userDto);
 
             mockMvc.perform(post("/api/users")
@@ -110,7 +110,7 @@ class UserControllerTest {
         @Test
         @DisplayName("성공: 다른 사용자도 등록할 수 있다")
         void register_success_anotherUser() throws Exception {
-            UserCreateRequest request = new UserCreateRequest("buzz", "buzz@mopl.io", "mopl2!");
+            UserCreateRequest request = new UserCreateRequest("buzz", "buzz@mopl.io", "mopl2!34");
             UserDto anotherUserDto = new UserDto(
                     UUID.randomUUID(),
                     Instant.now(),
@@ -131,7 +131,7 @@ class UserControllerTest {
         @Test
         @DisplayName("실패: 중복된 이메일로 가입하려고 하면 409 Conflict 반환")
         void register_fail_duplicateEmail() throws Exception {
-            UserCreateRequest request = new UserCreateRequest("woody", "woody@mopl.io", "mopl1!");
+            UserCreateRequest request = new UserCreateRequest("woody", "woody@mopl.io", "mopl1!23");
             given(userService.register(any())).willThrow(new MoplException(ErrorCode.DUPLICATE_EMAIL));
 
             mockMvc.perform(post("/api/users")
@@ -143,7 +143,7 @@ class UserControllerTest {
         @Test
         @DisplayName("실패: 중복된 이름으로 가입하려고 하면 409 Conflict 반환")
         void register_fail_duplicateName() throws Exception {
-            UserCreateRequest request = new UserCreateRequest("woody", "new@mopl.io", "mopl1!");
+            UserCreateRequest request = new UserCreateRequest("woody", "new@mopl.io", "mopl1!23");
             given(userService.register(any())).willThrow(new MoplException(ErrorCode.DUPLICATE_NAME));
 
             mockMvc.perform(post("/api/users")

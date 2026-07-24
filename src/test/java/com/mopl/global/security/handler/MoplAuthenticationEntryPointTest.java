@@ -30,7 +30,8 @@ class MoplAuthenticationEntryPointTest {
         entryPoint.commence(request, response, new BadCredentialsException("잘못된 인증 정보입니다."));
 
         assertThat(response.getStatus()).isEqualTo(401);
-        assertThat(response.getContentType()).isEqualTo("application/json");
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");
         assertThat(response.getContentAsString()).contains("UNAUTHORIZED").contains("인증이 필요합니다.");
     }
 
