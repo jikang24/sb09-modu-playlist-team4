@@ -24,6 +24,7 @@ import org.passay.PasswordGenerator;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -44,6 +45,7 @@ public class AuthService implements AuthUseCase {
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         UserAuthInfo user = userAuthPort.findByEmail(request.email())
                 .orElseThrow(() -> new MoplException(ErrorCode.USER_NOT_FOUND));
