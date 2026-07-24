@@ -56,7 +56,7 @@ jobs:
           generate-coverage-badge: true
           coverage-badge-filename: coverage.svg
 
-      - name: Commit badge to main
+      - name: Commit badge to badges branch
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         continue-on-error: true
         run: |
@@ -64,7 +64,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add .github/badges/coverage.svg
           git diff --staged --quiet || git commit -m "chore: 커버리지 배지 업데이트"
-          git push
+          git push origin HEAD:refs/heads/badges --force
 
       - name: Build Docker Image
         env:

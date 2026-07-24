@@ -1,13 +1,10 @@
 package com.mopl.domain.auth.service;
 
-import com.mopl.domain.auth.domain.PasswordResetToken;
 import com.mopl.domain.auth.dto.RefreshResult;
 import com.mopl.domain.auth.dto.ResetPasswordRequest;
-import com.mopl.domain.auth.port.out.PasswordResetTokenPort;
 import com.mopl.domain.user.dto.Role;
 import com.mopl.global.auth.UserAuthInfo;
 import com.mopl.global.auth.UserAuthPort;
-import com.mopl.global.event.TempPasswordIssuedEvent;
 import com.mopl.global.exception.ErrorCode;
 import com.mopl.global.exception.MoplException;
 import com.mopl.global.jwt.AuthTokenService;
@@ -20,8 +17,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -42,19 +37,13 @@ class AuthServiceTest {
     private UserAuthPort userAuthPort;
 
     @Mock
-    private PasswordResetTokenPort passwordResetTokenPort;
+    private PasswordResetWriteService passwordResetWriteService;
 
     @Mock
     private AuthTokenService authTokenService;
 
     @Mock
     private JwtProvider jwtProvider;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
 
     private AuthService authService;
 
@@ -65,11 +54,9 @@ class AuthServiceTest {
     void setUp() {
         authService = new AuthService(
                 userAuthPort,
-                passwordResetTokenPort,
+                passwordResetWriteService,
                 authTokenService,
-                jwtProvider,
-                passwordEncoder,
-                eventPublisher
+                jwtProvider
         );
 
         testUserId = UUID.randomUUID();
@@ -90,19 +77,14 @@ class AuthServiceTest {
     void resetPassword() {
         ResetPasswordRequest request = new ResetPasswordRequest("test@email.com");
         when(userAuthPort.findByEmail("test@email.com")).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_temp_password");
 
         authService.resetPassword(request);
 
         verify(userAuthPort).findByEmail("test@email.com");
-        verify(passwordResetTokenPort).replaceForUser(eq(testUserId), any(PasswordResetToken.class));
 
-        ArgumentCaptor<TempPasswordIssuedEvent> eventCaptor = ArgumentCaptor.forClass(TempPasswordIssuedEvent.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-
-        TempPasswordIssuedEvent event = eventCaptor.getValue();
-        assertEquals(testUserId, event.userId());
-        assertEquals("test@email.com", event.email());
+        ArgumentCaptor<String> tempPasswordCaptor = ArgumentCaptor.forClass(String.class);
+        verify(passwordResetWriteService).resetPassword(eq(testUserId), eq("test@email.com"), tempPasswordCaptor.capture());
+        assertNotNull(tempPasswordCaptor.getValue());
     }
 
     @Test
@@ -116,56 +98,7 @@ class AuthServiceTest {
         });
 
         assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
-        verify(passwordResetTokenPort, never()).replaceForUser(any(), any());
-        verify(eventPublisher, never()).publishEvent(any());
-    }
-
-    @Test
-    @DisplayName("성공: 이벤트 발행이 확인된다")
-    void resetPassword_VerifiesEventPublished() {
-        ResetPasswordRequest request = new ResetPasswordRequest("test@email.com");
-        when(userAuthPort.findByEmail("test@email.com")).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_password");
-
-        authService.resetPassword(request);
-
-        ArgumentCaptor<TempPasswordIssuedEvent> captor = ArgumentCaptor.forClass(TempPasswordIssuedEvent.class);
-        verify(eventPublisher).publishEvent(captor.capture());
-
-        TempPasswordIssuedEvent publishedEvent = captor.getValue();
-        assertNotNull(publishedEvent);
-        assertEquals(testUserId, publishedEvent.userId());
-        assertEquals("test@email.com", publishedEvent.email());
-        assertNotNull(publishedEvent.tempPassword());
-    }
-
-    @Test
-    @DisplayName("성공: 기존 토큰이 삭제된다")
-    void resetPassword_DeletesPreviousTokens() {
-        ResetPasswordRequest request = new ResetPasswordRequest("test@email.com");
-        when(userAuthPort.findByEmail("test@email.com")).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_password");
-
-        authService.resetPassword(request);
-
-        verify(passwordResetTokenPort).replaceForUser(eq(testUserId), any(PasswordResetToken.class));
-    }
-
-    @Test
-    @DisplayName("성공: 토큰의 만료시간이 설정된다")
-    void resetPassword_TokenExpiryIsSet() {
-        ResetPasswordRequest request = new ResetPasswordRequest("test@email.com");
-        when(userAuthPort.findByEmail("test@email.com")).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_password");
-
-        authService.resetPassword(request);
-
-        ArgumentCaptor<PasswordResetToken> tokenCaptor = ArgumentCaptor.forClass(PasswordResetToken.class);
-        verify(passwordResetTokenPort).replaceForUser(eq(testUserId), tokenCaptor.capture());
-
-        PasswordResetToken savedToken = tokenCaptor.getValue();
-        assertNotNull(savedToken.getExpiresAt());
-        assertTrue(savedToken.getExpiresAt().isAfter(Instant.now()));
+        verify(passwordResetWriteService, never()).resetPassword(any(), any(), any());
     }
 
     @Test
