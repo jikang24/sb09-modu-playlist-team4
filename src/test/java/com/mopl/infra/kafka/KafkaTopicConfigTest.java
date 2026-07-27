@@ -19,7 +19,7 @@ class KafkaTopicConfigTest {
     NewTopic topic = config.notificationRequestedTopic();
 
     assertThat(topic.name()).isEqualTo(NotificationTopics.NOTIFICATION_REQUESTED);
-    assertThat(topic.numPartitions()).isEqualTo(3);
+    assertThat(topic.numPartitions()).isEqualTo(6);
     assertThat(topic.replicationFactor()).isEqualTo((short) 3);
   }
 }
