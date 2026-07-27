@@ -16,7 +16,7 @@ public class KafkaTopicConfig {
   @Bean
   public NewTopic notificationRequestedTopic() {
     return TopicBuilder.name(NotificationTopics.NOTIFICATION_REQUESTED)
-        .partitions(3)
+        .partitions(6)
         .replicas(replicationFactor)
         .build();
   }
@@ -24,7 +24,7 @@ public class KafkaTopicConfig {
   @Bean
   public NewTopic notificationRequestedDlt() {
     return TopicBuilder.name(NotificationTopics.NOTIFICATION_REQUESTED + ".DLT")
-        .partitions(3)
+        .partitions(6)
         .replicas(replicationFactor)
         .build();
   }
