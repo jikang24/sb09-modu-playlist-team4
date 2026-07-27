@@ -41,6 +41,11 @@ spring:
   data:
     redis:
       timeout: 500ms
+  task:
+    scheduling:
+      pool:
+        size: 5
+
 mopl:
   jwt:
     secret: ${JWT_SECRET}
