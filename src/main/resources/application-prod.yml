@@ -66,7 +66,7 @@ spring:
     uris: ${OPENSEARCH_URI}
 app:
   frontend:
-    base-url: ${FRONTEND_BASE_URL:http://13.125.155.102:8080}
+    base-url: ${FRONTEND_BASE_URL:https://mopl-codeit.link}
   cookie:
     secure: true
   cors:
