@@ -109,7 +109,6 @@ public class ContentSearchAdapter implements SearchContentPort {
                               inner.should(sh -> sh.multiMatch(mm -> mm
                                   .query(keyword)
                                   .fields("title.ngram^2", "description", "tags")
-                                  .type(TextQueryType.Phrase)
                               ));
 
                               // 2) 자동완성 (edge-ngram, prefix)
@@ -134,7 +133,7 @@ public class ContentSearchAdapter implements SearchContentPort {
                         if (request.typeEqual() != null) {
                           b.filter(f -> f.term(t -> t
                               .field("type")
-                              .value(v -> v.stringValue(request.typeEqual().name()))
+                              .value(v -> v.stringValue(request.typeEqual().toJson()))
                           ));
                         }
                         if (request.tagsIn() != null && !request.tagsIn().isEmpty()) {
